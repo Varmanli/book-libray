@@ -18,7 +18,12 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "app/generated/prisma/**", // <-- اضافه شد
     ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off", // مخصوص generated
+      "@typescript-eslint/no-empty-object-type": "off", // مخصوص generated
+    },
   },
 ];
 
