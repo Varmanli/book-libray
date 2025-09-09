@@ -53,3 +53,21 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+enum BookFormat {
+  PHYSICAL
+  ELECTRONIC
+}
+model Book {
+  id          Int      @id @default(autoincrement())
+  title       String
+  coverImage  String
+  author      String
+  translator  String?
+  description String?
+  country     String?
+  genre       String
+  pageCount   Int?
+  format      BookFormat
+  createdAt   DateTime @default(now())
+}

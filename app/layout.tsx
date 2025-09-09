@@ -1,3 +1,4 @@
+import QafasehHeader from "@/component/Header";
 import "./globals.css";
 import { NextAuthProvider } from "./providers/SessionProviderClient";
 
@@ -12,9 +13,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fa">
+    <html lang="fa" dir="rtl">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@latest/dist/font-face.css"
+        />
+      </head>
       <body>
-        <NextAuthProvider>{children}</NextAuthProvider>
+        <NextAuthProvider>
+          <QafasehHeader />
+          {children}
+        </NextAuthProvider>
       </body>
     </html>
   );
