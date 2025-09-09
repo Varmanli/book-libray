@@ -1,6 +1,5 @@
 import QafasehHeader from "@/component/Header";
 import "./globals.css";
-import { NextAuthProvider } from "./providers/SessionProviderClient";
 
 export const metadata = {
   title: "کتابخانه من",
@@ -21,10 +20,8 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <NextAuthProvider>
-          <QafasehHeader />
-          {children}
-        </NextAuthProvider>
+        <QafasehHeader />
+        {children}
       </body>
     </html>
   );
