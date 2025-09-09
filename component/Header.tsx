@@ -23,7 +23,7 @@ import { FaCircleUser } from "react-icons/fa6";
 import { IoIosAddCircle } from "react-icons/io";
 import { MdDisplaySettings } from "react-icons/md";
 
-export default function QafasehHeader() {
+export default function Header() {
   const [q, setQ] = useState("");
 
   function onSearch(e: React.FormEvent<HTMLFormElement>) {
@@ -32,7 +32,7 @@ export default function QafasehHeader() {
   }
 
   return (
-    <header className="w-full bg-background shadow-sm">
+    <header className="w-full  z-20">
       <div className="mx-auto px-4">
         <div className="flex justify-between items-center h-20 px-2 md:px-20">
           {/* راست: لوگو و منو موبایل */}
@@ -120,7 +120,7 @@ export default function QafasehHeader() {
           </div>
 
           {/* چپ: آیکون‌ها */}
-          <div className="hidden md:flex items-center gap-5 text-primary">
+          <div className="hidden md:flex items-center gap-4 text-primary">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
@@ -142,13 +142,13 @@ export default function QafasehHeader() {
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
-                  <IoIosAddCircle size={28} className="cursor-pointer" />
+                  <IoIosAddCircle size={32} className="cursor-pointer" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">افزودن کتاب</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger>
-                  <MdDisplaySettings size={28} className="cursor-pointer" />
+                  <MdDisplaySettings size={30} className="cursor-pointer" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">داشبورد</TooltipContent>
               </Tooltip>
