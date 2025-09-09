@@ -16,9 +16,9 @@ export default async function DashboardLayout({
   }
 
   try {
-    await verifyIdToken(token); 
-  } catch (err) {
-    redirect("/"); 
+    await verifyIdToken(token);
+  } catch (_err) {
+    redirect("/");
   }
 
   return (

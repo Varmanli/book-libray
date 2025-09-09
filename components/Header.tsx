@@ -21,7 +21,6 @@ import { FiMenu } from "react-icons/fi";
 import { FaBookOpen, FaHome, FaShoppingCart } from "react-icons/fa";
 import { FaCircleUser } from "react-icons/fa6";
 import { IoIosAddCircle } from "react-icons/io";
-import { MdDisplaySettings } from "react-icons/md";
 
 export default function Header() {
   const [q, setQ] = useState("");

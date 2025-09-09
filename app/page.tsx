@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import background from "../public/bg.png";
 import Image from "next/image";
 import { GoogleLoginButton } from "@/components/LoginButton";
@@ -16,8 +15,8 @@ export default function HomePage() {
           </h1>
           <p className="text-gray-350 leading-relaxed text-center text-sm md:text-lg">
             توی قفسه می‌تونی عضو بشی، کتاب‌هات رو به پروفایل خودت اضافه کنی،
-            لیست خرید بسازی، و ببینی تا حالا چند تا کتاب خوندی.<br /> با ما همیشه یه
-            کتاب خوب دم دستته! ✨
+            لیست خرید بسازی، و ببینی تا حالا چند تا کتاب خوندی.
+            <br /> با ما همیشه یه کتاب خوب دم دستته! ✨
           </p>
           <div className="flex  justify-center  gap-4">
             {/* دکمه ورود با گوگل */}

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-import { Upload, X } from "lucide-react"; // آیکون آپلود و حذف
+import { Upload, X } from "lucide-react";
 
 // ✅ اسکیمای ولیدیشن
 const bookSchema = z.object({
@@ -27,7 +27,7 @@ const bookSchema = z.object({
   description: z.string().optional(),
   country: z.string().optional(),
   genre: z.string().min(1, "ژانر الزامی است"),
-  pageCount: z.coerce.number().min(1, "تعداد صفحات معتبر نیست"),
+  pageCount: z.number().min(1, "تعداد صفحات معتبر نیست"),
   format: z.enum(["PHYSICAL", "ELECTRONIC"]),
   cover: z.any().optional(),
 });
@@ -37,9 +37,9 @@ type BookForm = z.infer<typeof bookSchema>;
 export default function AddBookPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
+  type BookForm = z.infer<typeof bookSchema>;
   const form = useForm<BookForm>({
-    resolver: zodResolver(bookSchema) as any,
+    resolver: zodResolver(bookSchema),
     defaultValues: {
       title: "",
       author: "",
