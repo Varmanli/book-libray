@@ -16,6 +16,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  Book Book[]
 }
 
 model Account {
@@ -59,7 +60,7 @@ enum BookFormat {
   ELECTRONIC
 }
 model Book {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   title       String
   coverImage  String
   author      String
@@ -69,5 +70,8 @@ model Book {
   genre       String
   pageCount   Int?
   format      BookFormat
-  createdAt   DateTime @default(now())
+  publisher   String?      
+  createdAt   DateTime   @default(now())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

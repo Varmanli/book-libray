@@ -57,13 +57,7 @@ export default function Header() {
                       <FaHome size={22} />
                       <span>صفحه اصلی</span>
                     </a>
-                    <a
-                      href="#"
-                      className="flex items-center gap-3 rounded-lg px-4 py-2 hover:bg-muted"
-                    >
-                      <MdDisplaySettings size={22} />
-                      <span>داشبورد</span>
-                    </a>
+
                     <a
                       href="#"
                       className="flex items-center gap-3 rounded-lg px-4 py-2 hover:bg-muted"
@@ -145,12 +139,6 @@ export default function Header() {
                   <IoIosAddCircle size={32} className="cursor-pointer" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">افزودن کتاب</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <MdDisplaySettings size={30} className="cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">داشبورد</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>

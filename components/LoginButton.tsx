@@ -7,11 +7,14 @@ import {
   signOut,
 } from "firebase/auth";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { app } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
 
-export default function GoogleLoginButton() {
+export function GoogleLoginButton() {
   const auth = getAuth(app);
   const [user, setUser] = useState(auth.currentUser);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
@@ -22,6 +25,7 @@ export default function GoogleLoginButton() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      router.push("/books");
     } catch (err) {
       console.error("Login error:", err);
     }
@@ -29,25 +33,23 @@ export default function GoogleLoginButton() {
 
   const handleLogout = async () => {
     await signOut(auth);
+    router.push("/");
   };
 
-  return (
-    <div>
-      {user ? (
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white rounded-full px-4 py-2"
-        >
-          خروج
-        </button>
-      ) : (
-        <button
-          onClick={handleLogin}
-          className="bg-blue-600 text-white rounded-full px-4 py-2"
-        >
-          ورود با گوگل
-        </button>
-      )}
-    </div>
+  return user ? (
+    <Button
+      onClick={handleLogout}
+      variant="destructive"
+      className="rounded-lg px-10 py-5 text-lg cursor-pointer"
+    >
+      خروج
+    </Button>
+  ) : (
+    <Button
+      onClick={handleLogin}
+      className="rounded-lg px-10 py-5 text-lg cursor-pointer"
+    >
+      ورود یا ثبت نام
+    </Button>
   );
 }
