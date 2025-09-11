@@ -32,6 +32,7 @@ const eslintConfig = [
       "@typescript-eslint/no-unsafe-function-type": "off",
       "@typescript-eslint/no-this-alias": "off",
       "@typescript-eslint/no-wrapper-object-types": "off",
+      "@typescript-eslint/no-array-constructor": "off",
     },
   },
 ];
