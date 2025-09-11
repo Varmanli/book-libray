@@ -9,15 +9,15 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?  @unique
-  password      String?  
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
+  password      String?
   accounts      Account[]
+  Book          Book[]
   sessions      Session[]
-  Book Book[]
 }
 
 model Account {
@@ -26,15 +26,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?   @db.Text
-  access_token      String?   @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?   @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -44,8 +43,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -56,10 +54,6 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-enum BookFormat {
-  PHYSICAL
-  ELECTRONIC
-}
 model Book {
   id          Int        @id @default(autoincrement())
   title       String
@@ -71,8 +65,13 @@ model Book {
   genre       String
   pageCount   Int?
   format      BookFormat
-  publisher   String?      
+  publisher   String?
   createdAt   DateTime   @default(now())
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum BookFormat {
+  PHYSICAL
+  ELECTRONIC
 }

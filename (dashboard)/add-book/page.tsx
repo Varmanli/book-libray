@@ -56,62 +56,19 @@ export default function AddBookPage() {
 
   const onSubmit = async (data: BookForm) => {
     try {
-      let coverUrl: string | undefined = undefined;
-
-      // ۱. آپلود عکس اگر وجود داشته باشه
-      if (data.cover instanceof File) {
-        const formData = new FormData();
-        formData.append("file", data.cover);
-
-        const uploadRes = await fetch("/api/upload/image", {
-          method: "POST",
-          body: formData,
-        });
-
-        const uploadData = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          toast.error(uploadData.error || "خطا در آپلود عکس");
-          return;
-        }
-
-        coverUrl = uploadData.url; // URL عکس آپلود شده
-      }
-
-      // ۲. آماده کردن payload نهایی
-      const payload = {
-        ...data,
-        pageCount: Number(data.pageCount),
-        cover: coverUrl, // جایگزین فایل با URL
-      };
-
-      // ۳. ارسال فرم به API کتاب‌ها
       const res = await fetch("/api/books", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
       });
 
-      const result = await res.json();
+      if (!res.ok) throw new Error("خطا در ایجاد کتاب");
 
-      if (!res.ok) {
-        toast.error(result.error || "خطا در ثبت کتاب");
-        return;
-      }
-
-      toast.success(result.message || "کتاب با موفقیت ثبت شد");
-
-      // ۴. ریست فرم و پاک کردن پیش‌نمایش تصویر
-      form.reset();
-      setPreview(null);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error(err.message);
-        toast.error("خطای سرور در ثبت کتاب: " + err.message);
-      } else {
-        console.error(err);
-        toast.error("خطای سرور در ثبت کتاب");
-      }
+      toast.success("کتاب ایجاد شد ✅");
+    } catch (err) {
+      toast.error("مشکلی در ذخیره کتاب پیش آمد ❌");
     }
   };
 
@@ -152,7 +109,7 @@ export default function AddBookPage() {
               type="button"
               variant="outline"
               onClick={triggerFileInput}
-              className="mt-3 w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              className="mt-3 w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-50 hover:text-black cursor-pointer dark:hover:bg-gray-700 transition"
             >
               <Upload className="w-5 h-5" />
               انتخاب تصویر
@@ -253,11 +210,14 @@ export default function AddBookPage() {
               className="mt-2 focus:ring-2 focus:ring-primary focus:border-primary transition"
             />
           </div>
-          <Input
-            type="number"
-            {...form.register("pageCount", { valueAsNumber: true })}
-            className="mt-2 focus:ring-2 focus:ring-primary focus:border-primary transition"
-          />
+          <div>
+            <Label>تعداد صفحات</Label>
+            <Input
+              type="number"
+              {...form.register("pageCount")}
+              className="mt-2 focus:ring-2 focus:ring-primary focus:border-primary transition"
+            />
+          </div>
         </div>
 
         {/* توضیحات */}
