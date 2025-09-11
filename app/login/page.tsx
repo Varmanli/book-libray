@@ -20,6 +20,10 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
+type LoginForm = z.infer<typeof loginSchema>;
+type RegisterForm = z.infer<typeof registerSchema>;
+type ForgotForm = z.infer<typeof forgotSchema>;
+
 const loginSchema = z.object({
   email: z.string().email("ایمیل معتبر وارد کنید"),
   password: z.string().min(6, "حداقل ۶ کاراکتر"),
@@ -39,7 +43,7 @@ export default function AuthForm() {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [showPassword, setShowPassword] = useState(false);
 
-  const form = useForm<any>({
+  const form = useForm<LoginForm | RegisterForm | ForgotForm>({
     resolver: zodResolver(
       mode === "login"
         ? loginSchema
@@ -56,27 +60,27 @@ export default function AuthForm() {
 
   const router = useRouter();
 
-  async function onSubmit(values: any) {
+  async function onSubmit(values: LoginForm | RegisterForm | ForgotForm) {
     try {
-      let url = "";
-      let body: any = {};
+      let url: string = "";
+      let body: Record<string, string> = {}; // یه آبجکت با key:string و value:string
 
       if (mode === "register") {
         url = "/api/auth/register";
         body = {
-          name: values.username,
-          email: values.email,
-          password: values.password,
+          name: (values as RegisterForm).username,
+          email: (values as RegisterForm).email,
+          password: (values as RegisterForm).password,
         };
       } else if (mode === "login") {
         url = "/api/auth/login";
         body = {
-          email: values.email,
-          password: values.password,
+          email: (values as LoginForm).email,
+          password: (values as LoginForm).password,
         };
       } else if (mode === "forgot") {
         url = "/api/auth/forgot";
-        body = { email: values.email };
+        body = { email: (values as ForgotForm).email };
       }
 
       const res = await fetch(url, {
@@ -85,7 +89,7 @@ export default function AuthForm() {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      const data: { message?: string; error?: string } = await res.json();
 
       if (!res.ok) {
         toast.error(data.error || "خطا رخ داده");
@@ -100,7 +104,6 @@ export default function AuthForm() {
       }
 
       if (mode === "login") {
-        // بعد از ورود موفق، ریدایرکت به /book
         router.push("/books");
       }
     } catch (err) {
