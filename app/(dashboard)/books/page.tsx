@@ -27,8 +27,8 @@ export default async function BooksPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const authors = Array.from(new Set(books.map((b) => b.author)));
-  const genres = Array.from(new Set(books.map((b) => b.genre)));
+  const authors = [...new Set(books.map((b) => b.author))];
+  const genres = [...new Set(books.map((b) => b.genre))];
 
   return (
     <div className="container mx-auto p-6">

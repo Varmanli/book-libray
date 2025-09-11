@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Book {
@@ -29,8 +35,8 @@ export default function BookList({ books }: BookListProps) {
     return matchesSearch && matchesAuthor && matchesGenre;
   });
 
-  const authors = Array.from(new Set(books.map((b) => b.author)));
-  const genres = Array.from(new Set(books.map((b) => b.genre)));
+  const authors = [...new Set(books.map((b) => b.author))];
+  const genres = [...new Set(books.map((b) => b.genre))];
 
   return (
     <div>
@@ -78,7 +84,9 @@ export default function BookList({ books }: BookListProps) {
           <Card key={b.id} className="shadow">
             <CardHeader>
               <div className="h-48 bg-muted mb-2 flex items-center justify-center rounded">
-                <span className="text-sm text-muted-foreground">📖 جلد کتاب</span>
+                <span className="text-sm text-muted-foreground">
+                  📖 جلد کتاب
+                </span>
               </div>
               <CardTitle>{b.title}</CardTitle>
             </CardHeader>
