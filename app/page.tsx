@@ -1,8 +1,9 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import background from "../public/bg.png";
 import Image from "next/image";
-import { GoogleLoginButton } from "@/components/LoginButton";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
@@ -19,8 +20,11 @@ export default function HomePage() {
             <br /> با ما همیشه یه کتاب خوب دم دستته! ✨
           </p>
           <div className="flex  justify-center  gap-4">
-            {/* دکمه ورود با گوگل */}
-            <GoogleLoginButton />
+            <Link href="/login">
+              <Button size="lg" className="text-lg p-6 cursor-pointer">
+                ورود یا ثبت نام
+              </Button>
+            </Link>
           </div>
         </div>
 
