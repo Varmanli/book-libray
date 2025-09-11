@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
+import bg from "../../public/library.webp";
+
 type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
 type ForgotForm = z.infer<typeof forgotSchema>;
@@ -115,12 +117,7 @@ export default function AuthForm() {
   return (
     <div className="flex items-center justify-center min-h-screen relative">
       <div>
-        <Image
-          src="/library.Webp"
-          alt="library image"
-          fill
-          className="z-0 absolute "
-        />
+        <Image src={bg} alt="library image" fill className="z-0 absolute " />
         <div className="z-10 bg-black/10 absolute top-0 bottom-0 right-0 left-0"></div>
       </div>
       <Card className="w-full max-w-md p-6 shadow-lg z-20 bg-card/70">

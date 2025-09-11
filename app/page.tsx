@@ -11,7 +11,7 @@ export default function HomePage() {
       <div className="flex flex-col md:flex-row items-center gap-15 md:gap-10 rounded-2xl mt-4 p-2 md:p-5 backdrop-blur-sm w-full ">
         {/* متن خوش آمد */}
         <div className="flex-[4] text-center md:text-right space-y-3 md:space-y-6">
-          <h1 className="text-xl md:text-3xl font-extrabold text-primary">
+          <h1 className="text-xl text-center md:text-3xl font-extrabold text-primary">
             به کتابخانه قفسه خوش آمدید📚
           </h1>
           <p className="text-gray-350 leading-relaxed text-center text-sm md:text-lg">
