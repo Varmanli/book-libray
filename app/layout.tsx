@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   title: "کتابخانه من",
@@ -18,7 +19,10 @@ export default function RootLayout({
           href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@latest/dist/font-face.css"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Toaster position="top-right" />
+      </body>
     </html>
   );
 }

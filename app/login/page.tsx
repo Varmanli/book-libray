@@ -16,6 +16,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import Image from "next/image";
 
 const loginSchema = z.object({
   email: z.string().email("ایمیل معتبر وارد کنید"),
@@ -51,13 +54,73 @@ export default function AuthForm() {
     },
   });
 
-  function onSubmit(values: any) {
-    console.log("Form Data:", values, "Mode:", mode);
+  const router = useRouter();
+
+  async function onSubmit(values: any) {
+    try {
+      let url = "";
+      let body: any = {};
+
+      if (mode === "register") {
+        url = "/api/auth/register";
+        body = {
+          name: values.username,
+          email: values.email,
+          password: values.password,
+        };
+      } else if (mode === "login") {
+        url = "/api/auth/login";
+        body = {
+          email: values.email,
+          password: values.password,
+        };
+      } else if (mode === "forgot") {
+        url = "/api/auth/forgot";
+        body = { email: values.email };
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "خطا رخ داده");
+        return;
+      }
+
+      toast.success(data.message || "عملیات موفق بود");
+
+      if (mode === "register") {
+        setMode("login");
+        return;
+      }
+
+      if (mode === "login") {
+        // بعد از ورود موفق، ریدایرکت به /book
+        router.push("/books");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("خطای سرور");
+    }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen ">
-      <Card className="w-full max-w-md p-6 shadow-lg">
+    <div className="flex items-center justify-center min-h-screen relative">
+      <div>
+        <Image
+          src="/library.Webp"
+          alt="library image"
+          fill
+          className="z-0 absolute "
+        />
+        <div className="z-10 bg-black/10 absolute top-0 bottom-0 right-0 left-0"></div>
+      </div>
+      <Card className="w-full max-w-md p-6 shadow-lg z-20 bg-card/70">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {mode === "login" && "ورود"}

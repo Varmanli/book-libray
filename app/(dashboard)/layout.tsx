@@ -1,5 +1,6 @@
 import "../globals.css";
 import Header from "@/components/Header";
+import { Toaster } from "react-hot-toast";
 
 export default async function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default async function DashboardLayout({
       <body>
         <Header />
         {children}
+        <Toaster position="top-right" />
       </body>
     </html>
   );
