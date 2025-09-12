@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db"; // اتصال Drizzle
+import { User } from "@/db/schema";
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +15,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    // بررسی اینکه کاربر قبلا وجود داشته باشه
+    const [existingUser] = await db
+      .select()
+      .from(User)
+      .where(eq(User.email, email));
+
     if (existingUser) {
       return NextResponse.json(
         { error: "کاربر با این ایمیل وجود دارد" },
@@ -21,15 +28,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // هش کردن پسورد
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword },
-    });
+    // ایجاد کاربر جدید
+    const [user] = await db
+      .insert(User)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+      })
+      .returning({ id: User.id, email: User.email, name: User.name });
 
     return NextResponse.json({
       message: "ثبت‌نام موفق",
-      user: { id: user.id, email: user.email, name: user.name },
+      user,
     });
   } catch (err) {
     console.error(err);

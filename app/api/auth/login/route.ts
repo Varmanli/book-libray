@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { User } from "@/db/schema";
 import bcrypt from "bcryptjs";
 import { signJwt } from "@/lib/jwt";
 import { serialize } from "cookie";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +17,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // جستجوی کاربر با Drizzle
+    const [user] = await db.select().from(User).where(eq(User.email, email));
+
     if (!user || !user.password) {
       return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 401 });
     }
@@ -25,6 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "پسورد اشتباه است" }, { status: 401 });
     }
 
+    // ساخت JWT
     const token = signJwt({ id: user.id });
 
     // ست کردن کوکی HTTPOnly
@@ -41,7 +46,7 @@ export async function POST(req: Request) {
       { headers: { "Set-Cookie": cookieSerialized } }
     );
   } catch (err) {
-    console.error(err);
+    console.error("❌ خطا در Login:", err);
     return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
   }
 }

@@ -82,7 +82,7 @@ export default function AddBookPage() {
       const payload = {
         ...data,
         pageCount: Number(data.pageCount),
-        cover: coverUrl, // جایگزین فایل با URL
+        coverImage: coverUrl, // ← اصلاح شد
       };
 
       // ۳. ارسال فرم به API کتاب‌ها
@@ -90,6 +90,7 @@ export default function AddBookPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        credentials: "include", // برای ارسال کوکی لاگین
       });
 
       const result = await res.json();
@@ -152,7 +153,7 @@ export default function AddBookPage() {
               type="button"
               variant="outline"
               onClick={triggerFileInput}
-              className="mt-3 w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              className="mt-3 w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-50 hover:text-black dark:hover:bg-gray-700 transition"
             >
               <Upload className="w-5 h-5" />
               انتخاب تصویر

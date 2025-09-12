@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/db";
+import { Book } from "@/db/schema";
 import jwt from "jsonwebtoken";
+import { eq } from "drizzle-orm";
 
 // Helper برای گرفتن ID از مسیر
 function getIdFromUrl(req: NextRequest) {
@@ -12,9 +14,8 @@ function getIdFromUrl(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const id = getIdFromUrl(req);
-    const book = await prisma.book.findUnique({
-      where: { id: Number(id) },
-    });
+
+    const [book] = await db.select().from(Book).where(eq(Book.id, id));
 
     if (!book) {
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
@@ -40,18 +41,38 @@ export async function PUT(req: NextRequest) {
     const userId = decoded.id;
 
     const id = getIdFromUrl(req);
-    const book = await prisma.book.findUnique({ where: { id: Number(id) } });
 
+    const [book] = await db.select().from(Book).where(eq(Book.id, id));
     if (!book)
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
     if (book.userId !== userId)
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
     const body = await req.json();
-    const updatedBook = await prisma.book.update({
-      where: { id: Number(id) },
-      data: body,
-    });
+
+    const [updatedBook] = await db
+      .update(Book)
+      .set(body)
+      .where(eq(Book.id, id))
+      .returning({
+        id: Book.id,
+        title: Book.title,
+        author: Book.author,
+        genre: Book.genre,
+        userId: Book.userId,
+        createdAt: Book.createdAt,
+        coverImage: Book.coverImage,
+        translator: Book.translator,
+        description: Book.description,
+        country: Book.country,
+        pageCount: Book.pageCount,
+        format: Book.format,
+        publisher: Book.publisher,
+        status: Book.status,
+        progress: Book.progress,
+        rating: Book.rating,
+        review: Book.review,
+      });
 
     return NextResponse.json({
       book: updatedBook,
@@ -79,14 +100,15 @@ export async function DELETE(req: NextRequest) {
     const userId = decoded.id;
 
     const id = getIdFromUrl(req);
-    const book = await prisma.book.findUnique({ where: { id: Number(id) } });
 
+    const [book] = await db.select().from(Book).where(eq(Book.id, id));
     if (!book)
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
     if (book.userId !== userId)
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
-    await prisma.book.delete({ where: { id: Number(id) } });
+    await db.delete(Book).where(eq(Book.id, id));
+
     return NextResponse.json({ message: "کتاب با موفقیت حذف شد" });
   } catch (err) {
     console.error("❌ خطا در حذف کتاب:", err);

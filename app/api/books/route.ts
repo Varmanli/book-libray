@@ -1,6 +1,8 @@
-import {prisma} from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { Book } from "@/db/schema";
 import jwt from "jsonwebtoken";
+import { eq, desc } from "drizzle-orm";
 
 // 🔹 اسکیمای داده برای ایجاد کتاب
 interface BookBody {
@@ -19,7 +21,7 @@ interface BookBody {
 // 📌 ایجاد کتاب جدید
 export async function POST(req: NextRequest) {
   try {
-    // ✅ گرفتن کوکی "token"
+    // گرفتن کوکی "token"
     const token = req.cookies.get("token")?.value;
     if (!token)
       return NextResponse.json(
@@ -45,9 +47,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newBook = await prisma.book.create({
-      data: { ...body, userId },
-    });
+    // ایجاد کتاب با Drizzle
+    const [newBook] = await db
+      .insert(Book)
+      .values({
+        ...body,
+        userId,
+      })
+      .returning({
+        id: Book.id,
+        title: Book.title,
+        author: Book.author,
+        genre: Book.genre,
+        userId: Book.userId,
+        createdAt: Book.createdAt,
+        coverImage: Book.coverImage,
+        translator: Book.translator,
+        description: Book.description,
+        country: Book.country,
+        pageCount: Book.pageCount,
+        format: Book.format,
+        publisher: Book.publisher,
+        status: Book.status,
+        progress: Book.progress,
+        rating: Book.rating,
+        review: Book.review,
+      });
 
     return NextResponse.json(
       { book: newBook, message: "کتاب ایجاد شد" },
@@ -76,12 +101,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "توکن نامعتبر است" }, { status: 401 });
     }
 
-    const books = await prisma.book.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    const userBooks = await db
+      .select()
+      .from(Book)
+      .where(eq(Book.userId, userId))
+      .orderBy(desc(Book.createdAt)); // ✅ استفاده از desc() برای type-safe
 
-    return NextResponse.json({ books });
+    return NextResponse.json({ Book: userBooks });
   } catch (err) {
     console.error(err);
     return NextResponse.json(

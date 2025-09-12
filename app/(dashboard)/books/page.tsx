@@ -1,108 +1,126 @@
-import {prisma} from "@/lib/prisma";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+"use client";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
-import Image from "next/image";
-import Link from "next/link";
+import BookCard from "@/components/BookCard";
+import { BookType } from "@/types";
+import { useEffect, useState } from "react";
+import BooksSidebar from "@/components/BookSidebar";
 
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  translator?: string | null;
-  genre: string;
-  format: string;
-  coverImage: string;
-  createdAt: Date;
-};
+export default function BooksPageClient() {
+  const [books, setBooks] = useState<BookType[]>([]);
+  const [authors, setAuthors] = useState<string[]>([]);
+  const [genres, setGenres] = useState<string[]>([]);
+  const [publishers, setPublishers] = useState<string[]>([]);
+  const [translators, setTranslators] = useState<string[]>([]);
 
-export default async function BooksPage() {
-  const books: Book[] = await prisma.book.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedPublisher, setSelectedPublisher] = useState<string | null>(
+    null
+  );
+  const [selectedTranslator, setSelectedTranslator] = useState<string | null>(
+    null
+  );
 
-  const authors = [...new Set(books.map((b) => b.author))];
-  const genres = [...new Set(books.map((b) => b.genre))];
+  // دریافت کتاب‌ها از API
+  const fetchBooks = async () => {
+    try {
+      const res = await fetch("/api/books", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const data: { Book?: BookType[]; error?: string } = await res.json();
+      if (!res.ok) throw new Error(data.error || "خطا در دریافت کتاب‌ها");
+
+      const allBooks = data.Book || [];
+      setBooks(allBooks);
+
+      // گرفتن لیست یکتا برای فیلترها
+      setAuthors([...new Set(allBooks.map((b) => b.author))]);
+      setGenres([...new Set(allBooks.map((b) => b.genre))]);
+      setPublishers([
+        ...new Set(
+          allBooks
+            .map((b) => b.publisher)
+            .filter((p): p is string => typeof p === "string" && p.length > 0)
+        ),
+      ]);
+
+      setTranslators([
+        ...new Set(
+          allBooks
+            .map((b) => b.translator)
+            .filter((t): t is string => typeof t === "string" && t.length > 0)
+        ),
+      ]);
+    } catch (err: any) {
+      console.error("❌ خطا در گرفتن کتاب‌ها:", err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  // تغییر وضعیت کتاب
+  const handleStatusChange = async (
+    id: string,
+    newStatus: "UNREAD" | "READING" | "FINISHED"
+  ) => {
+    try {
+      await fetch(`/api/books/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      // به‌روزرسانی وضعیت در frontend بدون رفرش
+      setBooks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+      );
+    } catch (err) {
+      console.error("❌ خطا در تغییر وضعیت کتاب:", err);
+    }
+  };
+
+  // فیلتر کردن کتاب‌ها
+  const filteredBooks = books.filter(
+    (b) =>
+      (!selectedAuthor || b.author === selectedAuthor) &&
+      (!selectedGenre || b.genre === selectedGenre) &&
+      (!selectedPublisher || b.publisher === selectedPublisher) &&
+      (!selectedTranslator || b.translator === selectedTranslator)
+  );
 
   return (
     <div className="container mx-auto p-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar Filters */}
-        <aside className="md:col-span-1 border rounded-xl p-4 space-y-4 h-fit">
-          <h2 className="font-semibold text-lg mb-2">فیلترها</h2>
+        {/* Sidebar فیلترها */}
+        <BooksSidebar
+          authors={authors}
+          genres={genres}
+          publishers={publishers}
+          translators={translators}
+          selectedAuthor={selectedAuthor}
+          selectedGenre={selectedGenre}
+          selectedPublisher={selectedPublisher}
+          selectedTranslator={selectedTranslator}
+          onAuthorChange={setSelectedAuthor}
+          onGenreChange={setSelectedGenre}
+          onPublisherChange={setSelectedPublisher}
+          onTranslatorChange={setSelectedTranslator}
+        />
 
-          {/* فیلتر نویسنده */}
-          <div>
-            <label className="text-sm font-medium">نویسنده</label>
-            <Select>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="انتخاب نویسنده" />
-              </SelectTrigger>
-              <SelectContent>
-                {authors.map((author) => (
-                  <SelectItem key={author} value={author}>
-                    {author}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* فیلتر ژانر */}
-          <div>
-            <label className="text-sm font-medium">ژانر</label>
-            <Select>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="انتخاب ژانر" />
-              </SelectTrigger>
-              <SelectContent>
-                {genres.map((genre) => (
-                  <SelectItem key={genre} value={genre}>
-                    {genre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* TODO: فیلتر کشور */}
-        </aside>
-
-        {/* Book List */}
+        {/* لیست کتاب‌ها */}
         <main className="md:col-span-3">
-          <ScrollArea className="h-[600px] ">
+          <ScrollArea className="h-[600px]">
             <div className="grid grid-cols-1 gap-6">
-              {books.map((book) => (
-                <Link key={book.id} href={`/books/${book.id}`}>
-                  <Card className="flex flex-row-reverse items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
-                    {/* جلد کتاب سمت راست */}
-                    <div className="relative w-40 h-60 flex-shrink-0">
-                      <Image
-                        src={book.coverImage || "/placeholder-cover.jpg"}
-                        alt={book.title}
-                        fill
-                        className="object-cover rounded-r-xl"
-                      />
-                    </div>
-                    <CardContent className="flex flex-col h-full justify-start items-end py-14 gap-5 text-right">
-                      <h3 className="text-lg font-bold">{book.title}</h3>
-
-                      <p className="font-semibold">نویسنده: {book.author}</p>
-
-                      {book.translator && (
-                        <p className="font-semibold">
-                          مترجم: {book.translator}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
+              {filteredBooks.map((book) => (
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  onStatusChange={handleStatusChange}
+                />
               ))}
             </div>
           </ScrollArea>
