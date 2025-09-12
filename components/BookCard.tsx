@@ -53,7 +53,7 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
   return (
     <Card className="flex flex-col md:flex-row-reverse items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
       {/* جلد کتاب */}
-      <div className="relative w-60 h-100 md:w-40 md:h-60 flex-shrink-0">
+      <div className="relative w-90 h-130 md:w-60 md:h-80 flex-shrink-0">
         <Image
           src={book.coverImage || "/placeholder-cover.jpg"}
           alt={book.title}
@@ -63,14 +63,14 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
       </div>
 
       {/* اطلاعات کتاب */}
-      <CardContent className="flex flex-col py-6 px-4 text-right flex-1 rounded-xl">
+      <CardContent className="flex flex-col w-full md:w-auto py-6 px-4 text-right flex-1 rounded-xl">
         {/* عنوان کتاب */}
-        <h3 className="text-lg md:text-3xl font-Semibold text-gray-50 line-clamp-2 mb-4">
+        <h3 className="text-xl md:text-3xl font-Semibold text-gray-50 line-clamp-2 mb-4">
           {book.title}
         </h3>
 
         {/* اطلاعات به صورت جدول دو رنگ */}
-        <div className="grid grid-cols-[3fr_1fr] gap-2">
+        <div className="grid grid-cols-[3fr_1fr] gap-2 ">
           <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
             {book.author}
           </div>
@@ -96,6 +96,16 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
               </div>
               <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
                 کشور
+              </div>
+            </>
+          )}
+          {book.genre && (
+            <>
+              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+                {book.genre}
+              </div>
+              <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
+                ژانر
               </div>
             </>
           )}

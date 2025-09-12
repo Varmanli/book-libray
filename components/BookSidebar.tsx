@@ -49,16 +49,18 @@ export default function BooksSidebar({
         value={selectedAuthor || "all"}
         onValueChange={(val) => onAuthorChange(val === "all" ? null : val)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" dir="rtl">
           <SelectValue placeholder="انتخاب نویسنده" />
         </SelectTrigger>
         <SelectContent>
           <ScrollArea className="max-h-48">
             <SelectGroup>
-              <SelectLabel>نویسنده</SelectLabel>
-              <SelectItem value="all">همه نویسنده‌ها</SelectItem>
+              <SelectLabel dir="rtl">نویسنده</SelectLabel>
+              <SelectItem value="all" dir="rtl">
+                همه نویسنده‌ها
+              </SelectItem>
               {authors.map((author) => (
-                <SelectItem key={author} value={author}>
+                <SelectItem key={author} value={author} dir="rtl">
                   {author}
                 </SelectItem>
               ))}
@@ -72,16 +74,18 @@ export default function BooksSidebar({
         value={selectedGenre || "all"}
         onValueChange={(val) => onGenreChange(val === "all" ? null : val)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" dir="rtl">
           <SelectValue placeholder="انتخاب ژانر" />
         </SelectTrigger>
         <SelectContent>
           <ScrollArea className="max-h-48">
             <SelectGroup>
-              <SelectLabel>ژانر</SelectLabel>
-              <SelectItem value="all">همه ژانرها</SelectItem>
+              <SelectLabel dir="rtl">ژانر</SelectLabel>
+              <SelectItem value="all" dir="rtl">
+                همه ژانرها
+              </SelectItem>
               {genres.map((genre) => (
-                <SelectItem key={genre} value={genre}>
+                <SelectItem key={genre} value={genre} dir="rtl">
                   {genre}
                 </SelectItem>
               ))}
@@ -95,16 +99,18 @@ export default function BooksSidebar({
         value={selectedPublisher || "all"}
         onValueChange={(val) => onPublisherChange(val === "all" ? null : val)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" dir="rtl">
           <SelectValue placeholder="انتخاب ناشر" />
         </SelectTrigger>
         <SelectContent>
           <ScrollArea className="max-h-48">
-            <SelectGroup>
-              <SelectLabel>ناشر</SelectLabel>
-              <SelectItem value="all">همه ناشرها</SelectItem>
+            <SelectGroup dir="rtl">
+              <SelectLabel dir="rtl">ناشر</SelectLabel>
+              <SelectItem value="all" dir="rtl">
+                همه ناشرها
+              </SelectItem>
               {publishers.map((publisher) => (
-                <SelectItem key={publisher} value={publisher}>
+                <SelectItem key={publisher} value={publisher} dir="rtl">
                   {publisher}
                 </SelectItem>
               ))}
@@ -118,16 +124,18 @@ export default function BooksSidebar({
         value={selectedTranslator || "all"}
         onValueChange={(val) => onTranslatorChange(val === "all" ? null : val)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" dir="rtl">
           <SelectValue placeholder="انتخاب مترجم" />
         </SelectTrigger>
         <SelectContent>
           <ScrollArea className="max-h-48">
             <SelectGroup>
-              <SelectLabel>مترجم</SelectLabel>
-              <SelectItem value="all">همه مترجم‌ها</SelectItem>
+              <SelectLabel dir="rtl">مترجم</SelectLabel>
+              <SelectItem value="all" dir="rtl">
+                همه مترجم‌ها
+              </SelectItem>
               {translators.map((translator) => (
-                <SelectItem key={translator} value={translator}>
+                <SelectItem key={translator} value={translator} dir="rtl">
                   {translator}
                 </SelectItem>
               ))}
