@@ -102,7 +102,8 @@ export default function BooksPageClient() {
         (!selectedPublisher || b.publisher === selectedPublisher) &&
         (!selectedTranslator || b.translator === selectedTranslator) &&
         (!selectedCountry || b.country === selectedCountry) &&
-        (!selectedStatus || b.status === selectedStatus)
+        (!selectedStatus ||
+          b.status?.toUpperCase() === selectedStatus.toUpperCase())
     )
     .sort((a, b) => {
       if (!sortBy) return 0;

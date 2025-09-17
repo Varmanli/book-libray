@@ -3,12 +3,39 @@
 import { Button } from "@/components/ui/button";
 import background from "../public/bg.png";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import LoadingBooks from "@/components/LoadingBooks";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false); // برای نمایش لودینگ روی دکمه
+
+  const handleAuthClick = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include", // ارسال کوکی HttpOnly
+      });
+
+      if (res.ok) {
+        // توکن معتبر → مستقیم به صفحه کتاب‌ها
+        router.push("/books");
+      } else {
+        // توکن موجود نیست یا نامعتبر → صفحه لاگین
+        router.push("/login");
+      }
+    } catch (err) {
+      console.error("❌ خطا در بررسی توکن:", err);
+      router.push("/login");
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
     <main className="flex flex-col items-center justify-center h-screen px-4 md:px-10 bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white">
-      {/* کانتینر */}
       <div className="flex flex-col justify-center md:flex-row items-center gap-12 rounded-2xl mt-6 p-6 md:p-10 w-full max-w-7xl backdrop-blur-sm bg-white/5 shadow-xl">
         {/* متن معرفی */}
         <div className="flex-[4] text-center md:text-right space-y-6">
@@ -33,14 +60,14 @@ export default function HomePage() {
           </p>
 
           <div className="flex justify-center items-center gap-4 pt-2">
-            <Link href="/login">
-              <Button
-                size="lg"
-                className="text-lg px-8 py-6 cursor-pointer bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform"
-              >
-                ورود یا ثبت نام
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              onClick={handleAuthClick}
+              disabled={checking}
+              className="text-lg px-8 py-6 cursor-pointer bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform"
+            >
+              {checking ? "درحال ورود..." : "ورود یا ثبت نام"}
+            </Button>
           </div>
         </div>
 

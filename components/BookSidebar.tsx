@@ -6,10 +6,14 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+interface SelectOption {
+  label: string;
+  value: string;
+}
 
 interface BooksSidebarProps {
   authors: string[];
@@ -60,36 +64,42 @@ export default function BooksSidebar({
 }: BooksSidebarProps) {
   const renderSelect = (
     label: string,
-    items: string[],
+    items: (string | SelectOption)[],
     selected: string | null,
     onChange: (val: string | null) => void
-  ) => (
-    <div>
-      <p className="text-gray-300 font-medium mb-1">{label}:</p>
-      <Select
-        value={selected || "all"}
-        onValueChange={(val) => onChange(val === "all" ? null : val)}
-      >
-        <SelectTrigger className="w-full" dir="rtl">
-          <SelectValue placeholder={label} />
-        </SelectTrigger>
-        <SelectContent>
-          <ScrollArea className="max-h-48">
-            <SelectGroup>
-              <SelectItem value="all" dir="rtl">
-                همه
-              </SelectItem>
-              {items.map((item) => (
-                <SelectItem key={item} value={item} dir="rtl">
-                  {item}
+  ) => {
+    const normalizedItems: SelectOption[] = items.map((item) =>
+      typeof item === "string" ? { label: item, value: item } : item
+    );
+
+    return (
+      <div>
+        <p className="text-gray-300 font-medium mb-1">{label}:</p>
+        <Select
+          value={selected || "all"}
+          onValueChange={(val) => onChange(val === "all" ? null : val)}
+        >
+          <SelectTrigger className="w-full" dir="rtl">
+            <SelectValue placeholder={label} />
+          </SelectTrigger>
+          <SelectContent>
+            <ScrollArea className="max-h-48">
+              <SelectGroup>
+                <SelectItem value="all" dir="rtl">
+                  همه
                 </SelectItem>
-              ))}
-            </SelectGroup>
-          </ScrollArea>
-        </SelectContent>
-      </Select>
-    </div>
-  );
+                {normalizedItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value} dir="rtl">
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </ScrollArea>
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   return (
     <aside className="md:col-span-1 border rounded-xl p-4 space-y-6 h-fit bg-card">
@@ -105,9 +115,15 @@ export default function BooksSidebar({
         onTranslatorChange
       )}
       {renderSelect("کشور", countries, selectedCountry, onCountryChange)}
+
+      {/* وضعیت خواندن */}
       {renderSelect(
         "وضعیت خواندن",
-        ["خوانده نشده", "در حال خواندن", "خوانده شده"],
+        [
+          { label: "خوانده نشده", value: "UNREAD" },
+          { label: "در حال خواندن", value: "READING" },
+          { label: "خوانده شده", value: "FINISHED" },
+        ],
         selectedStatus,
         onStatusChange
       )}
@@ -153,10 +169,10 @@ export default function BooksSidebar({
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="desc" dir="rtl">
+              <SelectItem value="asc" dir="rtl">
                 صعودی
               </SelectItem>
-              <SelectItem value="asc" dir="rtl">
+              <SelectItem value="desc" dir="rtl">
                 نزولی
               </SelectItem>
             </SelectGroup>
