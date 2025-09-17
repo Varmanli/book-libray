@@ -15,12 +15,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
 
+import { IoLibrary } from "react-icons/io5";
 import { FiMenu } from "react-icons/fi";
 import { FaBookOpen, FaHome, FaShoppingCart } from "react-icons/fa";
 import { FaCircleUser } from "react-icons/fa6";
 import { IoIosAddCircle } from "react-icons/io";
+import Link from "next/link";
 
 export default function Header() {
   const [q, setQ] = useState("");
@@ -31,7 +32,7 @@ export default function Header() {
   }
 
   return (
-    <header className="w-full  z-20">
+    <header className="w-full  z-20 fixed bg-background">
       <div className="mx-auto px-4">
         <div className="flex justify-between items-center h-20 px-2 md:px-20">
           {/* راست: لوگو و منو موبایل */}
@@ -49,45 +50,41 @@ export default function Header() {
                     </SheetTitle>
                   </SheetHeader>
                   <nav className="flex flex-col gap-3 text-base mt-6">
-                    <a
-                      href="#"
+                    <Link
+                      href="/books"
                       className="flex items-center gap-3 rounded-lg px-4 py-2 hover:bg-muted"
                     >
-                      <FaHome size={22} />
+                      <IoLibrary size={22} />
                       <span>صفحه اصلی</span>
-                    </a>
+                    </Link>
 
-                    <a
-                      href="#"
+                    <Link
+                      href="/wishlist"
                       className="flex items-center gap-3 rounded-lg px-4 py-2 hover:bg-muted"
                     >
                       <FaShoppingCart size={22} />
                       <span>لیست خرید</span>
-                    </a>
-                    <a
-                      href="#"
+                    </Link>
+                    <Link
+                      href="/profile"
                       className="flex items-center gap-3 rounded-lg px-4 py-2 hover:bg-muted"
                     >
                       <FaCircleUser size={22} />
                       <span>حساب کاربری</span>
-                    </a>
+                    </Link>
                   </nav>
-                  <Separator className="my-6" />
-                  <Button className="w-full rounded-2xl bg-primary text-background">
-                    ورود / ثبت‌نام
-                  </Button>
                 </SheetContent>
               </Sheet>
             </div>
             {/* لوگو */}
-            <a href="#" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
                 <FaBookOpen className="h-6 w-6 text-primary" />
               </span>
               <span className="text-2xl font-extrabold tracking-tight">
                 قفسه
               </span>
-            </a>
+            </Link>
           </div>
 
           {/* وسط: جستجو */}
@@ -113,32 +110,40 @@ export default function Header() {
           </div>
 
           {/* چپ: آیکون‌ها */}
-          <div className="hidden md:flex items-center gap-4 text-primary">
+          <div className="hidden md:flex justify-center items-center gap-4 text-primary">
             <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <FaHome size={26} className="cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">خانه</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <FaShoppingCart size={26} className="cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">لیست خرید</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <FaCircleUser size={26} className="cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">حساب کاربری</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger>
-                  <IoIosAddCircle size={32} className="cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">افزودن کتاب</TooltipContent>
-              </Tooltip>
+              <Link href="/books">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <IoLibrary size={33} className="cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">کتابخانه</TooltipContent>
+                </Tooltip>
+              </Link>
+              <Link href="/wishlist">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <FaShoppingCart size={32} className="cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">لیست خرید</TooltipContent>
+                </Tooltip>
+              </Link>
+              <Link href="/profile">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <FaCircleUser size={33} className="cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">حساب کاربری</TooltipContent>
+                </Tooltip>
+              </Link>
+              <Link href="/books/add">
+                <Tooltip>
+                  <TooltipTrigger>
+                    <IoIosAddCircle size={40} className="cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">افزودن کتاب</TooltipContent>
+                </Tooltip>
+              </Link>
             </TooltipProvider>
           </div>
         </div>

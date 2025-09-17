@@ -7,13 +7,19 @@ import toast from "react-hot-toast";
 
 export default function EditBookPage() {
   const params = useParams();
-  const id = params?.id as string;
+  const id = params?.id as string | undefined;
 
-  const [book, setBook] = useState<BookFormType | null>(null);
+  const [book, setBook] = useState<Partial<BookFormType> | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 📌 گرفتن اطلاعات کتاب برای پر کردن فرم
   useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
     const fetchBook = async () => {
       try {
         const res = await fetch(`/api/books/${id}`, {
@@ -22,34 +28,50 @@ export default function EditBookPage() {
         });
         const data = await res.json();
 
+        console.log("[EditBookPage] /api/books/:", { id, ok: res.ok, data });
+
         if (!res.ok) {
-          toast.error(data.error || "خطا در دریافت اطلاعات کتاب");
+          toast.error(data?.error || "خطا در دریافت اطلاعات کتاب");
+          if (mounted) setLoading(false);
           return;
         }
 
-        setBook({
-          title: data.title,
-          author: data.author,
-          translator: data.translator,
-          publisher: data.publisher,
-          description: data.description,
-          country: data.country,
-          genre: data.genre,
-          pageCount: data.pageCount,
-          format: data.format,
-          cover: data.coverImage || undefined, // 🟢 چون BookForm انتظار cover داره
-        });
-      } catch {
+        // احتمال اینکه سرور داده را داخل data.book برگرداند
+        const raw = data?.book ?? data ?? {};
+
+        const mapped = {
+          title: raw.title ?? "",
+          author: raw.author ?? "",
+          translator: raw.translator ?? "",
+          publisher: raw.publisher ?? "",
+          description: raw.description ?? "",
+          country: raw.country ?? "",
+          genre: raw.genre ?? "",
+          pageCount:
+            raw.pageCount === undefined || raw.pageCount === null
+              ? 0
+              : Number(raw.pageCount),
+          format: raw.format ?? "PHYSICAL",
+          cover: raw.coverImage ?? raw.cover ?? undefined,
+        };
+
+        if (!mounted) return;
+        setBook(mapped);
+      } catch (err) {
+        console.error(err);
         toast.error("خطا در دریافت اطلاعات کتاب");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    if (id) fetchBook();
+    fetchBook();
+
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
-  // 📌 هندل ارسال فرم (آپدیت کتاب)
   const handleSubmit = async (data: BookFormType) => {
     try {
       let coverUrl: string | undefined =
@@ -69,13 +91,19 @@ export default function EditBookPage() {
           toast.error(uploadData.error || "خطا در آپلود عکس");
           return;
         }
-
         coverUrl = uploadData.url;
       }
 
       const payload = {
-        ...data,
+        title: data.title,
+        author: data.author,
+        translator: data.translator,
+        publisher: data.publisher,
+        description: data.description,
+        country: data.country,
+        genre: data.genre,
         pageCount: Number(data.pageCount),
+        format: data.format,
         coverImage: coverUrl,
       };
 
@@ -91,16 +119,15 @@ export default function EditBookPage() {
         toast.error(result.error || "خطا در ویرایش کتاب");
         return;
       }
-
       toast.success(result.message || "کتاب با موفقیت ویرایش شد");
     } catch (err) {
+      console.error(err);
       toast.error("خطای سرور در ویرایش کتاب");
     }
   };
 
   if (loading)
     return <p className="text-center py-10">⏳ در حال بارگذاری...</p>;
-
   if (!book)
     return <p className="text-center py-10 text-red-500">کتاب پیدا نشد</p>;
 
@@ -109,7 +136,12 @@ export default function EditBookPage() {
       <h1 className="text-3xl font-extrabold mb-8 text-center text-primary">
         ✏️ ویرایش کتاب
       </h1>
-      <BookForm initialValues={book} onSubmit={handleSubmit} />
+      {/* key باعث میشه وقتی book تغییر کنه فرم کامل remount بشه (fallback اگر reset کار نکرد) */}
+      <BookForm
+        key={JSON.stringify(book)}
+        initialValues={book}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }

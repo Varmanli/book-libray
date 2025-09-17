@@ -5,6 +5,7 @@ import BookCard from "@/components/BookCard";
 import { BookType } from "@/types";
 import { useEffect, useState } from "react";
 import BooksSidebar from "@/components/BookSidebar";
+import LoadingBooks from "@/components/LoadingBooks";
 
 export default function BooksPageClient() {
   const [books, setBooks] = useState<BookType[]>([]);
@@ -12,6 +13,7 @@ export default function BooksPageClient() {
   const [genres, setGenres] = useState<string[]>([]);
   const [publishers, setPublishers] = useState<string[]>([]);
   const [translators, setTranslators] = useState<string[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
 
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -21,6 +23,11 @@ export default function BooksPageClient() {
   const [selectedTranslator, setSelectedTranslator] = useState<string | null>(
     null
   );
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+
+  const [sortBy, setSortBy] = useState<"pageCount" | "rating" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // دریافت کتاب‌ها از API
   const fetchBooks = async () => {
@@ -45,12 +52,16 @@ export default function BooksPageClient() {
             .filter((p): p is string => typeof p === "string" && p.length > 0)
         ),
       ]);
-
       setTranslators([
         ...new Set(
           allBooks
             .map((b) => b.translator)
             .filter((t): t is string => typeof t === "string" && t.length > 0)
+        ),
+      ]);
+      setCountries([
+        ...new Set(
+          allBooks.map((b) => b.country).filter((c): c is string => !!c)
         ),
       ]);
     } catch (err: any) {
@@ -74,7 +85,6 @@ export default function BooksPageClient() {
         body: JSON.stringify({ status: newStatus }),
       });
 
-      // به‌روزرسانی وضعیت در frontend بدون رفرش
       setBooks((prev) =>
         prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
       );
@@ -83,37 +93,59 @@ export default function BooksPageClient() {
     }
   };
 
-  // فیلتر کردن کتاب‌ها
-  const filteredBooks = books.filter(
-    (b) =>
-      (!selectedAuthor || b.author === selectedAuthor) &&
-      (!selectedGenre || b.genre === selectedGenre) &&
-      (!selectedPublisher || b.publisher === selectedPublisher) &&
-      (!selectedTranslator || b.translator === selectedTranslator)
-  );
+  // فیلتر و مرتب‌سازی کتاب‌ها
+  const filteredBooks = [...books]
+    .filter(
+      (b) =>
+        (!selectedAuthor || b.author === selectedAuthor) &&
+        (!selectedGenre || b.genre === selectedGenre) &&
+        (!selectedPublisher || b.publisher === selectedPublisher) &&
+        (!selectedTranslator || b.translator === selectedTranslator) &&
+        (!selectedCountry || b.country === selectedCountry) &&
+        (!selectedStatus || b.status === selectedStatus)
+    )
+    .sort((a, b) => {
+      if (!sortBy) return 0;
+      const fieldA = a[sortBy] ?? 0;
+      const fieldB = b[sortBy] ?? 0;
+      if (fieldA < fieldB) return sortOrder === "asc" ? -1 : 1;
+      if (fieldA > fieldB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
 
   return (
     <div className="container mx-auto p-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar فیلترها */}
-        <BooksSidebar
-          authors={authors}
-          genres={genres}
-          publishers={publishers}
-          translators={translators}
-          selectedAuthor={selectedAuthor}
-          selectedGenre={selectedGenre}
-          selectedPublisher={selectedPublisher}
-          selectedTranslator={selectedTranslator}
-          onAuthorChange={setSelectedAuthor}
-          onGenreChange={setSelectedGenre}
-          onPublisherChange={setSelectedPublisher}
-          onTranslatorChange={setSelectedTranslator}
-        />
+      {books.length === 0 ? (
+        <LoadingBooks />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Sidebar */}
+          <BooksSidebar
+            authors={authors}
+            genres={genres}
+            publishers={publishers}
+            translators={translators}
+            countries={countries}
+            selectedAuthor={selectedAuthor}
+            selectedGenre={selectedGenre}
+            selectedPublisher={selectedPublisher}
+            selectedTranslator={selectedTranslator}
+            selectedCountry={selectedCountry}
+            selectedStatus={selectedStatus}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onAuthorChange={setSelectedAuthor}
+            onGenreChange={setSelectedGenre}
+            onPublisherChange={setSelectedPublisher}
+            onTranslatorChange={setSelectedTranslator}
+            onCountryChange={setSelectedCountry}
+            onStatusChange={setSelectedStatus}
+            onSortByChange={setSortBy}
+            onSortOrderChange={setSortOrder}
+          />
 
-        {/* لیست کتاب‌ها */}
-        <main className="md:col-span-3">
-          <ScrollArea className="h-[600px]">
+          {/* لیست کتاب‌ها */}
+          <main className="md:col-span-3">
             <div className="grid grid-cols-1 gap-6">
               {filteredBooks.map((book) => (
                 <BookCard
@@ -123,9 +155,9 @@ export default function BooksPageClient() {
                 />
               ))}
             </div>
-          </ScrollArea>
-        </main>
-      </div>
+          </main>
+        </div>
+      )}
     </div>
   );
 }

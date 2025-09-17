@@ -15,16 +15,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
 import bg from "../../public/library.webp";
-
-type LoginForm = z.infer<typeof loginSchema>;
-type RegisterForm = z.infer<typeof registerSchema>;
-type ForgotForm = z.infer<typeof forgotSchema>;
 
 const loginSchema = z.object({
   email: z.string().email("ایمیل معتبر وارد کنید"),
@@ -41,9 +37,14 @@ const forgotSchema = z.object({
   email: z.string().email("ایمیل معتبر وارد کنید"),
 });
 
+type LoginForm = z.infer<typeof loginSchema>;
+type RegisterForm = z.infer<typeof registerSchema>;
+type ForgotForm = z.infer<typeof forgotSchema>;
+
 export default function AuthForm() {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const form = useForm<LoginForm | RegisterForm | ForgotForm>({
     resolver: zodResolver(
@@ -64,8 +65,9 @@ export default function AuthForm() {
 
   async function onSubmit(values: LoginForm | RegisterForm | ForgotForm) {
     try {
+      setLoading(true); // شروع لودینگ
       let url: string = "";
-      let body: Record<string, string> = {}; // یه آبجکت با key:string و value:string
+      let body: Record<string, string> = {};
 
       if (mode === "register") {
         url = "/api/auth/register";
@@ -111,16 +113,18 @@ export default function AuthForm() {
     } catch (err) {
       console.error(err);
       toast.error("خطای سرور");
+    } finally {
+      setLoading(false); // پایان لودینگ
     }
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen relative">
       <div>
-        <Image src={bg} alt="library image" fill className="z-0 absolute " />
+        <Image src={bg} alt="library image" fill className="z-0 absolute" />
         <div className="z-10 bg-black/10 absolute top-0 bottom-0 right-0 left-0"></div>
       </div>
-      <Card className="w-full max-w-md p-6 shadow-lg z-20 bg-card/70">
+      <Card className="w-full mx-2 max-w-md p-6 shadow-lg z-20 bg-card/70">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {mode === "login" && "ورود"}
@@ -190,10 +194,19 @@ export default function AuthForm() {
                 />
               )}
 
-              <Button type="submit" className="w-full">
-                {mode === "login" && "ورود"}
-                {mode === "register" && "ثبت‌نام"}
-                {mode === "forgot" && "ارسال لینک بازیابی"}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    در حال ارسال...
+                  </span>
+                ) : (
+                  <>
+                    {mode === "login" && "ورود"}
+                    {mode === "register" && "ثبت‌نام"}
+                    {mode === "forgot" && "ارسال لینک بازیابی"}
+                  </>
+                )}
               </Button>
             </form>
           </Form>

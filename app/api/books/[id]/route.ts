@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { Book } from "@/db/schema";
+import { Book, Quote } from "@/db/schema";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 
@@ -21,7 +21,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
     }
 
-    return NextResponse.json({ book });
+    // Get quotes for this book
+    const quotes = await db
+      .select()
+      .from(Quote)
+      .where(eq(Quote.bookId, id))
+      .orderBy(Quote.id);
+
+    return NextResponse.json({
+      book: {
+        ...book,
+        quotes: quotes,
+      },
+    });
   } catch (err) {
     console.error("❌ خطا در دریافت کتاب:", err);
     return NextResponse.json({ error: "خطا در دریافت کتاب" }, { status: 500 });
@@ -49,10 +61,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
     const body = await req.json();
+    const { status, rating, review } = body; // فقط همین سه تا
 
     const [updatedBook] = await db
       .update(Book)
-      .set(body)
+      .set({
+        status,
+        rating,
+        review,
+      })
       .where(eq(Book.id, id))
       .returning({
         id: Book.id,

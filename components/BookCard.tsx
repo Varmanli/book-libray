@@ -51,7 +51,7 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
   };
 
   return (
-    <Card className="flex flex-col md:flex-row-reverse items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
+    <Card className="flex flex-col md:flex-row items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
       {/* جلد کتاب */}
       <div className="relative w-90 h-130 md:w-60 md:h-80 flex-shrink-0">
         <Image
@@ -140,16 +140,17 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
           {/* وضعیت خواندن */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <FaBookReader
-                className={`transition cursor-pointer text-2xl md:text-[30px] ${
-                  status === "UNREAD"
-                    ? "text-red-500"
-                    : status === "READING"
-                    ? "text-blue-500"
-                    : "text-primary"
-                }`}
-                onClick={handleStatusToggle}
-              />
+              <div className="flex items-center gap-2 cursor-default">
+                <FaBookReader
+                  className={`text-2xl md:text-[30px] ${
+                    status === "UNREAD"
+                      ? "text-red-500"
+                      : status === "READING"
+                      ? "text-blue-500"
+                      : "text-primary"
+                  }`}
+                />
+              </div>
             </TooltipTrigger>
             <TooltipContent>{getStatusLabel(status)}</TooltipContent>
           </Tooltip>
@@ -159,8 +160,8 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex justify-center items-center gap-0.5 cursor-pointer">
-                  <FaStar className="text-yellow-400 text-xl" />
-                  <span className="pt-1 font-semibold">{book.rating}10</span>
+                  <FaStar className="text-yellow-400 text-sm" />
+                  <span className="pt-1 font-semibold">{book.rating}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>امتیاز کتاب</TooltipContent>
