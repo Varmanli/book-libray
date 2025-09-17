@@ -2,10 +2,13 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 
 export const metadata = {
-  title: "کتابخانه من",
-  description: "کتابخانه شخصی با Next.js و NextAuth",
+  title: "قفسه",
+  description:
+    "قفسه جایی برای کتابخون‌های جدی. کتاب‌هایت را اضافه کن، وضعیت خوندنت را مشخص کن، یادداشت‌ها و هایلایت‌هایت را کنار خودت داشته باش و لیست خرید بعدی بساز تا هیچ کتاب خوبی را از دست ندهی.",
+  icons: {
+    icon: "/faveicon.png",
+  },
 };
-
 export default function RootLayout({
   children,
 }: {

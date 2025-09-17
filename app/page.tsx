@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <main className="flex flex-col items-center justify-center h-screen px-4 md:px-10 bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white">
       {/* کانتینر */}
-      <div className="flex flex-col md:flex-row items-center gap-12 rounded-2xl mt-6 p-6 md:p-10 w-full max-w-7xl backdrop-blur-sm bg-white/5 shadow-xl">
+      <div className="flex flex-col justify-center md:flex-row items-center gap-12 rounded-2xl mt-6 p-6 md:p-10 w-full max-w-7xl backdrop-blur-sm bg-white/5 shadow-xl">
         {/* متن معرفی */}
         <div className="flex-[4] text-center md:text-right space-y-6">
           <h1 className="text-3xl md:text-4xl font-extrabold text-primary drop-shadow-md">
@@ -32,7 +32,7 @@ export default function HomePage() {
             همه کتاب‌هات، یه جا، مرتب و دم دستت ✨
           </p>
 
-          <div className="flex justify-start gap-4 pt-2">
+          <div className="flex justify-center items-center gap-4 pt-2">
             <Link href="/login">
               <Button
                 size="lg"
