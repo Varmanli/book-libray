@@ -70,42 +70,40 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
         </h3>
 
         {/* اطلاعات به صورت جدول دو رنگ */}
-        <div className="grid grid-cols-[3fr_1fr] gap-2 ">
-          <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
-            {book.author}
-          </div>
+        <div className="grid grid-cols-[1fr_3fr]  gap-2 ">
           <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
             نویسنده
           </div>
-
+          <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+            {book.author}
+          </div>
           {book.translator && (
             <>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
-                {book.translator}
-              </div>
               <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
                 مترجم
               </div>
+              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+                {book.translator}
+              </div>
             </>
           )}
-
           {book.country && (
             <>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
-                {book.country}
-              </div>
               <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
                 کشور
+              </div>
+              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+                {book.country}
               </div>
             </>
           )}
           {book.genre && (
             <>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
-                {book.genre}
-              </div>
               <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
                 ژانر
+              </div>
+              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+                {book.genre}
               </div>
             </>
           )}

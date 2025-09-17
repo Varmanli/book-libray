@@ -79,6 +79,12 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    .animate-spin-slow {
+      animation: spin 2s linear infinite;
+    }
+    .animate-spin-slow {
+      animation: spin 2s linear infinite;
+    }
   }
   body {
     @apply bg-background text-foreground;
