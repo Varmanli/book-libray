@@ -102,7 +102,7 @@ export default function QuoteModal({
               آیا از حذف این نقل قول اطمینان دارید؟
             </p>
             <div className="bg-gray-100 p-3 rounded-md">
-              <p className="text-sm italic">"{content}"</p>
+              <p className="text-sm italic">{content}</p>
             </div>
           </div>
         ) : (
@@ -167,4 +167,3 @@ export default function QuoteModal({
     </Dialog>
   );
 }
-

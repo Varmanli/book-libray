@@ -19,6 +19,7 @@ import {
 import { BookType, QuoteType } from "@/types";
 import React, { useState } from "react";
 import QuoteModal from "./QuoteModal";
+import Image from "next/image";
 
 interface BookPageUIProps {
   book: BookType;
@@ -113,7 +114,7 @@ export default function BookPageUI({
         <div className="flex flex-col  md:flex-row-reverse justify-around items-stretch gap-10">
           {book.coverImage && (
             <div className="relative w-full md:w-1/3 h-auto rounded-lg overflow-hidden shadow-lg">
-              <img
+              <Image
                 src={book.coverImage}
                 alt={book.title}
                 className="object-cover w-full"
