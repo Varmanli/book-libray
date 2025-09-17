@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 
 export const bookSchema = z.object({
   title: z.string().min(1, "عنوان الزامی است"),
@@ -40,6 +40,7 @@ interface BookFormProps {
 
 export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // برای حالت لودینگ
   const previewUrlRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -59,15 +60,10 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
     },
   });
 
-  // debug logs
-  useEffect(() => {
-    console.log("[BookForm] initialValues changed:", initialValues);
-  }, [initialValues]);
-
+  // sync initialValues
   useEffect(() => {
     if (!initialValues) return;
 
-    // normalize pageCount
     const pageCount =
       initialValues.pageCount === undefined || initialValues.pageCount === null
         ? 0
@@ -86,18 +82,8 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
       cover: initialValues.cover ?? undefined,
     };
 
-    // reset all at once
     form.reset(vals as any);
 
-    // additionally set individually (fallback اگر reset اثر نکرد)
-    Object.entries(vals).forEach(([k, v]) =>
-      form.setValue(k as any, v as any, {
-        shouldValidate: false,
-        shouldDirty: false,
-      })
-    );
-
-    // preview handling
     if (initialValues.cover instanceof File) {
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
       const url = URL.createObjectURL(initialValues.cover);
@@ -108,11 +94,6 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
     } else {
       setPreview(null);
     }
-
-    // short delay then log current form values
-    setTimeout(() => {
-      console.log("[BookForm] after reset getValues:", form.getValues());
-    }, 50);
 
     return () => {
       if (previewUrlRef.current) {
@@ -126,10 +107,8 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+
     const url = URL.createObjectURL(file);
     previewUrlRef.current = url;
     setPreview(url);
@@ -141,18 +120,25 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
   };
 
   const removeImage = () => {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
     form.setValue("cover", undefined, { shouldDirty: true });
     setPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleSubmitForm = async (data: BookFormType) => {
+    setLoading(true);
+    try {
+      await onSubmit(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit(handleSubmitForm)}
       className="space-y-8 rounded-3xl p-10 bg-[#242428] shadow-xl"
     >
       {/* Upload */}
@@ -180,10 +166,7 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
 
         {preview && (
           <div className="relative w-36 h-52 border rounded-2xl overflow-hidden shadow-md">
-            {/* fallback to img if next/image errors */}
             {preview.startsWith("blob:") || preview.startsWith("data:") ? (
-              // blob/data url => use img
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={preview}
                 alt="preview"
@@ -282,9 +265,11 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
 
       <Button
         type="submit"
-        className="w-full text-lg py-5 rounded-2xl bg-primary"
+        className="w-full text-lg py-5 rounded-2xl bg-primary flex items-center justify-center gap-2"
+        disabled={loading}
       >
-        ثبت کتاب
+        {loading && <Loader2 className="animate-spin w-5 h-5" />}
+        {loading ? "در حال ثبت..." : "ثبت کتاب"}
       </Button>
     </form>
   );

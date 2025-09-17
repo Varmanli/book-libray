@@ -96,15 +96,20 @@ export default function BookPageContainer() {
   // Update book info
   const updateBook = async (updated: {
     status?: BookType["status"];
-    rating?: number;
+    rating?: number | null;
     review?: string;
   }) => {
     if (!book) return;
     try {
+      const bodyData = { ...book, ...updated };
+
+      // اگر rating null بود، اون رو حذف کن تا صفر ثبت نشه
+      if (bodyData.rating === null) delete bodyData.rating;
+
       const res = await fetch(`/api/books/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...book, ...updated }),
+        body: JSON.stringify(bodyData),
       });
       const data = await res.json();
 
@@ -115,7 +120,7 @@ export default function BookPageContainer() {
 
       setBook(data.book);
       setStatus(data.book.status);
-      setRating(data.book.rating || 0);
+      setRating(data.book.rating ?? null);
       setReview(data.book.review || "");
       setQuotes(data.book.quotes || []);
       toast.success("تغییرات ذخیره شد");
