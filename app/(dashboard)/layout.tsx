@@ -27,10 +27,14 @@ export default async function DashboardLayout({
 
   return (
     <>
-      <Header />
-      <main className="pt-33 md:pt-20">{children}</main>
-      <Toaster position="top-right" />
-      <Footer />
+      <div className="flex flex-col min-h-screen">
+        <Header />
+
+        <main className="flex-1 pt-33 md:pt-20">{children}</main>
+
+        <Footer />
+      </div>
+      <Toaster position="top-center" />
     </>
   );
 }
