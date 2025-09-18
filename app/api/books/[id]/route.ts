@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 // Helper برای گرفتن ID از مسیر
 function getIdFromUrl(req: NextRequest) {
   const parts = req.nextUrl.pathname.split("/");
-  return parts[parts.length - 1]; // آخرین بخش مسیر یعنی ID
+  return parts[parts.length - 1];
 }
 
 // GET: گرفتن جزئیات یک کتاب
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT: بروزرسانی کتاب (فقط مالک)
+// PUT: بروزرسانی کتاب (مالک)
 export async function PUT(req: NextRequest) {
   try {
     const token = req.cookies.get("token")?.value;
@@ -61,15 +61,25 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
     const body = await req.json();
-    const { status, rating, review } = body; // فقط همین سه تا
+
+    // ✅ فیلتر کردن undefined ها
+    const updateData: Record<string, any> = {};
+    for (const key of Object.keys(body)) {
+      if (body[key] !== undefined) {
+        updateData[key] = body[key];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "هیچ مقداری برای بروزرسانی ارسال نشده" },
+        { status: 400 }
+      );
+    }
 
     const [updatedBook] = await db
       .update(Book)
-      .set({
-        status,
-        rating,
-        review,
-      })
+      .set(updateData)
       .where(eq(Book.id, id))
       .returning({
         id: Book.id,

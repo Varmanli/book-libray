@@ -136,7 +136,7 @@ export default function EditBookPage() {
       <h1 className="text-3xl font-extrabold mb-8 text-center text-primary">
         ✏️ ویرایش کتاب
       </h1>
-      {/* key باعث میشه وقتی book تغییر کنه فرم کامل remount بشه (fallback اگر reset کار نکرد) */}
+
       <BookForm
         key={JSON.stringify(book)}
         initialValues={book}

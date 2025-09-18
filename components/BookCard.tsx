@@ -53,7 +53,7 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
   return (
     <Card className="flex flex-col md:flex-row items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
       {/* جلد کتاب */}
-      <div className="relative w-90 h-130 md:w-60 md:h-80 flex-shrink-0">
+      <div className="relative w-full h-130 md:w-55 md:h-80 flex-shrink-0">
         <Image
           src={book.coverImage || "/placeholder-cover.jpg"}
           alt={book.title}

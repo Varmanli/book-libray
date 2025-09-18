@@ -1,14 +1,17 @@
 "use client";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import BookCard from "@/components/BookCard";
 import { BookType } from "@/types";
 import { useEffect, useState } from "react";
 import BooksSidebar from "@/components/BookSidebar";
 import LoadingBooks from "@/components/LoadingBooks";
+import Link from "next/link";
 
 export default function BooksPageClient() {
   const [books, setBooks] = useState<BookType[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [authors, setAuthors] = useState<string[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [publishers, setPublishers] = useState<string[]>([]);
@@ -32,6 +35,7 @@ export default function BooksPageClient() {
   // دریافت کتاب‌ها از API
   const fetchBooks = async () => {
     try {
+      setLoading(true);
       const res = await fetch("/api/books", {
         cache: "no-store",
         credentials: "include",
@@ -66,6 +70,8 @@ export default function BooksPageClient() {
       ]);
     } catch (err: any) {
       console.error("❌ خطا در گرفتن کتاب‌ها:", err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,8 +122,19 @@ export default function BooksPageClient() {
 
   return (
     <div className="container mx-auto p-6">
-      {books.length === 0 ? (
+      {loading ? (
         <LoadingBooks />
+      ) : books.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-xl text-gray-400 mb-6">
+            هنوز کتابی اضافه نکردی 📚
+          </p>
+          <Link href="/books/add">
+            <Button size="lg" className="bg-primary hover:bg-primary/90">
+              ➕ اضافه کردن کتاب جدید
+            </Button>
+          </Link>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Sidebar */}

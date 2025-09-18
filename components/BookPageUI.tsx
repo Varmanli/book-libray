@@ -24,7 +24,8 @@ import Image from "next/image";
 interface BookPageUIProps {
   book: BookType;
   status: BookType["status"];
-  rating: number;
+  rating: number | null;
+  publisher: string | null;
   review: string;
   quotes?: QuoteType[];
   showModal: boolean;
@@ -108,15 +109,16 @@ export default function BookPageUI({
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
+    <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex flex-col gap-8">
         {/* بخش بالای صفحه */}
         <div className="flex flex-col  md:flex-row-reverse justify-around items-stretch gap-10">
           {book.coverImage && (
-            <div className="relative w-full md:w-1/3 h-auto rounded-lg overflow-hidden shadow-lg">
+            <div className="relative w-full md:w-1/3 h-130 md:h-auto rounded-lg overflow-hidden shadow-lg">
               <Image
                 src={book.coverImage}
                 alt={book.title}
+                fill
                 className="object-cover w-full"
               />
             </div>
@@ -134,11 +136,13 @@ export default function BookPageUI({
             </h1>
 
             {/* کارت جزئیات کتاب */}
+            {/* کارت جزئیات کتاب */}
             <div className="grid grid-cols-[1fr_3fr] gap-2">
               {[
                 { label: "نویسنده", value: book.author },
                 { label: "مترجم", value: book.translator },
                 { label: "ژانر", value: book.genre },
+                { label: "ناشر", value: book.publisher }, // 👈 اینو اضافه کردم
                 { label: "تعداد صفحات", value: book.pageCount },
                 { label: "کشور", value: book.country },
                 { label: "امتیاز شما", value: rating },
@@ -155,6 +159,7 @@ export default function BookPageUI({
                     </React.Fragment>
                   )
               )}
+
               <div className="bg-gray-700/50 flex justify-center items-center rounded-sm p-2 text-gray-300 text-sm md:text-base">
                 وضعیت خواندن
               </div>
@@ -190,8 +195,11 @@ export default function BookPageUI({
                       <FaStar
                         key={i}
                         className={`cursor-pointer text-4xl ${
-                          i < rating ? "text-yellow-400" : "text-gray-400/20"
-                        }`}
+                          i < (rating ?? 0)
+                            ? "text-yellow-400"
+                            : "text-gray-400/20"
+                        }
+`}
                         onClick={() => setRating(i + 1)}
                       />
                     ))}
