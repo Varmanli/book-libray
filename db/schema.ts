@@ -17,6 +17,14 @@ export const BookStatus = pgEnum("BookStatus", [
   "FINISHED",
 ]);
 
+export const PurchasePriority = pgEnum("PurchasePriority", [
+  "MUST_HAVE", // حتما باید بخرم
+  "WANT_IT", // خیلی دلم می‌خواد
+  "NICE_TO_HAVE", // بد نیست داشته باشم
+  "IF_EXTRA_MONEY", // اگر پول اضافه داشتم
+  "NOT_IMPORTANT", // فعلا مهم نیست
+]);
+
 // ---------------- User ----------------
 export const User = pgTable("User", {
   id: varchar("id")
@@ -109,11 +117,32 @@ export const Quote = pgTable("Quote", {
     .references(() => Book.id, { onDelete: "cascade" }),
 });
 
+// ---------------- Wishlist ----------------
+export const Wishlist = pgTable("Wishlist", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`)
+    .notNull(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  translator: text("translator"),
+  publisher: text("publisher"),
+  genre: text("genre"),
+  note: text("note"),
+  priority: PurchasePriority("priority").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => User.id, { onDelete: "cascade" }),
+});
+
 // ---------------- Relations ----------------
 export const UserRelations = relations(User, ({ many }) => ({
   accounts: many(Account),
   books: many(Book),
   sessions: many(Session),
+  wishlist: many(Wishlist),
 }));
 
 export const BookRelations = relations(Book, ({ one, many }) => ({
@@ -127,4 +156,8 @@ export const QuoteRelations = relations(Quote, ({ one }) => ({
 
 export const AccountRelations = relations(Account, ({ one }) => ({
   user: one(User, { fields: [Account.userId], references: [User.id] }),
+}));
+
+export const WishlistRelations = relations(Wishlist, ({ one }) => ({
+  user: one(User, { fields: [Wishlist.userId], references: [User.id] }),
 }));
