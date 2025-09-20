@@ -1,7 +1,5 @@
 "use client";
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -15,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import SearchComponent from "@/components/SearchComponent";
 
 import { IoLibrary } from "react-icons/io5";
 import { FiMenu } from "react-icons/fi";
@@ -24,15 +23,12 @@ import { IoIosAddCircle } from "react-icons/io";
 import Link from "next/link";
 
 export default function Header() {
-  const [q, setQ] = useState("");
-
-  function onSearch(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    console.log("search:", q);
-  }
+  const handleSearch = (query: string) => {
+    console.log("Search query:", query);
+  };
 
   return (
-    <header className="w-full  z-20 fixed bg-background">
+    <header className="w-[100%]  z-20 fixed bg-background">
       <div className="mx-auto px-4">
         <div className="flex justify-between items-center h-20 px-2 md:px-20">
           {/* راست: لوگو و منو موبایل */}
@@ -89,24 +85,10 @@ export default function Header() {
 
           {/* وسط: جستجو */}
           <div className="flex-1 hidden md:flex justify-center px-4">
-            <form
-              onSubmit={onSearch}
-              className="relative flex w-full max-w-2xl gap-2"
-            >
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="جست‌وجو در قفسه..."
-                className="  h-14 text-lg rounded-2xl pr-4 shadow-sm flex-1"
-                aria-label="جست‌وجو در قفسه"
-              />
-              <Button
-                type="submit"
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-2xl px-6 h-11 shadow-md"
-              >
-                جست‌وجو
-              </Button>
-            </form>
+            <SearchComponent
+              onSearch={handleSearch}
+              className="w-full max-w-2xl"
+            />
           </div>
 
           {/* چپ: آیکون‌ها */}
@@ -150,24 +132,7 @@ export default function Header() {
 
         {/* سرچ برای موبایل */}
         <div className="flex md:hidden px-2 pb-3">
-          <form
-            onSubmit={onSearch}
-            className="relative flex w-full max-w-2xl gap-2"
-          >
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="جست‌وجو در قفسه..."
-              className="  h-14 text-lg rounded-2xl pr-4 shadow-sm flex-1"
-              aria-label="جست‌وجو در قفسه"
-            />
-            <Button
-              type="submit"
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-2xl px-6 h-11 shadow-md"
-            >
-              جست‌وجو
-            </Button>
-          </form>
+          <SearchComponent onSearch={handleSearch} className="w-full" />
         </div>
       </div>
     </header>

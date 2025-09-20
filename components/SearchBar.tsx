@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BookType } from "@/types";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -46,29 +45,48 @@ export default function SearchBar({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative w-full max-w-md ${className}`}>
       <div className="relative">
-        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        {/* آیکون سرچ */}
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+
         <Input
           type="text"
           placeholder={placeholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pr-10 pl-10"
           dir="rtl"
+          className="
+            pr-10 pl-10 py-2
+            rounded-full border border-gray-600
+            bg-gray-900 text-gray-100
+            placeholder:text-gray-400
+            shadow-sm
+            focus:border-primary focus:ring-2 focus:ring-primary/50
+            transition-all duration-200
+            text-sm
+          "
         />
+
+        {/* دکمه پاک کردن */}
         {query && (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClear}
-            className="absolute left-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100"
+            className="
+              absolute left-2 top-1/2 -translate-y-1/2
+              h-6 w-6 p-0
+              hover:bg-gray-800
+              text-gray-400 hover:text-gray-200
+              rounded-full
+              transition-colors
+            "
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
     </div>
   );
 }
-

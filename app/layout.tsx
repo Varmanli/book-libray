@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import PerformanceMonitor from "@/components/PerformanceMonitor";
 
 export const metadata = {
   title: "قفسه",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body>
         {children}
         <Toaster position="top-right" />
+        <PerformanceMonitor />
       </body>
     </html>
   );

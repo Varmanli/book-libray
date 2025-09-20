@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import BookCard from "@/components/BookCard";
 import { BookType } from "@/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import BooksSidebar from "@/components/BookSidebar";
 import LoadingBooks from "@/components/LoadingBooks";
 import Link from "next/link";
@@ -32,13 +32,13 @@ export default function BooksPageClient() {
   const [sortBy, setSortBy] = useState<"pageCount" | "rating" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  // دریافت کتاب‌ها از API
-  const fetchBooks = async () => {
+  // دریافت کتاب‌ها از API - optimized with caching
+  const fetchBooks = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/books", {
-        cache: "no-store",
         credentials: "include",
+        next: { revalidate: 60 }, // Cache for 1 minute
       });
       const data: { Book?: BookType[]; error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error || "خطا در دریافت کتاب‌ها");
@@ -46,79 +46,97 @@ export default function BooksPageClient() {
       const allBooks = data.Book || [];
       setBooks(allBooks);
 
-      // گرفتن لیست یکتا برای فیلترها
-      setAuthors([...new Set(allBooks.map((b) => b.author))]);
-      setGenres([...new Set(allBooks.map((b) => b.genre))]);
-      setPublishers([
+      // گرفتن لیست یکتا برای فیلترها - memoized
+      const uniqueAuthors = [...new Set(allBooks.map((b) => b.author))];
+      const uniqueGenres = [...new Set(allBooks.map((b) => b.genre))];
+      const uniquePublishers = [
         ...new Set(
           allBooks
             .map((b) => b.publisher)
             .filter((p): p is string => typeof p === "string" && p.length > 0)
         ),
-      ]);
-      setTranslators([
+      ];
+      const uniqueTranslators = [
         ...new Set(
           allBooks
             .map((b) => b.translator)
             .filter((t): t is string => typeof t === "string" && t.length > 0)
         ),
-      ]);
-      setCountries([
+      ];
+      const uniqueCountries = [
         ...new Set(
           allBooks.map((b) => b.country).filter((c): c is string => !!c)
         ),
-      ]);
+      ];
+
+      setAuthors(uniqueAuthors);
+      setGenres(uniqueGenres);
+      setPublishers(uniquePublishers);
+      setTranslators(uniqueTranslators);
+      setCountries(uniqueCountries);
     } catch (err: any) {
       console.error("❌ خطا در گرفتن کتاب‌ها:", err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBooks();
-  }, []);
+  }, [fetchBooks]);
 
-  // تغییر وضعیت کتاب
-  const handleStatusChange = async (
-    id: string,
-    newStatus: "UNREAD" | "READING" | "FINISHED"
-  ) => {
-    try {
-      await fetch(`/api/books/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+  // تغییر وضعیت کتاب - memoized
+  const handleStatusChange = useCallback(
+    async (id: string, newStatus: "UNREAD" | "READING" | "FINISHED") => {
+      try {
+        await fetch(`/api/books/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        setBooks((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+        );
+      } catch (err) {
+        console.error("❌ خطا در تغییر وضعیت کتاب:", err);
+      }
+    },
+    []
+  );
+
+  // فیلتر و مرتب‌سازی کتاب‌ها - memoized for performance
+  const filteredBooks = useMemo(() => {
+    return [...books]
+      .filter(
+        (b) =>
+          (!selectedAuthor || b.author === selectedAuthor) &&
+          (!selectedGenre || b.genre === selectedGenre) &&
+          (!selectedPublisher || b.publisher === selectedPublisher) &&
+          (!selectedTranslator || b.translator === selectedTranslator) &&
+          (!selectedCountry || b.country === selectedCountry) &&
+          (!selectedStatus ||
+            b.status?.toUpperCase() === selectedStatus.toUpperCase())
+      )
+      .sort((a, b) => {
+        if (!sortBy) return 0;
+        const fieldA = a[sortBy] ?? 0;
+        const fieldB = b[sortBy] ?? 0;
+        if (fieldA < fieldB) return sortOrder === "asc" ? -1 : 1;
+        if (fieldA > fieldB) return sortOrder === "asc" ? 1 : -1;
+        return 0;
       });
-
-      setBooks((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
-      );
-    } catch (err) {
-      console.error("❌ خطا در تغییر وضعیت کتاب:", err);
-    }
-  };
-
-  // فیلتر و مرتب‌سازی کتاب‌ها
-  const filteredBooks = [...books]
-    .filter(
-      (b) =>
-        (!selectedAuthor || b.author === selectedAuthor) &&
-        (!selectedGenre || b.genre === selectedGenre) &&
-        (!selectedPublisher || b.publisher === selectedPublisher) &&
-        (!selectedTranslator || b.translator === selectedTranslator) &&
-        (!selectedCountry || b.country === selectedCountry) &&
-        (!selectedStatus ||
-          b.status?.toUpperCase() === selectedStatus.toUpperCase())
-    )
-    .sort((a, b) => {
-      if (!sortBy) return 0;
-      const fieldA = a[sortBy] ?? 0;
-      const fieldB = b[sortBy] ?? 0;
-      if (fieldA < fieldB) return sortOrder === "asc" ? -1 : 1;
-      if (fieldA > fieldB) return sortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
+  }, [
+    books,
+    selectedAuthor,
+    selectedGenre,
+    selectedPublisher,
+    selectedTranslator,
+    selectedCountry,
+    selectedStatus,
+    sortBy,
+    sortOrder,
+  ]);
 
   return (
     <div className="container mx-auto p-6">

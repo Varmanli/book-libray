@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import { BookType } from "@/types";
 
 import { FiEye, FiEdit } from "react-icons/fi";
@@ -33,12 +33,15 @@ const getStatusLabel = (status: "UNREAD" | "READING" | "FINISHED") => {
   }
 };
 
-export default function BookCard({ book, onStatusChange }: BookCardProps) {
+const BookCard = memo(function BookCard({
+  book,
+  onStatusChange,
+}: BookCardProps) {
   const router = useRouter();
   const [status, setStatus] = useState(book.status);
 
-  // تغییر وضعیت خواندن کتاب (UNREAD -> READING -> FINISHED)
-  const handleStatusToggle = () => {
+  // تغییر وضعیت خواندن کتاب (UNREAD -> READING -> FINISHED) - memoized
+  const handleStatusToggle = useCallback(() => {
     let newStatus: "UNREAD" | "READING" | "FINISHED";
 
     if (status === "UNREAD") newStatus = "READING";
@@ -46,9 +49,16 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
     else newStatus = "UNREAD";
 
     setStatus(newStatus);
-
     onStatusChange(book.id, newStatus);
-  };
+  }, [status, book.id, onStatusChange]);
+
+  const handleViewDetails = useCallback(() => {
+    router.push(`/books/${book.id}`);
+  }, [router, book.id]);
+
+  const handleEdit = useCallback(() => {
+    router.push(`/books/edit/${book.id}`);
+  }, [router, book.id]);
 
   return (
     <Card className="flex flex-col md:flex-row items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
@@ -59,6 +69,9 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
           alt={book.title}
           fill
           className="object-cover rounded-t-xl md:rounded-t-none md:rounded-r-xl w-full h-full"
+          loading="lazy"
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
       </div>
 
@@ -118,7 +131,7 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
             <TooltipTrigger asChild>
               <FiEye
                 className="text-2xl md:text-[30px] text-primary hover:text-primary/70 transition cursor-pointer"
-                onClick={() => router.push(`/books/${book.id}`)}
+                onClick={handleViewDetails}
               />
             </TooltipTrigger>
             <TooltipContent>مشاهده جزئیات</TooltipContent>
@@ -129,7 +142,7 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
             <TooltipTrigger asChild>
               <FiEdit
                 className="text-2xl md:text-[30px] text-primary hover:text-primary/70 transition cursor-pointer"
-                onClick={() => router.push(`/books/edit/${book.id}`)}
+                onClick={handleEdit}
               />
             </TooltipTrigger>
             <TooltipContent>ویرایش کتاب</TooltipContent>
@@ -169,4 +182,6 @@ export default function BookCard({ book, onStatusChange }: BookCardProps) {
       </TooltipProvider>
     </Card>
   );
-}
+});
+
+export default BookCard;

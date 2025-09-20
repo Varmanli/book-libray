@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { Book } from "@/db/schema";
 import jwt from "jsonwebtoken";
-import { eq, or, ilike, desc } from "drizzle-orm";
+import { eq, or, ilike, desc, and } from "drizzle-orm";
 
 // GET: Search books by title, author, or genre
 export async function GET(req: NextRequest) {
@@ -34,12 +34,16 @@ export async function GET(req: NextRequest) {
       .select()
       .from(Book)
       .where(
-        eq(Book.userId, userId) &&
+        and(
+          eq(Book.userId, userId),
           or(
             ilike(Book.title, searchTerm),
             ilike(Book.author, searchTerm),
-            ilike(Book.genre, searchTerm)
+            ilike(Book.genre, searchTerm),
+            ilike(Book.translator, searchTerm),
+            ilike(Book.publisher, searchTerm)
           )
+        )
       )
       .orderBy(desc(Book.createdAt))
       .limit(limit)
@@ -50,12 +54,16 @@ export async function GET(req: NextRequest) {
       .select({ count: Book.id })
       .from(Book)
       .where(
-        eq(Book.userId, userId) &&
+        and(
+          eq(Book.userId, userId),
           or(
             ilike(Book.title, searchTerm),
             ilike(Book.author, searchTerm),
-            ilike(Book.genre, searchTerm)
+            ilike(Book.genre, searchTerm),
+            ilike(Book.translator, searchTerm),
+            ilike(Book.publisher, searchTerm)
           )
+        )
       );
 
     const total = totalResult.length;
@@ -75,4 +83,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

@@ -107,7 +107,15 @@ export async function GET(req: NextRequest) {
       .where(eq(Book.userId, userId))
       .orderBy(desc(Book.createdAt)); // ✅ استفاده از desc() برای type-safe
 
-    return NextResponse.json({ Book: userBooks });
+    const response = NextResponse.json({ Book: userBooks });
+
+    // Cache for 1 minute
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+
+    return response;
   } catch (err) {
     console.error(err);
     return NextResponse.json(

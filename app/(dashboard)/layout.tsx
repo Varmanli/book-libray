@@ -1,6 +1,7 @@
 import Footer from "@/components/Footer";
 import "../globals.css";
 import Header from "@/components/Header";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -29,7 +30,9 @@ export default async function DashboardLayout({
     <>
       <div className="flex flex-col min-h-screen">
         <Header />
-        <main className="flex-1 pt-33 md:pt-20">{children}</main>
+        <main className="flex-1 pt-33 md:pt-20">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
         <Footer />
       </div>
       <Toaster position="top-center" />

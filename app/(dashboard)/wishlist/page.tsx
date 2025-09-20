@@ -18,7 +18,14 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Pencil, Check } from "lucide-react";
+import {
+  Pencil,
+  Check,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 type Priority =
@@ -37,6 +44,7 @@ interface WishlistItem {
   translator?: string | null;
   priority: Priority;
   note?: string | null;
+  createdAt: string;
 }
 
 interface FormData {
@@ -48,6 +56,15 @@ interface FormData {
   priority: Priority;
   note?: string;
 }
+
+type SortField =
+  | "title"
+  | "author"
+  | "publisher"
+  | "genre"
+  | "priority"
+  | "createdAt";
+type SortOrder = "asc" | "desc";
 
 export default function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
@@ -67,6 +84,10 @@ export default function WishlistPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
   const priorities: { value: Priority; label: string }[] = [
     { value: "MUST_HAVE", label: "حتما باید بخرم 🟢" },
     { value: "WANT_IT", label: "خیلی دلم می‌خواد 🔵" },
@@ -78,12 +99,13 @@ export default function WishlistPage() {
   // ⚡ بارگذاری لیست اولیه
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [sortField, sortOrder]);
 
   const fetchItems = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/wishlist", { credentials: "include" });
+      const url = `/api/wishlist?sortBy=${sortField}&sortOrder=${sortOrder}`;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         toast.error(err?.error || "خطا در دریافت لیست");
@@ -105,6 +127,28 @@ export default function WishlistPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  // Get sort icon for a field
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-4 h-4" />;
+    }
+    return sortOrder === "asc" ? (
+      <ArrowUp className="w-4 h-4" />
+    ) : (
+      <ArrowDown className="w-4 h-4" />
+    );
   };
 
   const handleChange = (
@@ -209,21 +253,28 @@ export default function WishlistPage() {
   };
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       {/* هدر و دکمه افزودن */}
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-medium">لیست خرید کتاب</h2>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-primary">لیست خرید کتاب</h2>
+          <p className="text-gray-300 mt-1 text-sm">
+            مدیریت کتاب‌های مورد علاقه‌تان برای خرید آینده
+          </p>
+        </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>+ افزودن / ویرایش کتاب</Button>
+            <Button className="bg-primary hover:bg-primary/90">
+              + افزودن کتاب جدید
+            </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg bg-gray-900 text-white rounded-lg p-6">
             <DialogHeader>
               <DialogTitle>
-                {editingId ? "ویرایش کتاب" : "افزودن کتاب"}
+                {editingId ? "ویرایش کتاب" : "افزودن کتاب"}{" "}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-2">
+            <div className="space-y-3 mt-2">
               <Input
                 placeholder="نام کتاب"
                 name="title"
@@ -271,7 +322,7 @@ export default function WishlistPage() {
                     <SelectItem key={p.value} value={p.value}>
                       {p.label}
                     </SelectItem>
-                  ))}
+                  ))}{" "}
                 </SelectContent>
               </Select>
               <Textarea
@@ -280,9 +331,9 @@ export default function WishlistPage() {
                 value={formData.note}
                 onChange={handleChange}
               />
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-3">
                 <Button
-                  className="flex-1"
+                  className="flex-1 bg-primary hover:bg-primary/90"
                   onClick={handleSave}
                   disabled={isSaving}
                 >
@@ -296,6 +347,7 @@ export default function WishlistPage() {
                 </Button>
                 <Button
                   variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
                   onClick={() => {
                     resetForm();
                     setOpen(false);
@@ -308,65 +360,201 @@ export default function WishlistPage() {
           </DialogContent>
         </Dialog>
       </div>
-
       {/* لیست کتاب‌ها */}
       {isLoading ? (
-        <div className="p-6 text-center text-gray-500">در حال بارگذاری...</div>
+        <div className="p-6 text-center text-gray-100">
+          <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-2">در حال بارگذاری...</p>
+        </div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center">
-          <p className="mb-4 text-gray-600">
+        <div className="rounded-lg border border-dashed border-gray-700 p-6 text-center text-gray-100">
+          <p className="mb-4">
             📚 هیچ کتابی اضافه نشده — لطفاً یک مورد اضافه کنید.
           </p>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>افزودن کتاب</Button>
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                افزودن کتاب
+              </Button>
             </DialogTrigger>
           </Dialog>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300 text-sm">
-            <thead>
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full border-collapse border border-gray-700 text-sm text-gray-300">
+            <thead className="bg-gray-800 text-gray-300">
               <tr>
-                <th className="border p-2">عنوان</th>
-                <th className="border p-2">نویسنده</th>
-                <th className="border p-2">ناشر</th>
-                <th className="border p-2">ژانر</th>
-                <th className="border p-2">مترجم</th>
-                <th className="border p-2">اولویت</th>
-                <th className="border p-2">یادداشت</th>
-                <th className="border p-2">عملیات</th>
+                {[
+                  { key: "title", label: "عنوان" },
+                  { key: "author", label: "نویسنده" },
+                  { key: "priority", label: "اولویت" },
+                  { key: "publisher", label: "ناشر", desktopOnly: true },
+                  { key: "genre", label: "ژانر", desktopOnly: true },
+                  { key: "translator", label: "مترجم", desktopOnly: true },
+                  { key: "note", label: "یادداشت", desktopOnly: true },
+                  { key: "createdAt", label: "تاریخ اضافه", desktopOnly: true },
+                  { key: "actions", label: "عملیات" },
+                ].map((col) => (
+                  <th
+                    key={col.key}
+                    className={`border p-3 text-right ${
+                      col.key !== "actions"
+                        ? "cursor-pointer hover:bg-gray-700 select-none"
+                        : ""
+                    } ${col.desktopOnly ? "hidden md:table-cell" : ""}`}
+                    onClick={() =>
+                      col.key !== "actions" && handleSort(col.key as SortField)
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      {col.label}
+                      {col.key !== "actions" &&
+                        getSortIcon(col.key as SortField)}
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="border p-2">{item.title}</td>
-                  <td className="border p-2">{item.author}</td>
-                  <td className="border p-2">{item.publisher || "—"}</td>
-                  <td className="border p-2">{item.genre || "—"}</td>
-                  <td className="border p-2">{item.translator || "—"}</td>
-                  <td className="border p-2">
-                    {priorities.find((p) => p.value === item.priority)?.label}
+                <tr
+                  key={item.id}
+                  className="hover:bg-gray-700 transition-colors text-xs md:text-sm"
+                >
+                  <td className="border p-3 font-medium">{item.title}</td>
+                  <td className="border p-3">{item.author}</td>
+                  <td className="border p-3">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        item.priority === "MUST_HAVE"
+                          ? "bg-green-700 text-green-100"
+                          : item.priority === "WANT_IT"
+                          ? "bg-blue-700 text-blue-100"
+                          : item.priority === "NICE_TO_HAVE"
+                          ? "bg-yellow-700 text-yellow-100"
+                          : item.priority === "IF_EXTRA_MONEY"
+                          ? "bg-orange-700 text-orange-100"
+                          : "bg-gray-600 text-gray-100"
+                      }`}
+                    >
+                      {priorities.find((p) => p.value === item.priority)?.label}
+                    </span>
                   </td>
-                  <td className="border p-2">{item.note || "—"}</td>
-                  <td className="border p-2 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(item)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleDelete(item.id)}
-                      disabled={deletingId === item.id}
-                    >
-                      <Check className="w-4 h-4" />{" "}
-                      {deletingId === item.id ? "در حال حذف..." : "خریدمش"}
-                    </Button>
+                  <td className="border p-3 hidden md:table-cell">
+                    {item.publisher || "—"}
+                  </td>
+                  <td className="border p-3 hidden md:table-cell">
+                    {item.genre || "—"}
+                  </td>
+                  <td className="border p-3 hidden md:table-cell">
+                    {item.translator || "—"}
+                  </td>
+                  <td
+                    className="border p-3 max-w-xs truncate hidden md:table-cell"
+                    title={item.note || ""}
+                  >
+                    {item.note || "—"}
+                  </td>
+                  <td className="border p-3 text-sm hidden md:table-cell">
+                    {new Date(item.createdAt).toLocaleDateString("fa-IR")}
+                  </td>
+                  <td className="border p-3 text-center">
+                    {/* موبایل: سه نقطه → مودال جزئیات */}
+                    <div className="md:hidden">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 w-7 p-0"
+                          >
+                            ⋮
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-gray-900 text-white rounded-lg p-6">
+                          <DialogHeader>
+                            <DialogTitle>جزئیات کتاب</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-2 text-sm mt-3">
+                            <p>
+                              <strong>عنوان:</strong> {item.title}
+                            </p>
+                            <p>
+                              <strong>نویسنده:</strong> {item.author}
+                            </p>
+                            <p>
+                              <strong>ناشر:</strong> {item.publisher || "—"}
+                            </p>
+                            <p>
+                              <strong>ژانر:</strong> {item.genre || "—"}
+                            </p>
+                            <p>
+                              <strong>مترجم:</strong> {item.translator || "—"}
+                            </p>
+                            <p>
+                              <strong>اولویت:</strong>{" "}
+                              {
+                                priorities.find(
+                                  (p) => p.value === item.priority
+                                )?.label
+                              }
+                            </p>
+                            <p>
+                              <strong>یادداشت:</strong> {item.note || "—"}
+                            </p>
+                            <p>
+                              <strong>تاریخ اضافه:</strong>{" "}
+                              {new Date(item.createdAt).toLocaleDateString(
+                                "fa-IR"
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex justify-end gap-2 mt-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(item)}
+                            >
+                              ویرایش
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                            >
+                              حذف
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                    {/* دسکتاپ: دکمه‌های مستقیم */}
+                    <div className="hidden md:flex gap-2 justify-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(item)}
+                        className="h-8 w-8 p-0"
+                        title="ویرایش"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deletingId === item.id}
+                        className="h-8 w-8 p-0"
+                        title="حذف"
+                      >
+                        {deletingId === item.id ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
