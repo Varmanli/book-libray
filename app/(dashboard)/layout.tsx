@@ -35,7 +35,6 @@ export default async function DashboardLayout({
         </main>
         <Footer />
       </div>
-      <Toaster position="top-center" />
     </>
   );
 }

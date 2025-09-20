@@ -28,9 +28,9 @@ export default function Header() {
   };
 
   return (
-    <header className="w-[100%]  z-20 fixed bg-background">
+    <header className="fixed top-0 left-0 right-0 z-20 bg-background h-20">
       <div className="mx-auto px-4">
-        <div className="flex justify-between items-center h-20 px-2 md:px-20">
+        <div className="flex justify-between items-center h-20 px-2 md:mx-20">
           {/* راست: لوگو و منو موبایل */}
           <div className="w-full md:w-auto flex justify-between items-center gap-4 p-2">
             {/* منوی همبرگری موبایل */}
