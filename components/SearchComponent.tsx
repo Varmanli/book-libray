@@ -49,8 +49,8 @@ const SearchComponent = memo(function SearchComponent({
   const router = useRouter();
 
   // Debounce search function
-  const debouncedSearch = useCallback(
-    debounce(async (searchQuery: string) => {
+  const debouncedSearch = useMemo(
+    () => debounce(async (searchQuery: string) => {
       if (searchQuery.trim().length < 2) {
         setResults([]);
         setShowDropdown(false);

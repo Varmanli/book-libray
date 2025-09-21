@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, useCallback, ChangeEvent } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -98,12 +98,7 @@ export default function WishlistPage() {
     { value: "NOT_IMPORTANT", label: "فعلا مهم نیست ⚪" },
   ];
 
-  // ⚡ بارگذاری لیست اولیه
-  useEffect(() => {
-    fetchItems();
-  }, [sortField, sortOrder]);
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setIsLoading(true);
     try {
       const url = `/api/wishlist?sortBy=${sortField}&sortOrder=${sortOrder}`;
@@ -129,7 +124,12 @@ export default function WishlistPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sortField, sortOrder]);
+
+  // ⚡ بارگذاری لیست اولیه
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   // Handle sorting
   const handleSort = (field: SortField) => {

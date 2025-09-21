@@ -2,6 +2,10 @@
 
 import { BookLoading } from "./Loading";
 
-export default function LoadingBooks() {
-  return <BookLoading text="در حال بارگذاری کتاب‌ها..." />;
+interface LoadingBooksProps {
+  message?: string;
+}
+
+export default function LoadingBooks({ message = "در حال بارگذاری کتاب‌ها..." }: LoadingBooksProps) {
+  return <BookLoading text={message} />;
 }

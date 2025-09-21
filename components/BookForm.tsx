@@ -17,7 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Upload, X, Loader2 } from "lucide-react";
-import ReadingProgress from "@/components/ReadingProgress";
 
 export const bookSchema = z.object({
   title: z.string().min(1, "عنوان الزامی است"),
@@ -175,9 +174,11 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
         {preview && (
           <div className="relative w-36 h-52 border rounded-2xl overflow-hidden shadow-md">
             {preview.startsWith("blob:") || preview.startsWith("data:") ? (
-              <img
+              <Image
                 src={preview}
                 alt="preview"
+                width={144}
+                height={208}
                 className="object-cover w-full h-full"
               />
             ) : (

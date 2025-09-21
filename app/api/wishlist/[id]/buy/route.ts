@@ -26,7 +26,7 @@ function extractAndValidateToken(
 // 📌 خرید کتاب از Wishlist و اضافه کردن به Owned Books
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // اعتبارسنجی توکن
@@ -39,7 +39,7 @@ export async function POST(
     }
     const { userId } = tokenValidation;
 
-    const wishlistId = params.id;
+    const { id: wishlistId } = await params;
 
     // دریافت آیتم از Wishlist
     const wishlistItem = await db
