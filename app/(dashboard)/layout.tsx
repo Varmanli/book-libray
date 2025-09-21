@@ -2,6 +2,7 @@ import Footer from "@/components/Footer";
 import "../globals.css";
 import Header from "@/components/Header";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { PageLoading } from "@/components/Loading";
 import { Toaster } from "react-hot-toast";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

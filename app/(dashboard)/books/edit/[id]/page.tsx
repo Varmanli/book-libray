@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import BookForm, { BookFormType } from "@/components/BookForm";
 import toast from "react-hot-toast";
+import Loading from "@/components/Loading";
 
 export default function EditBookPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string | undefined;
 
   const [book, setBook] = useState<Partial<BookFormType> | null>(null);
@@ -120,6 +122,9 @@ export default function EditBookPage() {
         return;
       }
       toast.success(result.message || "کتاب با موفقیت ویرایش شد");
+
+      // Redirect to book detail page
+      router.push(`/books/${id}`);
     } catch (err) {
       console.error(err);
       toast.error("خطای سرور در ویرایش کتاب");
@@ -127,7 +132,11 @@ export default function EditBookPage() {
   };
 
   if (loading)
-    return <p className="text-center py-10">⏳ در حال بارگذاری...</p>;
+    return (
+      <p className="text-center py-10">
+        <Loading />
+      </p>
+    );
   if (!book)
     return <p className="text-center py-10 text-red-500">کتاب پیدا نشد</p>;
 

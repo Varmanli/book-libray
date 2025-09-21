@@ -20,6 +20,7 @@ import { BookType, QuoteType } from "@/types";
 import React, { useState } from "react";
 import QuoteModal from "./QuoteModal";
 import Image from "next/image";
+import ReadingProgress from "./ReadingProgress";
 
 interface BookPageUIProps {
   book: BookType;
@@ -39,6 +40,8 @@ interface BookPageUIProps {
   onAddQuote: (content: string, page?: number) => Promise<void>;
   onUpdateQuote: (quote: QuoteType) => Promise<void>;
   onRemoveQuote: (quoteId: string) => Promise<void>;
+  progress?: number;
+  onProgressChange?: (progress: number) => void;
 }
 
 export default function BookPageUI({
@@ -58,6 +61,8 @@ export default function BookPageUI({
   onAddQuote,
   onUpdateQuote,
   onRemoveQuote,
+  progress = 0,
+  onProgressChange,
 }: BookPageUIProps) {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
@@ -76,7 +81,6 @@ export default function BookPageUI({
     }
   };
 
-  // افزودن نقل قول
   const handleAddQuote = async () => {
     const val = quoteInput.trim();
     if (!val) return;
@@ -88,20 +92,17 @@ export default function BookPageUI({
     await onAddQuote(val, quotePageInput || undefined);
   };
 
-  // کلیک روی نقل قول برای ویرایش
   const handleQuoteClick = (quote: QuoteType) => {
     setSelectedQuote(quote);
     setShowQuoteEditModal(true);
   };
 
-  // ویرایش نقل قول
   const handleUpdateQuote = async (updatedQuote: QuoteType) => {
     await onUpdateQuote(updatedQuote);
     setShowQuoteEditModal(false);
     setSelectedQuote(null);
   };
 
-  // حذف نقل قول
   const handleDeleteQuote = async (quoteId: string) => {
     await onRemoveQuote(quoteId);
     setShowQuoteEditModal(false);
@@ -112,8 +113,8 @@ export default function BookPageUI({
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex flex-col gap-8">
         {/* بخش بالای صفحه */}
-        <div className="flex flex-col  md:flex-row-reverse justify-around items-stretch gap-10">
-          {book.coverImage && (
+        <div className="flex flex-col md:flex-row-reverse justify-around items-stretch gap-10">
+          {book?.coverImage && (
             <div className="relative w-full md:w-1/3 h-130 md:h-auto rounded-lg overflow-hidden shadow-lg">
               <Image
                 src={book.coverImage}
@@ -125,7 +126,7 @@ export default function BookPageUI({
           )}
           <div className="flex flex-col gap-5 w-full">
             <h1 className="flex justify-between items-center text-4xl font-extrabold text-primary mt-4">
-              {book.title}
+              {book?.title}
               <Button
                 variant="destructive"
                 onClick={onDelete}
@@ -136,29 +137,30 @@ export default function BookPageUI({
             </h1>
 
             {/* کارت جزئیات کتاب */}
-            {/* کارت جزئیات کتاب */}
             <div className="grid grid-cols-[1fr_3fr] gap-2">
-              {[
-                { label: "نویسنده", value: book.author },
-                { label: "مترجم", value: book.translator },
-                { label: "ژانر", value: book.genre },
-                { label: "ناشر", value: book.publisher }, // 👈 اینو اضافه کردم
-                { label: "تعداد صفحات", value: book.pageCount },
-                { label: "کشور", value: book.country },
-                { label: "امتیاز شما", value: rating },
-              ].map(
-                (item, idx) =>
-                  item.value && (
-                    <React.Fragment key={idx}>
-                      <div className="bg-gray-700/50 p-2 flex justify-center items-center text-gray-300 text-sm md:text-base rounded-sm">
-                        {item.label}
-                      </div>
-                      <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base rounded-sm">
-                        {item.value}
-                      </div>
-                    </React.Fragment>
-                  )
-              )}
+              {book &&
+                [
+                  { label: "نویسنده", value: book.author },
+                  { label: "مترجم", value: book.translator },
+                  { label: "ژانر", value: book.genre },
+                  { label: "ناشر", value: book.publisher },
+                  { label: "تعداد صفحات", value: book.pageCount },
+                  { label: "کشور", value: book.country },
+                  { label: "امتیاز شما", value: rating },
+                ].map(
+                  (item, idx) =>
+                    item.value !== null &&
+                    item.value !== undefined && (
+                      <React.Fragment key={idx}>
+                        <div className="bg-gray-700/50 p-2 flex justify-center items-center text-gray-300 text-sm md:text-base rounded-sm">
+                          {item.label}
+                        </div>
+                        <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base rounded-sm">
+                          {item.value}
+                        </div>
+                      </React.Fragment>
+                    )
+                )}
 
               <div className="bg-gray-700/50 flex justify-center items-center rounded-sm p-2 text-gray-300 text-sm md:text-base">
                 وضعیت خواندن
@@ -198,8 +200,7 @@ export default function BookPageUI({
                           i < (rating ?? 0)
                             ? "text-yellow-400"
                             : "text-gray-400/20"
-                        }
-`}
+                        }`}
                         onClick={() => setRating(i + 1)}
                       />
                     ))}
@@ -220,6 +221,17 @@ export default function BookPageUI({
             </Dialog>
           </div>
         </div>
+
+        {/* Reading Progress پایین div اول و تمام عرض */}
+        {status === "READING" && onProgressChange && (
+          <div className="w-full mt-6">
+            <ReadingProgress
+              progress={progress}
+              pageCount={book.pageCount ?? 0}
+              onProgressChange={onProgressChange}
+            />
+          </div>
+        )}
 
         {/* خلاصه و نظر شخصی */}
         <div className="flex flex-col gap-4">

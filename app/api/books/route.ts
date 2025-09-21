@@ -16,6 +16,8 @@ interface BookBody {
   pageCount?: number;
   format: "PHYSICAL" | "ELECTRONIC";
   publisher?: string;
+  status?: "UNREAD" | "READING" | "FINISHED";
+  progress?: number;
 }
 
 // 📌 ایجاد کتاب جدید

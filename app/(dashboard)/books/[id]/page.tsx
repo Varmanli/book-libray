@@ -20,6 +20,7 @@ export default function BookPageContainer() {
   const [quotes, setQuotes] = useState<QuoteType[]>([]);
   const [publisher, setPublisher] = useState<string>(""); // 👈 publisher state
   const [showModal, setShowModal] = useState(false);
+  const [progress, setProgress] = useState<number>(0);
 
   // 📌 گرفتن اطلاعات کتاب + ناشر
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function BookPageContainer() {
         setReview(b.review || "");
         setQuotes(b.quotes || []);
         setPublisher(b.publisher || ""); // 👈 گرفتن publisher
+        setProgress(b.progress || 0); // 👈 گرفتن progress
       } catch {
         toast.error("خطا در ارتباط با سرور");
       } finally {
@@ -119,6 +121,7 @@ export default function BookPageContainer() {
       setReview(data.book.review || "");
       setQuotes(data.book.quotes || []);
       setPublisher(data.book.publisher || ""); // 👈 بروزرسانی publisher
+      setProgress(data.book.progress || 0); // 👈 بروزرسانی progress
       toast.success("تغییرات ذخیره شد");
     } catch {
       toast.error("خطا در ارتباط با سرور");
@@ -166,6 +169,12 @@ export default function BookPageContainer() {
     }
   };
 
+  // 📌 بروزرسانی پیشرفت خواندن
+  const handleProgressChange = async (newProgress: number) => {
+    setProgress(newProgress);
+    await updateBook({ progress: newProgress });
+  };
+
   if (loading) return <LoadingBooks />;
   if (!book)
     return <p className="text-center py-10 text-red-500">کتاب پیدا نشد</p>;
@@ -183,6 +192,8 @@ export default function BookPageContainer() {
       setShowModal={setShowModal}
       setRating={setRating}
       setReview={setReview}
+      progress={progress}
+      onProgressChange={handleProgressChange}
       onStatusChange={(newStatus) => {
         setStatus(newStatus);
         if (newStatus === "FINISHED") setShowModal(true);

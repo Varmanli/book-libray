@@ -1,9 +1,34 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import BookForm, { BookFormType } from "@/components/BookForm";
 import toast from "react-hot-toast";
 
 export default function AddBookPage() {
+  const searchParams = useSearchParams();
+  const [initialValues, setInitialValues] = useState<Partial<BookFormType>>({});
+
+  useEffect(() => {
+    // Extract URL parameters for pre-filling form
+    const title = searchParams.get("title");
+    const author = searchParams.get("author");
+    const publisher = searchParams.get("publisher");
+    const genre = searchParams.get("genre");
+    const translator = searchParams.get("translator");
+
+    if (title || author || publisher || genre || translator) {
+      setInitialValues({
+        title: title || "",
+        author: author || "",
+        publisher: publisher || "",
+        genre: genre || "",
+        translator: translator || "",
+        format: "PHYSICAL",
+        pageCount: 0,
+      });
+    }
+  }, [searchParams]);
   const handleSubmit = async (data: BookFormType) => {
     try {
       let coverUrl: string | undefined = undefined;
@@ -56,7 +81,7 @@ export default function AddBookPage() {
       <h1 className="text-3xl font-extrabold mb-8 text-center text-primary">
         📚 ثبت کتاب جدید
       </h1>
-      <BookForm onSubmit={handleSubmit} />
+      <BookForm initialValues={initialValues} onSubmit={handleSubmit} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Upload, X, Loader2 } from "lucide-react";
+import ReadingProgress from "@/components/ReadingProgress";
 
 export const bookSchema = z.object({
   title: z.string().min(1, "عنوان الزامی است"),
@@ -29,6 +30,8 @@ export const bookSchema = z.object({
   pageCount: z.number().min(1, "تعداد صفحات معتبر نیست"),
   format: z.enum(["PHYSICAL", "ELECTRONIC"]),
   cover: z.any().optional(),
+  status: z.enum(["UNREAD", "READING", "FINISHED"]).optional(),
+  progress: z.number().min(0).max(100).optional(),
 });
 
 export type BookFormType = z.infer<typeof bookSchema>;
@@ -57,6 +60,8 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
       pageCount: 0,
       format: "PHYSICAL",
       cover: undefined,
+      status: "UNREAD",
+      progress: 0,
     },
   });
 
@@ -80,6 +85,9 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
       pageCount,
       format: (initialValues.format as "PHYSICAL" | "ELECTRONIC") ?? "PHYSICAL",
       cover: initialValues.cover ?? undefined,
+      status:
+        (initialValues.status as "UNREAD" | "READING" | "FINISHED") ?? "UNREAD",
+      progress: initialValues.progress ?? 0,
     };
 
     form.reset(vals as any);
@@ -241,28 +249,29 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
         <Textarea {...form.register("description")} className="h-70" />
       </div>
 
-      <div>
-        <Label className="pb-2">فرمت</Label>
-        <Controller
-          control={form.control}
-          name="format"
-          render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(v) => field.onChange(v as any)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="انتخاب فرمت" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PHYSICAL">چاپی</SelectItem>
-                <SelectItem value="ELECTRONIC">الکترونیکی</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label className="pb-2">فرمت</Label>
+          <Controller
+            control={form.control}
+            name="format"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(v) => field.onChange(v as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="انتخاب فرمت" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PHYSICAL">چاپی</SelectItem>
+                  <SelectItem value="ELECTRONIC">الکترونیکی</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
       </div>
-
       <Button
         type="submit"
         className="w-full text-lg py-5 rounded-2xl bg-primary flex items-center justify-center gap-2"

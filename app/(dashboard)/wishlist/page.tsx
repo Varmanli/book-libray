@@ -25,8 +25,10 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
+  ShoppingCart,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PageLoading } from "@/components/Loading";
 
 type Priority =
   | "MUST_HAVE"
@@ -252,6 +254,36 @@ export default function WishlistPage() {
     }
   };
 
+  const handleBuy = async (item: WishlistItem) => {
+    try {
+      const res = await fetch(`/api/wishlist/${item.id}/buy`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        toast.success("کتاب به کتابخانه اضافه شد");
+        fetchItems();
+        // Navigate to add book page with pre-filled data
+        window.location.href = `/books/add?title=${encodeURIComponent(
+          item.title
+        )}&author=${encodeURIComponent(
+          item.author
+        )}&publisher=${encodeURIComponent(
+          item.publisher || ""
+        )}&genre=${encodeURIComponent(
+          item.genre || ""
+        )}&translator=${encodeURIComponent(item.translator || "")}`;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "خطا در خرید کتاب");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("خطا در خرید کتاب");
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* هدر و دکمه افزودن */}
@@ -362,10 +394,7 @@ export default function WishlistPage() {
       </div>
       {/* لیست کتاب‌ها */}
       {isLoading ? (
-        <div className="p-6 text-center text-gray-100">
-          <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-2">در حال بارگذاری...</p>
-        </div>
+        <PageLoading text="در حال بارگذاری لیست خرید..." />
       ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-700 p-6 text-center text-gray-100">
           <p className="mb-4">
@@ -513,6 +542,14 @@ export default function WishlistPage() {
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => handleBuy(item)}
+                              className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                            >
+                              خرید
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               onClick={() => handleEdit(item)}
                             >
                               ویرایش
@@ -531,6 +568,15 @@ export default function WishlistPage() {
                     </div>
                     {/* دسکتاپ: دکمه‌های مستقیم */}
                     <div className="hidden md:flex gap-2 justify-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBuy(item)}
+                        className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white border-green-600"
+                        title="خرید"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"

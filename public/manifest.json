@@ -1,0 +1,101 @@
+{
+  "name": "قفسه - کتابخانه شخصی",
+  "short_name": "قفسه",
+  "description": "مدیریت کتابخانه شخصی و لیست خرید کتاب",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1C1C22",
+  "theme_color": "#00FF99",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "fa",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.svg",
+      "sizes": "72x72",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.svg",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.svg",
+      "sizes": "144x144",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.svg",
+      "sizes": "152x152",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.svg",
+      "sizes": "384x384",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["books", "education", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "کتابخانه",
+      "short_name": "کتاب‌ها",
+      "description": "مشاهده کتاب‌های موجود",
+      "url": "/books",
+      "icons": [{ "src": "/icons/books-shortcut.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "لیست خرید",
+      "short_name": "خرید",
+      "description": "مدیریت لیست خرید کتاب",
+      "url": "/wishlist",
+      "icons": [{ "src": "/icons/wishlist-shortcut.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "حساب کاربری",
+      "short_name": "آمار",
+      "description": "مشاهده آمار و داشبورد",
+      "url": "/account",
+      "icons": [{ "src": "/icons/account-shortcut.png", "sizes": "96x96" }]
+    }
+  ]
+}
