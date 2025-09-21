@@ -57,7 +57,7 @@ interface BookData {
   country?: string | null;
   status?: string;
   pageCount?: number | null;
-  progress?: number | null;
+  progress?: number | null; // درصد (0-100) یا null
   rating?: number | null;
   createdAt: string;
 }
@@ -68,41 +68,61 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
-    fetchBooks();
+    // بارگذاری موازی دو API و صبر تا اتمام هر دو
+    const loadAll = async () => {
+      setIsLoading(true);
+      try {
+        const [statsRes, booksRes] = await Promise.all([
+          fetch("/api/account/stats", { credentials: "include" }),
+          fetch("/api/books", { credentials: "include" }),
+        ]);
+
+        if (statsRes.ok) {
+          const statsJson = await statsRes.json();
+          setStats(statsJson);
+        } else {
+          toast.error("خطا در دریافت آمار");
+          setStats(null);
+        }
+
+        if (booksRes.ok) {
+          const booksJson = await booksRes.json();
+          setBooks(booksJson.Book || []);
+        } else {
+          toast.error("خطا در دریافت کتاب‌ها");
+          setBooks([]);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("خطا در دریافت داده‌ها");
+        setStats(null);
+        setBooks([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAll();
   }, []);
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch("/api/account/stats", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      } else {
-        toast.error("خطا در دریافت آمار");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("خطا در دریافت آمار");
-    }
-  };
+  // محاسبه مجموع صفحات خوانده‌شده بر اساس داده‌های books (تبدیل logic):
+  // اگر progress عدد هست -> pageCount * progress/100
+  // در غیر این صورت، اگر status === 'FINISHED' فرض می‌کنیم کل صفحات خوانده شده
+  const totalPagesReadFromBooks = books.reduce((acc, b) => {
+    const pageCount = b.pageCount ?? 0;
+    const prog = b.progress;
+    let pagesReadForBook = 0;
 
-  const fetchBooks = async () => {
-    try {
-      const res = await fetch("/api/books", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setBooks(data.Book || []);
-      } else {
-        toast.error("خطا در دریافت کتاب‌ها");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("خطا در دریافت کتاب‌ها");
-    } finally {
-      setIsLoading(false);
+    if (typeof prog === "number") {
+      pagesReadForBook = Math.round(pageCount * (prog / 100));
+    } else if (b.status && b.status.toString().toUpperCase() === "FINISHED") {
+      pagesReadForBook = pageCount;
+    } else {
+      pagesReadForBook = 0;
     }
-  };
+
+    return acc + pagesReadForBook;
+  }, 0);
 
   if (isLoading) {
     return <PageLoading text="در حال بارگذاری آمار..." />;
@@ -154,11 +174,12 @@ export default function AccountPage() {
           icon={Eye}
           description="کتاب‌های هنوز نخوانده"
         />
+        {/* ← این کارت اکنون مقدارش از محاسبه محلی گرفته می‌شود */}
         <StatsCard
           title="صفحات خوانده شده"
-          value={stats.overview.totalPagesRead}
+          value={totalPagesReadFromBooks}
           icon={TrendingUp}
-          description="تعداد صفحات مطالعه شده"
+          description="مجموع صفحات مطالعه شده"
         />
         <StatsCard
           title="لیست خرید"
@@ -172,14 +193,9 @@ export default function AccountPage() {
           icon={Star}
           description="امتیاز متوسط کتاب‌ها"
         />
-        <StatsCard
-          title="میانگین پیشرفت"
-          value={`${stats.overview.avgProgress}%`}
-          icon={BarChart3}
-          description="پیشرفت متوسط در خواندن"
-        />
       </div>
 
+      {/* Charts Section */}
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <BooksChart
@@ -189,19 +205,26 @@ export default function AccountPage() {
           className="h-96"
         />
         <BooksChart
-          data={stats.breakdowns.byFormat}
-          title="توزیع بر اساس فرمت"
-          type="bar"
-          className="h-96"
-        />
-        <BooksChart
           data={stats.breakdowns.byGenre.slice(0, 8)}
           title="برترین ژانرها"
           type="bar"
           className="h-96"
         />
+      </div>
+
+      {/* نویسندگان تمام عرض */}
+      <div className="mb-8">
         <BooksChart
-          data={stats.breakdowns.byAuthor.slice(0, 8)}
+          data={stats.breakdowns.byAuthor.slice(0, 8).map((item) => {
+            const lastSpaceIndex = item.name.lastIndexOf(" ");
+            return {
+              ...item,
+              name:
+                lastSpaceIndex !== -1
+                  ? item.name.slice(lastSpaceIndex + 1)
+                  : item.name,
+            };
+          })}
           title="برترین نویسندگان"
           type="bar"
           className="h-96"
@@ -219,22 +242,10 @@ export default function AccountPage() {
         <BooksChart
           data={stats.breakdowns.byCountry.slice(0, 6)}
           title="توزیع بر اساس کشور"
-          type="line"
+          type="bar"
           className="h-96"
         />
       </div>
-
-      {/* Monthly Trend */}
-      {stats.trends.monthly.length > 0 && (
-        <div className="mb-8">
-          <BooksChart
-            data={stats.trends.monthly}
-            title="روند ماهانه اضافه کردن کتاب"
-            type="line"
-            className="h-96"
-          />
-        </div>
-      )}
 
       {/* Books Table */}
       <BooksTable
