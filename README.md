@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Ghafaseh
 
-## Getting Started
+Ghafaseh is a platform for serious book lovers.  
+Add your books, track your reading status, and keep your notes and highlights always with you.  
+Build your wishlist for future purchases so you never miss a great book.
 
-First, run the development server:
+All your books, in one place, organized and accessible ✨
+
+---
+
+## 🚀 Tech Stack
+
+- [Next.js](https://nextjs.org/) – Fullstack framework
+- [TypeScript](https://www.typescriptlang.org/) – Type safety
+- [Tailwind CSS](https://tailwindcss.com/) – Modern styling
+- [Shadcn/ui](https://ui.shadcn.com/) – UI components
+- [Dreezle ORM](https://github.com/dreezle/dreezle) – Database management
+- [PostgreSQL](https://www.postgresql.org/) – Relational database
+- PWA (Progressive Web App) – Installable on desktop & mobile
+
+---
+
+## ✨ Features
+
+- 📖 Add books with full details (title, author, translator, cover, etc.)
+- 📊 Track reading status (Read / Reading / To Read)
+- 📝 Save notes and highlights for each book
+- 🛒 Build and manage wishlist
+- 📈 Reading stats dashboard
+- 🔍 Search across your library
+- 🌙 Dark mode support
+- 📱 Installable as a PWA
+
+---
+
+## ⚡ Getting Started
 
 ```bash
+# Clone repository
+git clone https://github.com/your-username/ghafaseh.git
+
+cd ghafaseh
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 📌 Roadmap
 
-To learn more about Next.js, take a look at the following resources:
+- [ ] User profiles & authentication
+- [ ] Shareable lists with friends
+- [ ] Mobile-optimized layout
+- [ ] Reading reminders & notifications
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📜 License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT License © 2025 – Built with ❤️ by [Amirhossein Varmanli](https://github.com/amirhosseinvarmanli)
+```

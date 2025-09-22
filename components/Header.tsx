@@ -16,29 +16,9 @@ import {
 import { Button } from "@/components/ui/button";
 import SearchComponent from "@/components/SearchComponent";
 
-import { IoLibrary } from "react-icons/io5";
-import { FiMenu, FiX } from "react-icons/fi";
-import {
-  FaBookOpen,
-  FaHome,
-  FaShoppingCart,
-  FaChartBar,
-  FaCog,
-  FaSignOutAlt,
-  FaPlus,
-} from "react-icons/fa";
-import { FaCircleUser } from "react-icons/fa6";
+import { FaBookOpen, FaPlus } from "react-icons/fa";
 import { IoIosAddCircle } from "react-icons/io";
-import {
-  BookOpen,
-  Heart,
-  BarChart3,
-  Settings,
-  LogOut,
-  Home,
-  Menu,
-  X,
-} from "lucide-react";
+import { BookOpen, Heart, BarChart3, Home, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -56,6 +36,7 @@ export default function Header() {
       href: "/books",
       icon: BookOpen,
       description: "مشاهده کتاب‌های موجود",
+      exact: true,
     },
     {
       name: "لیست خرید",
@@ -69,17 +50,25 @@ export default function Header() {
       icon: BarChart3,
       description: "داشبورد و آمار",
     },
+    {
+      name: "افزودن کتاب",
+      href: "/books/add",
+      icon: FaPlus,
+      description: "کتاب جدید اضافه کنید",
+      exact: true,
+    },
   ];
 
-  const isActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/";
+  // اکتیو دقیق‌تر
+  const isActive = (href: string, exact = false) => {
+    if (exact) {
+      return pathname === href;
     }
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 py-2  backdrop-blur-md border-b border-gray-800 ">
+    <header className="fixed top-0 left-0 right-0 z-50 py-2 backdrop-blur-md border-b border-gray-800">
       <div className="mx-auto px-4">
         <div className="flex justify-between items-center h-16 px-2 md:mx-20">
           {/* راست: لوگو و منو موبایل */}
@@ -90,10 +79,9 @@ export default function Header() {
                 <SheetTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="sm"
                     className="p-2 hover:bg-gray-800 transition-colors"
                   >
-                    <Menu className="h-6 w-6 text-gray-300" />
+                    <Menu className="text-gray-300" size={30} />
                   </Button>
                 </SheetTrigger>
                 <SheetContent
@@ -112,7 +100,7 @@ export default function Header() {
                           onClick={() => setIsMenuOpen(false)}
                           className="p-2 hover:bg-gray-800"
                         >
-                          <X className="h-5 w-5 text-gray-400" />
+                          <X className="text-gray-400" />
                         </Button>
                       </div>
                     </SheetHeader>
@@ -124,14 +112,14 @@ export default function Header() {
                           href={item.href}
                           onClick={() => setIsMenuOpen(false)}
                           className={`flex items-center gap-4 rounded-xl px-4 py-3 transition-all duration-200 group ${
-                            isActive(item.href)
+                            isActive(item.href, item.exact)
                               ? "bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/30"
                               : "text-gray-300 hover:bg-gray-800 hover:text-white"
                           }`}
                         >
                           <item.icon
-                            className={`h-5 w-5 transition-colors ${
-                              isActive(item.href)
+                            className={`transition-colors ${
+                              isActive(item.href, item.exact)
                                 ? "text-[#00FF99]"
                                 : "text-gray-400 group-hover:text-white"
                             }`}
@@ -144,22 +132,6 @@ export default function Header() {
                           </div>
                         </Link>
                       ))}
-
-                      <div className="pt-4 border-t border-gray-800">
-                        <Link
-                          href="/books/add"
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-4 rounded-xl px-4 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200 group"
-                        >
-                          <FaPlus className="h-5 w-5 text-gray-400 group-hover:text-white" />
-                          <div className="flex-1">
-                            <div className="font-medium">افزودن کتاب</div>
-                            <div className="text-xs text-gray-500 group-hover:text-gray-300">
-                              کتاب جدید اضافه کنید
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
                     </nav>
                   </div>
                 </SheetContent>
@@ -169,7 +141,7 @@ export default function Header() {
             {/* لوگو */}
             <Link href="/" className="flex items-center gap-3 group">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#00FF99]/10 group-hover:bg-[#00FF99]/20 transition-colors">
-                <FaBookOpen className="h-6 w-6 text-[#00FF99]" />
+                <FaBookOpen className="text-[#00FF99]" />
               </span>
               <span className="text-2xl font-extrabold tracking-tight text-white group-hover:text-[#00FF99] transition-colors">
                 قفسه
@@ -194,14 +166,13 @@ export default function Header() {
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
-                        size="lg"
                         className={`p-3 transition-all duration-200 ${
-                          isActive(item.href)
+                          isActive(item.href, item.exact)
                             ? "bg-[#00FF99]/20 text-[#00FF99] hover:bg-[#00FF99]/30"
                             : "text-gray-400 hover:text-white hover:bg-gray-800"
                         }`}
                       >
-                        <item.icon />
+                        <item.icon className="text-xl" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent
@@ -213,26 +184,6 @@ export default function Header() {
                   </Tooltip>
                 </Link>
               ))}
-
-              <Link href="/books/add">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-3 text-gray-400 hover:text-white hover:bg-gray-800 transition-all duration-200"
-                    >
-                      <IoIosAddCircle className="h-6 w-6" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="bg-gray-800 text-white border-gray-700"
-                  >
-                    افزودن کتاب
-                  </TooltipContent>
-                </Tooltip>
-              </Link>
             </TooltipProvider>
           </div>
         </div>

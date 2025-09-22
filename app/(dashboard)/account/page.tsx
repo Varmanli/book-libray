@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import StatsCard from "@/components/StatsCard";
 import BooksChart from "@/components/BooksChart";
 import BooksTable from "@/components/BooksTable";
-import { PageLoading, ChartLoading } from "@/components/Loading";
+import { PageLoading } from "@/components/Loading";
 import {
   BookOpen,
   CheckCircle,
@@ -14,11 +12,6 @@ import {
   Heart,
   Star,
   TrendingUp,
-  BarChart3,
-  Globe,
-  User,
-  Building,
-  Tag,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -43,9 +36,6 @@ interface AccountStats {
     byFormat: { name: string; value: number }[];
     byRating: { name: string; value: number }[];
   };
-  trends: {
-    monthly: { name: string; value: number }[];
-  };
 }
 
 interface BookData {
@@ -57,7 +47,7 @@ interface BookData {
   country?: string | null;
   status?: string;
   pageCount?: number | null;
-  progress?: number | null; // درصد (0-100) یا null
+  progress?: number | null;
   rating?: number | null;
   createdAt: string;
 }
@@ -68,7 +58,6 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // بارگذاری موازی دو API و صبر تا اتمام هر دو
     const loadAll = async () => {
       setIsLoading(true);
       try {
@@ -78,8 +67,7 @@ export default function AccountPage() {
         ]);
 
         if (statsRes.ok) {
-          const statsJson = await statsRes.json();
-          setStats(statsJson);
+          setStats(await statsRes.json());
         } else {
           toast.error("خطا در دریافت آمار");
           setStats(null);
@@ -105,9 +93,6 @@ export default function AccountPage() {
     loadAll();
   }, []);
 
-  // محاسبه مجموع صفحات خوانده‌شده بر اساس داده‌های books (تبدیل logic):
-  // اگر progress عدد هست -> pageCount * progress/100
-  // در غیر این صورت، اگر status === 'FINISHED' فرض می‌کنیم کل صفحات خوانده شده
   const totalPagesReadFromBooks = books.reduce((acc, b) => {
     const pageCount = b.pageCount ?? 0;
     const prog = b.progress;
@@ -115,10 +100,8 @@ export default function AccountPage() {
 
     if (typeof prog === "number") {
       pagesReadForBook = Math.round(pageCount * (prog / 100));
-    } else if (b.status && b.status.toString().toUpperCase() === "FINISHED") {
+    } else if (b.status?.toUpperCase() === "FINISHED") {
       pagesReadForBook = pageCount;
-    } else {
-      pagesReadForBook = 0;
     }
 
     return acc + pagesReadForBook;
@@ -130,145 +113,147 @@ export default function AccountPage() {
 
   if (!stats) {
     return (
-      <div className="p-6">
-        <div className="text-center text-gray-400">
-          <p>خطا در بارگذاری آمار</p>
-        </div>
-      </div>
+      <div className="p-6 text-center text-gray-400">خطا در بارگذاری آمار</div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
           داشبورد حساب کاربری
         </h1>
-        <p className="text-gray-400">آمار و اطلاعات کتابخانه شخصی شما</p>
+        <p className="text-gray-400 text-sm sm:text-base">
+          آمار و اطلاعات کتابخانه شخصی شما
+        </p>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title="کل کتاب‌ها"
-          value={stats.overview.totalBooks}
-          icon={BookOpen}
-          description="تعداد کل کتاب‌های موجود"
-        />
-        <StatsCard
-          title="کتاب‌های تمام شده"
-          value={stats.overview.finishedBooks}
-          icon={CheckCircle}
-          description="کتاب‌هایی که خوانده‌اید"
-        />
-        <StatsCard
-          title="در حال خواندن"
-          value={stats.overview.readingBooks}
-          icon={Clock}
-          description="کتاب‌های در حال مطالعه"
-        />
-        <StatsCard
-          title="خوانده نشده"
-          value={stats.overview.unreadBooks}
-          icon={Eye}
-          description="کتاب‌های هنوز نخوانده"
-        />
-        {/* ← این کارت اکنون مقدارش از محاسبه محلی گرفته می‌شود */}
-        <StatsCard
-          title="صفحات خوانده شده"
-          value={totalPagesReadFromBooks}
-          icon={TrendingUp}
-          description="مجموع صفحات مطالعه شده"
-        />
-        <StatsCard
-          title="لیست خرید"
-          value={stats.overview.totalWishlist}
-          icon={Heart}
-          description="کتاب‌های مورد علاقه"
-        />
-        <StatsCard
-          title="میانگین امتیاز"
-          value={stats.overview.avgRating}
-          icon={Star}
-          description="امتیاز متوسط کتاب‌ها"
-        />
+      {/* Overview in one card */}
+      <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-2xl p-4 sm:p-6">
+        <h2 className="text-lg font-semibold mb-4 text-white">نمای کلی</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[
+            {
+              label: "کل کتاب‌ها",
+              value: stats.overview.totalBooks,
+              icon: BookOpen,
+            },
+            {
+              label: "تمام شده",
+              value: stats.overview.finishedBooks,
+              icon: CheckCircle,
+            },
+            {
+              label: "در حال خواندن",
+              value: stats.overview.readingBooks,
+              icon: Clock,
+            },
+            {
+              label: "خوانده نشده",
+              value: stats.overview.unreadBooks,
+              icon: Eye,
+            },
+            {
+              label: "صفحات خوانده شده",
+              value: totalPagesReadFromBooks,
+              icon: TrendingUp,
+            },
+            {
+              label: "لیست خرید",
+              value: stats.overview.totalWishlist,
+              icon: Heart,
+            },
+            {
+              label: "میانگین امتیاز",
+              value: stats.overview.avgRating,
+              icon: Star,
+            },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 border border-gray-700"
+            >
+              <item.icon className="text-[#00FF99] shrink-0" />
+              <div>
+                <div className="text-base font-bold text-white">
+                  {item.value}
+                </div>
+                <div className="text-xs text-gray-400">{item.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Charts Section */}
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <BooksChart
           data={stats.breakdowns.byStatus}
           title="توزیع بر اساس وضعیت"
-          type="pie"
-          className="h-96"
+          type="bar"
+          className="w-full"
         />
         <BooksChart
           data={stats.breakdowns.byGenre.slice(0, 8)}
           title="برترین ژانرها"
           type="bar"
-          className="h-96"
+          className="w-full"
         />
       </div>
 
-      {/* نویسندگان تمام عرض */}
-      <div className="mb-8">
-        <BooksChart
-          data={stats.breakdowns.byAuthor.slice(0, 8).map((item) => {
-            const lastSpaceIndex = item.name.lastIndexOf(" ");
-            return {
-              ...item,
-              name:
-                lastSpaceIndex !== -1
-                  ? item.name.slice(lastSpaceIndex + 1)
-                  : item.name,
-            };
-          })}
-          title="برترین نویسندگان"
-          type="bar"
-          className="h-96"
-        />
-      </div>
+      <BooksChart
+        data={stats.breakdowns.byAuthor.slice(0, 8).map((item) => {
+          const lastSpaceIndex = item.name.lastIndexOf(" ");
+          return {
+            ...item,
+            name:
+              lastSpaceIndex !== -1
+                ? item.name.slice(lastSpaceIndex + 1)
+                : item.name,
+          };
+        })}
+        title="برترین نویسندگان"
+        type="bar"
+        className="h-80 w-full"
+      />
 
-      {/* Additional Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <BooksChart
           data={stats.breakdowns.byPublisher.slice(0, 6)}
           title="برترین ناشران"
           type="bar"
-          className="h-96"
+          className="h-80 w-full"
         />
         <BooksChart
           data={stats.breakdowns.byCountry.slice(0, 6)}
           title="توزیع بر اساس کشور"
           type="bar"
-          className="h-96"
+          className="h-80 w-full"
         />
       </div>
 
       {/* Books Table */}
-      <BooksTable
-        data={books}
-        title="جدول کتاب‌ها"
-        searchPlaceholder="جستجو در کتاب‌ها..."
-        filterOptions={[
-          { value: "FINISHED", label: "تمام شده" },
-          { value: "READING", label: "در حال خواندن" },
-          { value: "UNREAD", label: "خوانده نشده" },
-        ]}
-      />
+      <div className="overflow-x-auto">
+        <BooksTable
+          data={books}
+          title="جدول کتاب‌ها"
+          searchPlaceholder="جستجو در کتاب‌ها..."
+          filterOptions={[
+            { value: "FINISHED", label: "تمام شده" },
+            { value: "READING", label: "در حال خواندن" },
+            { value: "UNREAD", label: "خوانده نشده" },
+          ]}
+        />
+      </div>
 
-      {/* Rating Distribution */}
       {stats.breakdowns.byRating.length > 0 && (
-        <div className="mt-8">
-          <BooksChart
-            data={stats.breakdowns.byRating}
-            title="توزیع امتیازها"
-            type="bar"
-            className="h-96"
-          />
-        </div>
+        <BooksChart
+          data={stats.breakdowns.byRating}
+          title="توزیع امتیازها"
+          type="bar"
+          className="h-80 w-full"
+        />
       )}
     </div>
   );
