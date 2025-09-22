@@ -23,12 +23,14 @@ function extractAndValidateToken(
   }
 }
 
-// 📌 خرید کتاب از Wishlist و اضافه کردن به Owned Books
+// 📌 خرید کتاب از Wishlist و اضافه کردن به Owned Books در تراکنش
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> } // params یک Promise است
 ) {
   try {
+    const { id: wishlistId } = await params; // ⚡ اینجا باید await شود
+
     // اعتبارسنجی توکن
     const tokenValidation = extractAndValidateToken(req);
     if ("error" in tokenValidation) {
@@ -39,58 +41,72 @@ export async function POST(
     }
     const { userId } = tokenValidation;
 
-    const { id: wishlistId } = await params;
+    // اجرای تراکنش
+    const result = await db.transaction(async (tx) => {
+      // دریافت آیتم از Wishlist
+      const wishlistItem = await tx
+        .select()
+        .from(Wishlist)
+        .where(and(eq(Wishlist.id, wishlistId), eq(Wishlist.userId, userId)))
+        .limit(1);
 
-    // دریافت آیتم از Wishlist
-    const wishlistItem = await db
-      .select()
-      .from(Wishlist)
-      .where(and(eq(Wishlist.id, wishlistId), eq(Wishlist.userId, userId)))
-      .limit(1);
+      if (wishlistItem.length === 0) {
+        throw new Error("NOT_FOUND");
+      }
 
-    if (wishlistItem.length === 0) {
+      const item = wishlistItem[0];
+
+      // ایجاد کتاب جدید
+      const [newBook] = await tx
+        .insert(Book)
+        .values({
+          title: item.title,
+          author: item.author,
+          translator: item.translator,
+          publisher: item.publisher,
+          genre: item.genre || "نامشخص",
+          country: null,
+          description: item.note || null,
+          pageCount: null,
+          format: "PHYSICAL",
+          coverImage: "/placeholder-book.jpg",
+          userId: userId,
+          status: "UNREAD",
+          progress: 0,
+          rating: null,
+          review: null,
+        })
+        .returning();
+
+      if (!newBook || !newBook.id) {
+        throw new Error("INSERT_FAILED");
+      }
+
+      // حذف آیتم از Wishlist
+      await tx.delete(Wishlist).where(eq(Wishlist.id, wishlistId));
+
+      return newBook;
+    });
+
+    return NextResponse.json(
+      {
+        bookId: result.id,
+        book: result,
+        message: "کتاب با موفقیت به کتابخانه اضافه شد",
+      },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error("❌ خطا در خرید کتاب:", err);
+    if (err.message === "NOT_FOUND") {
       return NextResponse.json(
         { error: "آیتم مورد نظر یافت نشد" },
         { status: 404 }
       );
     }
-
-    const item = wishlistItem[0];
-
-    // ایجاد کتاب جدید در Owned Books
-    const [newBook] = await db
-      .insert(Book)
-      .values({
-        title: item.title,
-        author: item.author,
-        translator: item.translator,
-        publisher: item.publisher,
-        genre: item.genre || "نامشخص",
-        country: null,
-        description: item.note || null,
-        pageCount: null,
-        format: "PHYSICAL", // Default format
-        coverImage: "/placeholder-book.jpg", // Default placeholder
-        userId: userId,
-        status: "UNREAD",
-        progress: 0,
-        rating: null,
-        review: null,
-      })
-      .returning();
-
-    // حذف آیتم از Wishlist
-    await db.delete(Wishlist).where(eq(Wishlist.id, wishlistId));
-
-    return NextResponse.json(
-      {
-        book: newBook,
-        message: "کتاب با موفقیت به کتابخانه اضافه شد",
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("❌ خطا در خرید کتاب:", err);
+    if (err.message === "INSERT_FAILED") {
+      return NextResponse.json({ error: "خطا در ثبت کتاب" }, { status: 500 });
+    }
     return NextResponse.json({ error: "خطا در خرید کتاب" }, { status: 500 });
   }
 }

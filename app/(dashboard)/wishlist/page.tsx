@@ -262,18 +262,14 @@ export default function WishlistPage() {
       });
 
       if (res.ok) {
+        const data = await res.json(); // { bookId: "123" }
         toast.success("کتاب به کتابخانه اضافه شد");
-        fetchItems();
-        // Navigate to add book page with pre-filled data
-        window.location.href = `/books/add?title=${encodeURIComponent(
-          item.title
-        )}&author=${encodeURIComponent(
-          item.author
-        )}&publisher=${encodeURIComponent(
-          item.publisher || ""
-        )}&genre=${encodeURIComponent(
-          item.genre || ""
-        )}&translator=${encodeURIComponent(item.translator || "")}`;
+
+        // اگر لازم دارید، لیست Wishlist را دوباره fetch کنید
+        fetchItems?.();
+
+        // هدایت به صفحه Edit همان کتاب
+        window.location.href = `/books/edit/${data.bookId}`;
       } else {
         const err = await res.json().catch(() => ({}));
         toast.error(err?.error || "خطا در خرید کتاب");

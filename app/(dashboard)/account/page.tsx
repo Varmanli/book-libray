@@ -121,10 +121,10 @@ export default function AccountPage() {
     <div className="p-4 sm:p-6 space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+        <h1 className="text-2xl text-center sm:text-3xl font-bold text-primary mb-1">
           داشبورد حساب کاربری
         </h1>
-        <p className="text-gray-400 text-sm sm:text-base">
+        <p className="text-gray-400 text-center text-sm sm:text-base">
           آمار و اطلاعات کتابخانه شخصی شما
         </p>
       </div>
