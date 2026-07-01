@@ -20,21 +20,19 @@ export default function AddBookForm({ authors, genres }: AddBookFormProps) {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState(authors[0] || "");
   const [genre, setGenre] = useState(genres[0] || "");
-  const [format, setFormat] = useState("PHYSICAL");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await fetch("/api/books", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, author, genre, format }),
+      body: JSON.stringify({ title, author, genre }),
     });
 
     // reset form
     setTitle("");
     setAuthor(authors[0] || "");
     setGenre(genres[0] || "");
-    setFormat("PHYSICAL");
 
     window.location.reload(); // ساده‌ترین راه برای ری‌لود
   };
@@ -79,17 +77,6 @@ export default function AddBookForm({ authors, genres }: AddBookFormProps) {
               {g}
             </SelectItem>
           ))}
-        </SelectContent>
-      </Select>
-
-      {/* نوع کتاب */}
-      <Select value={format} onValueChange={setFormat}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="نوع کتاب" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="PHYSICAL">فیزیکی</SelectItem>
-          <SelectItem value="ELECTRONIC">الکترونیکی</SelectItem>
         </SelectContent>
       </Select>
 

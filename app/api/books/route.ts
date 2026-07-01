@@ -14,7 +14,7 @@ interface BookBody {
   country?: string;
   genre: string;
   pageCount?: number;
-  format: "PHYSICAL" | "ELECTRONIC";
+  format?: "PHYSICAL" | "ELECTRONIC";
   publisher?: string;
   status?: "UNREAD" | "READING" | "FINISHED";
   progress?: number;
@@ -54,6 +54,8 @@ export async function POST(req: NextRequest) {
       .insert(Book)
       .values({
         ...body,
+        // قالب چاپی/فیزیکی از محصول حذف شده؛ ستون notNull است پس پیش‌فرض دیجیتال.
+        format: body.format ?? "ELECTRONIC",
         userId,
       })
       .returning({

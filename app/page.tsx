@@ -1,87 +1,115 @@
-"use client";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getLibraryPath, getProfilePath } from "@/lib/library/paths";
+import {
+  getFeaturedBooks,
+  getHeroSlides,
+  getLatestHomeBlogPosts,
+  getPopularBooks,
+  getRecentHomeQuotes,
+  HOME_FALLBACK_SLIDES,
+  type HeroSlideView,
+} from "@/lib/home/service";
+import PublicShell from "@/components/PublicShell";
+import HomeHeroSlider from "@/components/home/HomeHeroSlider";
+import HomeQuickActions from "@/components/home/HomeQuickActions";
+import HomeBookCarousel from "@/components/home/HomeBookCarousel";
+import HomeQuotesSection from "@/components/home/HomeQuotesSection";
+// import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
+// import HomeFeatureCards from "@/components/home/HomeFeatureCards";
+import HomeBlogPreview from "@/components/home/HomeBlogPreview";
 
-import { Button } from "@/components/ui/button";
-import background from "../public/bg.png";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import LoadingBooks from "@/components/LoadingBooks";
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const router = useRouter();
-  const [checking, setChecking] = useState(false); // برای نمایش لودینگ روی دکمه
+export default async function HomePage() {
+  const [
+    user,
+    featuredBooks,
+    popularBooks,
+    recentQuotes,
+    latestBlogPosts,
+    dbHeroSlides,
+  ] = await Promise.all([
+    getCurrentUser(),
+    getFeaturedBooks(12),
+    getPopularBooks(12),
+    getRecentHomeQuotes(10),
+    getLatestHomeBlogPosts(3),
+    getHeroSlides(),
+  ]);
 
-  const handleAuthClick = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "include", // ارسال کوکی HttpOnly
-      });
+  // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
+  // کتاب‌های اخیر عمومی (به‌صورت شفاف با برچسب «تازه‌ترین‌ها»).
+  const hasFeatured = featuredBooks.length > 0;
+  const showcaseBooks = hasFeatured ? featuredBooks : popularBooks;
 
-      if (res.ok) {
-        // توکن معتبر → مستقیم به صفحه کتاب‌ها
-        router.push("/books");
-      } else {
-        // توکن موجود نیست یا نامعتبر → صفحه لاگین
-        router.push("/login");
-      }
-    } catch (err) {
-      console.error("❌ خطا در بررسی توکن:", err);
-      router.push("/login");
-    } finally {
-      setChecking(false);
-    }
-  };
+  const isLoggedIn = !!user;
+  const libraryHref = getLibraryPath(user?.username);
+  const profileHref = getProfilePath(user?.username);
+
+  // اسلایدر از انتخاب ادمین (DB) می‌آید؛ در نبود اسلاید فعال از HOME_FALLBACK_SLIDES
+  // به‌عنوان داده‌ی پیش‌فرض استفاده می‌شود (نه محتوای ادمین).
+  const resolveHref = (href: string) =>
+    href === "/books"
+      ? libraryHref
+      : href === "/settings/profile"
+        ? profileHref
+        : href;
+
+  const heroSlides: HeroSlideView[] =
+    dbHeroSlides.length > 0
+      ? dbHeroSlides
+      : HOME_FALLBACK_SLIDES.map((slide) => ({
+          id: slide.id,
+          badge: slide.eyebrow,
+          title: slide.title,
+          description: slide.description,
+          primaryLabel: isLoggedIn
+            ? slide.memberPrimaryLabel
+            : slide.guestPrimaryLabel,
+          primaryHref: isLoggedIn
+            ? resolveHref(slide.memberPrimaryHref)
+            : slide.guestPrimaryHref,
+          secondaryLabel:
+            (isLoggedIn
+              ? slide.memberSecondaryLabel
+              : slide.guestSecondaryLabel) ?? null,
+          secondaryHref:
+            (isLoggedIn
+              ? slide.memberSecondaryHref
+                ? resolveHref(slide.memberSecondaryHref)
+                : null
+              : slide.guestSecondaryHref) ?? null,
+          imageUrl: null,
+          books: [],
+        }));
 
   return (
-    <main className="flex flex-col items-center justify-center h-screen px-4 md:px-10 bg-[#1C1C22] text-white">
-      <div className="flex flex-col justify-center md:flex-row items-center gap-12 rounded-2xl mt-6 p-6 md:p-10 w-full max-w-7xl backdrop-blur-sm bg-[#26262E]/50 shadow-xl border border-gray-700">
-        {/* متن معرفی */}
-        <div className="flex-[4] text-center md:text-right space-y-6">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-[#00FF99] drop-shadow-md">
-            به قفسه خوش آمدید 📚
-          </h1>
-          <p className="text-gray-300 text-sm md:text-lg leading-relaxed max-w-xl mx-auto md:mx-0">
-            <span className="text-[#00FF99] font-semibold">قفسه</span> جاییه
-            برای{" "}
-            <span className="text-[#00FF99] font-bold">کتابخون‌های جدی</span>
-            .
-            <br />
-            کتاب‌هاتو اضافه کن، وضعیت خوندنت رو مشخص کن و یادداشت‌ها و
-            هایلایت‌هات رو همیشه کنار خودت داشته باش.
-            <br />
-            برای خرید بعدی هم{" "}
-            <span className="text-[#00FF99] font-semibold">
-              لیست اولویت‌دار
-            </span>{" "}
-            بساز تا هیچ کتاب خوبی رو از دست ندی.
-            <br />
-            همه کتاب‌هات، یه جا، مرتب و دم دستت ✨
-          </p>
+    <PublicShell>
+      <div className="relative overflow-x-clip">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[540px] bg-[radial-gradient(circle_at_top,rgba(128,167,150,0.16),transparent_42%)]"
+        />
+        <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:space-y-10">
+          <HomeHeroSlider slides={heroSlides} />
 
-          <div className="flex justify-center items-center gap-4 pt-2">
-            <Button
-              size="lg"
-              onClick={handleAuthClick}
-              disabled={checking}
-              className="text-lg px-8 py-6 cursor-pointer bg-[#00FF99] hover:bg-[#00FF99]/90 text-black font-semibold hover:scale-105 transition-transform"
-            >
-              {checking ? "درحال ورود..." : "ورود یا ثبت نام"}
-            </Button>
-          </div>
-        </div>
-
-        {/* تصویر */}
-        <div className="flex-[6] flex justify-center">
-          <Image
-            src={background}
-            alt="نویسندگان کلاسیک"
-            width={700}
-            className="rounded-2xl shadow-2xl border border-gray-700 object-cover"
+          <HomeQuickActions
+            isLoggedIn={isLoggedIn}
+            libraryHref={libraryHref}
+            profileHref={profileHref}
           />
+
+          <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />
+
+          <HomeQuotesSection quotes={recentQuotes} isLoggedIn={isLoggedIn} />
+
+          {/* <HomeReadingListsPreview lists={HOME_PLACEHOLDER_LISTS} /> */}
+
+          {/* <HomeFeatureCards /> */}
+
+          <HomeBlogPreview posts={latestBlogPosts} />
         </div>
       </div>
-    </main>
+    </PublicShell>
   );
 }

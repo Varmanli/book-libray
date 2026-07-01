@@ -1,0 +1,204 @@
+import { notFound, permanentRedirect } from "next/navigation";
+
+import BookArchiveFilters from "@/components/books/BookArchiveFilters";
+import PublicShell from "@/components/PublicShell";
+import AuthorAvatar from "@/components/reference/AuthorAvatar";
+import ReferenceBookGrid from "@/components/reference/ReferenceBookGrid";
+import {
+  type BookArchiveScope,
+  getBookArchivePageData,
+  getBookArchiveScopeCount,
+} from "@/lib/book/archive-service";
+import {
+  getReferenceBooks,
+  getReferenceEntity,
+  ROUTE_BY_TYPE,
+} from "@/lib/reference/public-service";
+import {
+  REFERENCE_TYPE_LABELS,
+  type ReferenceTypeValue,
+} from "@/lib/validations/reference";
+import { buildPageMetadata } from "@/lib/seo/metadata";
+
+/**
+ * نمای عمومی مشترک برای همه‌ی موجودیت‌های مرجع (نویسنده/مترجم/ناشر/کشور/ژانر).
+ * یک‌بار نوشته می‌شود و در پنج مسیر استفاده می‌گردد.
+ */
+export default async function ReferencePublicView({
+  type,
+  slugParam,
+  searchParams,
+}: {
+  type: ReferenceTypeValue;
+  slugParam: string;
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const ref = decodeURIComponent(slugParam);
+  const entity = await getReferenceEntity(type, ref);
+  if (!entity) notFound();
+
+  if (ref !== entity.slug) {
+    permanentRedirect(
+      `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}`,
+    );
+  }
+
+  const label = REFERENCE_TYPE_LABELS[type];
+  const archiveScopeByType: Partial<
+    Record<ReferenceTypeValue, BookArchiveScope>
+  > = {
+    AUTHOR: { fixedAuthor: entity.name },
+    GENRE: { fixedGenre: entity.name },
+    PUBLISHER: { fixedPublisher: entity.name },
+    TRANSLATOR: { fixedTranslator: entity.name },
+    COUNTRY: { fixedCountry: entity.name },
+  };
+  const archiveConfigByType: Partial<
+    Record<
+      ReferenceTypeValue,
+      {
+        searchPlaceholder: string;
+        hideGenreFilter?: boolean;
+        hideAuthorFilter?: boolean;
+        hidePublisherFilter?: boolean;
+        hideTranslatorFilter?: boolean;
+        hideCountryFilter?: boolean;
+      }
+    >
+  > = {
+    AUTHOR: {
+      searchPlaceholder: "جست‌وجو در کتاب‌های این نویسنده",
+      hideAuthorFilter: true,
+    },
+    GENRE: {
+      searchPlaceholder: "جست‌وجو در کتاب‌های این ژانر",
+      hideGenreFilter: true,
+    },
+    PUBLISHER: {
+      searchPlaceholder: "جست‌وجو در کتاب‌های این ناشر",
+      hidePublisherFilter: true,
+    },
+    TRANSLATOR: {
+      searchPlaceholder: "جست‌وجو در کتاب‌های این مترجم",
+      hideTranslatorFilter: true,
+    },
+    COUNTRY: {
+      searchPlaceholder: "جست‌وجو در کتاب‌های این کشور",
+      hideCountryFilter: true,
+    },
+  };
+
+  const archiveScope = archiveScopeByType[type];
+  const archiveConfig = archiveConfigByType[type];
+  const usesArchiveFilters = Boolean(archiveScope && archiveConfig);
+
+  const books = usesArchiveFilters
+    ? []
+    : await getReferenceBooks(type, entity.name);
+  const [scopedArchiveData, scopedBooksCount] = usesArchiveFilters
+    ? await Promise.all([
+        getBookArchivePageData(searchParams ?? {}, archiveScope),
+        getBookArchiveScopeCount(archiveScope),
+      ])
+    : [null, books.length];
+
+  return (
+    <PublicShell>
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+        <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(103,146,124,0.18),transparent_34%),radial-gradient(circle_at_80%_30%,rgba(103,146,124,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_28%)]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,white_1px,transparent_1px)] [background-size:14px_14px]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+          />
+
+          <div className="relative w-[90%] mx-auto  py-6 sm:px-7 sm:py-8">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative shrink-0">
+                  <div className="pointer-events-none absolute inset-2 rounded-full bg-primary/15 blur-2xl" />
+
+                  <AuthorAvatar
+                    name={entity.name}
+                    image={entity.coverImage}
+                    sizeClassName={
+                      type === "AUTHOR"
+                        ? "h-20 w-20 sm:h-24 sm:w-24"
+                        : "h-16 w-16 sm:h-20 sm:w-20"
+                    }
+                    textClassName="text-2xl"
+                    iconClassName="h-8 w-8"
+                    className="relative"
+                  />
+                </div>
+
+                <div className="min-w-0 text-right">
+                  <h1 className="line-clamp-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-[2.2rem]">
+                    {entity.name}
+                  </h1>
+                </div>
+              </div>
+
+              {entity.description ? (
+                <div className=" border-t  border-border/50 pt-5">
+                  <p className="max-w-none text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
+                    {entity.description}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-6">
+          {usesArchiveFilters && scopedArchiveData && archiveConfig ? (
+            <BookArchiveFilters
+              filters={scopedArchiveData.filters}
+              options={scopedArchiveData.options}
+              archive={scopedArchiveData.archive}
+              searchPlaceholder={archiveConfig.searchPlaceholder}
+              hideGenreFilter={archiveConfig.hideGenreFilter}
+              hideAuthorFilter={archiveConfig.hideAuthorFilter}
+              hidePublisherFilter={archiveConfig.hidePublisherFilter}
+              hideTranslatorFilter={archiveConfig.hideTranslatorFilter}
+              hideCountryFilter={archiveConfig.hideCountryFilter}
+            />
+          ) : (
+            <ReferenceBookGrid
+              books={books}
+              subduedAuthor={type === "AUTHOR"}
+            />
+          )}
+        </div>
+      </div>
+    </PublicShell>
+  );
+}
+
+export async function buildReferenceMetadata(
+  type: ReferenceTypeValue,
+  slugParam: string,
+) {
+  const entity = await getReferenceEntity(type, decodeURIComponent(slugParam));
+  const label = REFERENCE_TYPE_LABELS[type];
+  if (!entity) {
+    return { title: `${label} یافت نشد | قفسه` };
+  }
+  const image = entity.bannerImage || entity.coverImage;
+  return buildPageMetadata({
+    title: `کتاب‌های ${entity.name}`,
+    description:
+      entity.description?.slice(0, 160) ||
+      `صفحه‌ی ${label} ${entity.name} و کتاب‌های مرتبط در قفسه.`,
+    path: `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}`,
+    image,
+    type: "profile",
+  });
+}

@@ -61,7 +61,7 @@ export default function ReadingProgress({
 
   return (
     <Card
-      className={`bg-[#26262E] border-gray-700 rounded-lg shadow-md ${className}`}
+      className={`bg-card border-gray-700 rounded-lg shadow-md ${className}`}
     >
       <CardContent className="p-6">
         <div className="space-y-6">
@@ -71,17 +71,17 @@ export default function ReadingProgress({
               <BookOpen className="w-6 h-6 text-green-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-foreground">
                 پیشرفت خواندن
               </h3>
-              <p className="text-sm text-gray-400">وضعیت فعلی مطالعه کتاب</p>
+              <p className="text-sm text-muted-foreground">وضعیت فعلی مطالعه کتاب</p>
             </div>
           </div>
 
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <Label className="text-sm font-medium text-gray-300">
+              <Label className="text-sm font-medium text-foreground">
                 درصد پیشرفت
               </Label>
               <span className="text-sm text-green-400 font-semibold">
@@ -96,7 +96,7 @@ export default function ReadingProgress({
                 style={{ width: `${percentage}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-muted-foreground text-center">
               {getProgressText(percentage)}
             </p>
           </div>
@@ -106,12 +106,12 @@ export default function ReadingProgress({
             <div className="space-y-2">
               <Label
                 htmlFor="currentPage"
-                className="text-sm font-medium text-gray-300"
+                className="text-sm font-medium text-foreground"
               >
                 صفحه فعلی
               </Label>
               <div className="relative w-full md:w-1/3">
-                <FileText className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <FileText className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="currentPage"
                   type="number"
@@ -119,11 +119,11 @@ export default function ReadingProgress({
                   max={pageCount}
                   value={currentPage}
                   onChange={(e) => handlePageChange(e.target.value)}
-                  className="pr-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-green-400 focus:ring-green-400/20"
+                  className="pr-10 bg-gray-800 border-gray-600 text-foreground placeholder-gray-400 focus:border-green-400 focus:ring-green-400/20"
                   placeholder="0"
                 />
               </div>
-              <p className="text-xs text-gray-500">از {pageCount} صفحه</p>
+              <p className="text-xs text-muted-foreground">از {pageCount} صفحه</p>
             </div>
           )}
         </div>

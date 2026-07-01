@@ -1,52 +1,55 @@
-import { NextResponse } from "next/server";
-import { db } from "@/db"; // اتصال Drizzle
-import { User } from "@/db/schema";
-import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { NextRequest } from "next/server";
+import { apiError, apiSuccess } from "@/lib/api/response";
+import { registerApiSchema } from "@/lib/validations/auth";
+import { AuthError, registerUser } from "@/lib/auth/service";
+import { issueVerificationCode } from "@/lib/auth/verification-codes";
+import { getClientKey, rateLimit } from "@/lib/rate-limit";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const limit = rateLimit(getClientKey(req, "register"), {
+    limit: 5,
+    windowMs: 60_000,
+  });
+  if (!limit.allowed) {
+    return apiError(
+      "تعداد درخواست‌ها زیاد است. کمی بعد دوباره تلاش کنید.",
+      429,
+      "RATE_LIMITED"
+    );
+  }
+
+  let body: unknown;
   try {
-    const { name, email, password } = await req.json();
+    body = await req.json();
+  } catch {
+    return apiError("درخواست نامعتبر است", 400);
+  }
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "ایمیل و پسورد لازم است" },
-        { status: 400 }
-      );
-    }
+  const parsed = registerApiSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+  }
 
-    // بررسی اینکه کاربر قبلا وجود داشته باشه
-    const [existingUser] = await db
-      .select()
-      .from(User)
-      .where(eq(User.email, email));
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "کاربر با این ایمیل وجود دارد" },
-        { status: 400 }
-      );
-    }
-
-    // هش کردن پسورد
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // ایجاد کاربر جدید
-    const [user] = await db
-      .insert(User)
-      .values({
-        name,
-        email,
-        password: hashedPassword,
-      })
-      .returning({ id: User.id, email: User.email, name: User.name });
-
-    return NextResponse.json({
-      message: "ثبت‌نام موفق",
-      user,
+  try {
+    const user = await registerUser(parsed.data);
+    const codeResult = await issueVerificationCode({
+      email: parsed.data.email,
+      purpose: "email_verification",
     });
+    return apiSuccess(
+      {
+        message: "ثبت‌نام با موفقیت انجام شد",
+        user,
+        requiresEmailVerification: true,
+        ...(codeResult.devCode ? { devCode: codeResult.devCode } : {}),
+      },
+      { status: 201 }
+    );
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
+    if (err instanceof AuthError) {
+      return apiError(err.message, err.status, err.code);
+    }
+    console.error("❌ register error:", err);
+    return apiError("خطای سرور. بعداً دوباره تلاش کنید.", 500);
   }
 }

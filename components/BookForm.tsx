@@ -1,22 +1,25 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import Image from "next/image";
-import { Upload, X, Loader2 } from "lucide-react";
+import { ImageUploader } from "@/components/upload/ImageUploader";
+import { ReferenceSelect } from "@/components/reference/ReferenceSelect";
+import {
+  BookText,
+  Users,
+  ListChecks,
+  ImageIcon,
+  Loader2,
+  Save,
+  AlertCircle,
+} from "lucide-react";
 
 export const bookSchema = z.object({
   title: z.string().min(1, "عنوان الزامی است"),
@@ -26,8 +29,10 @@ export const bookSchema = z.object({
   description: z.string().optional(),
   country: z.string().optional(),
   genre: z.string().min(1, "ژانر الزامی است"),
-  pageCount: z.number().min(1, "تعداد صفحات معتبر نیست"),
-  format: z.enum(["PHYSICAL", "ELECTRONIC"]),
+  pageCount: z
+    .number({ message: "تعداد صفحات را وارد کنید" })
+    .min(1, "تعداد صفحات باید حداقل ۱ باشد"),
+  // جلد اختیاری است
   cover: z.any().optional(),
   status: z.enum(["UNREAD", "READING", "FINISHED"]).optional(),
   progress: z.number().min(0).max(100).optional(),
@@ -38,16 +43,73 @@ export type BookFormType = z.infer<typeof bookSchema>;
 interface BookFormProps {
   initialValues?: Partial<BookFormType>;
   onSubmit: (data: BookFormType) => Promise<void>;
+  submitLabel?: string;
 }
 
-export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // برای حالت لودینگ
-  const previewUrlRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+/** سرفصل هر بخش از فرم */
+function SectionHeader({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-6 flex items-center gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div>
+        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** برچسب فیلد با نشانگر الزامی هم‌تراز */
+function FieldLabel({
+  htmlFor,
+  children,
+  required,
+}: {
+  htmlFor: string;
+  children: React.ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <Label htmlFor={htmlFor} className="gap-1 pb-2 text-foreground/90">
+      {children}
+      {required && <span className="text-destructive/70">*</span>}
+    </Label>
+  );
+}
+
+/** پیام خطای زیر هر فیلد — خوانا اما ملایم */
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1.5 flex items-center gap-1 text-[13px] text-destructive/90">
+      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+      {message}
+    </p>
+  );
+}
+
+export default function BookForm({
+  initialValues,
+  onSubmit,
+  submitLabel = "ثبت کتاب",
+}: BookFormProps) {
+  const router = useRouter();
 
   const form = useForm<BookFormType>({
     resolver: zodResolver(bookSchema),
+    mode: "onTouched",
     defaultValues: {
       title: "",
       author: "",
@@ -57,14 +119,20 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
       country: "",
       genre: "",
       pageCount: 0,
-      format: "PHYSICAL",
       cover: undefined,
       status: "UNREAD",
       progress: 0,
     },
   });
 
-  // sync initialValues
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = form;
+
   useEffect(() => {
     if (!initialValues) return;
 
@@ -73,7 +141,7 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
         ? 0
         : Number(initialValues.pageCount);
 
-    const vals: Partial<BookFormType> = {
+    reset({
       title: initialValues.title ?? "",
       author: initialValues.author ?? "",
       translator: initialValues.translator ?? "",
@@ -82,205 +150,257 @@ export default function BookForm({ initialValues, onSubmit }: BookFormProps) {
       country: initialValues.country ?? "",
       genre: initialValues.genre ?? "",
       pageCount,
-      format: (initialValues.format as "PHYSICAL" | "ELECTRONIC") ?? "PHYSICAL",
       cover: initialValues.cover ?? undefined,
       status:
         (initialValues.status as "UNREAD" | "READING" | "FINISHED") ?? "UNREAD",
       progress: initialValues.progress ?? 0,
-    };
-
-    form.reset(vals as any);
-
-    if (initialValues.cover instanceof File) {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      const url = URL.createObjectURL(initialValues.cover);
-      previewUrlRef.current = url;
-      setPreview(url);
-    } else if (typeof initialValues.cover === "string") {
-      setPreview(initialValues.cover);
-    } else {
-      setPreview(null);
-    }
-
-    return () => {
-      if (previewUrlRef.current) {
-        URL.revokeObjectURL(previewUrlRef.current);
-        previewUrlRef.current = null;
-      }
-    };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-
-    const url = URL.createObjectURL(file);
-    previewUrlRef.current = url;
-    setPreview(url);
-    form.setValue("cover", file, { shouldDirty: true, shouldValidate: true });
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
-  const removeImage = () => {
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    previewUrlRef.current = null;
-    form.setValue("cover", undefined, { shouldDirty: true });
-    setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleSubmitForm = async (data: BookFormType) => {
-    setLoading(true);
-    try {
-      await onSubmit(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <form
-      onSubmit={form.handleSubmit(handleSubmitForm)}
-      className="space-y-8 rounded-3xl p-10 bg-[#242428] shadow-xl"
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+      className="overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-card/70 to-card/40 shadow-xl shadow-black/20"
     >
-      {/* Upload */}
-      <div className="flex flex-col md:flex-row items-center gap-8">
-        <div className="flex-1">
-          <Label className="font-semibold text-gray-200">جلد کتاب</Label>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={triggerFileInput}
-            className="mt-3 w-full flex items-center justify-center gap-2 border-2 border-dashed"
-          >
-            <Upload className="w-5 h-5" />
-            انتخاب تصویر
-          </Button>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
+      <div className="divide-y divide-white/[0.06]">
+        {/* ===== اطلاعات اصلی ===== */}
+        <section className="px-6 py-7 sm:px-9 sm:py-8">
+          <SectionHeader
+            icon={BookText}
+            title="اطلاعات کتاب"
+            description="عنوان و ژانر کتاب"
           />
-          <p className="text-xs text-gray-400 mt-2">فرمت‌های مجاز: JPG, PNG</p>
-        </div>
 
-        {preview && (
-          <div className="relative w-36 h-52 border rounded-2xl overflow-hidden shadow-md">
-            {preview.startsWith("blob:") || preview.startsWith("data:") ? (
-              <Image
-                src={preview}
-                alt="preview"
-                width={144}
-                height={208}
-                className="object-cover w-full h-full"
+          <div className="space-y-5">
+            <div>
+              <FieldLabel htmlFor="title" required>
+                عنوان
+              </FieldLabel>
+              <Input
+                id="title"
+                {...register("title")}
+                aria-invalid={!!errors.title}
+                placeholder="مثلاً: صد سال تنهایی"
               />
-            ) : (
-              <Image
-                src={preview}
-                alt="پیش‌نمایش جلد"
-                fill
-                className="object-cover"
+              <FieldError message={errors.title?.message} />
+            </div>
+
+            <div>
+              <FieldLabel htmlFor="genre" required>
+                ژانر
+              </FieldLabel>
+              <Controller
+                control={control}
+                name="genre"
+                render={({ field }) => (
+                  <ReferenceSelect
+                    id="genre"
+                    type="GENRE"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    invalid={!!errors.genre}
+                    placeholder="جست‌وجو یا افزودن ژانر"
+                  />
+                )}
               />
-            )}
-            <button
-              type="button"
-              onClick={removeImage}
-              className="absolute top-2 right-2"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              <FieldError message={errors.genre?.message} />
+            </div>
           </div>
-        )}
-      </div>
+        </section>
 
-      {/* title */}
-      <div>
-        <Label className="pb-2">عنوان</Label>
-        <Input {...form.register("title")} placeholder="مثلاً: صد سال تنهایی" />
-      </div>
-
-      {/* author / translator */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Label className="pb-2">نویسنده</Label>
-          <Input {...form.register("author")} />
-        </div>
-        <div>
-          <Label className="pb-2">مترجم</Label>
-          <Input {...form.register("translator")} />
-        </div>
-      </div>
-
-      {/* publisher / country */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Label className="pb-2">ناشر</Label>
-          <Input {...form.register("publisher")} />
-        </div>
-        <div>
-          <Label className="pb-2">کشور</Label>
-          <Input {...form.register("country")} />
-        </div>
-      </div>
-
-      {/* genre / pageCount */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Label className="pb-2">ژانر</Label>
-          <Input {...form.register("genre")} />
-        </div>
-        <div>
-          <Label className="pb-2">تعداد صفحات</Label>
-          <Input
-            type="number"
-            {...form.register("pageCount", { valueAsNumber: true })}
+        {/* ===== پدیدآورندگان ===== */}
+        <section className="px-6 py-7 sm:px-9 sm:py-8">
+          <SectionHeader
+            icon={Users}
+            title="پدیدآورندگان و نشر"
+            description="نویسنده، مترجم، ناشر و کشور"
           />
-        </div>
-      </div>
 
-      <div>
-        <Label className="pb-2">توضیحات</Label>
-        <Textarea {...form.register("description")} className="h-70" />
-      </div>
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="author" required>
+                  نویسنده
+                </FieldLabel>
+                <Controller
+                  control={control}
+                  name="author"
+                  render={({ field }) => (
+                    <ReferenceSelect
+                      id="author"
+                      type="AUTHOR"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      invalid={!!errors.author}
+                      placeholder="جست‌وجو یا افزودن نویسنده"
+                    />
+                  )}
+                />
+                <FieldError message={errors.author?.message} />
+              </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Label className="pb-2">فرمت</Label>
+              <div>
+                <FieldLabel htmlFor="translator">مترجم</FieldLabel>
+                <Controller
+                  control={control}
+                  name="translator"
+                  render={({ field }) => (
+                    <ReferenceSelect
+                      id="translator"
+                      type="TRANSLATOR"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="در صورت ترجمه بودن"
+                    />
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="publisher">ناشر</FieldLabel>
+                <Controller
+                  control={control}
+                  name="publisher"
+                  render={({ field }) => (
+                    <ReferenceSelect
+                      id="publisher"
+                      type="PUBLISHER"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="نام انتشارات"
+                    />
+                  )}
+                />
+              </div>
+
+              <div>
+                <FieldLabel htmlFor="country">کشور</FieldLabel>
+                <Controller
+                  control={control}
+                  name="country"
+                  render={({ field }) => (
+                    <ReferenceSelect
+                      id="country"
+                      type="COUNTRY"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="کشور محل انتشار"
+                    />
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== جزئیات ===== */}
+        <section className="px-6 py-7 sm:px-9 sm:py-8">
+          <SectionHeader
+            icon={ListChecks}
+            title="جزئیات"
+            description="تعداد صفحات و توضیحات"
+          />
+
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="pageCount" required>
+                  تعداد صفحات
+                </FieldLabel>
+                <Input
+                  id="pageCount"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  {...register("pageCount", { valueAsNumber: true })}
+                  aria-invalid={!!errors.pageCount}
+                  placeholder="مثلاً: ۳۲۰"
+                />
+                <FieldError message={errors.pageCount?.message} />
+              </div>
+            </div>
+
+            <div>
+              <FieldLabel htmlFor="description">توضیحات</FieldLabel>
+              <Textarea
+                id="description"
+                {...register("description")}
+                className="min-h-36"
+                placeholder="خلاصه، یادداشت یا هر توضیحی درباره‌ی کتاب..."
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ===== جلد کتاب ===== */}
+        <section className="px-6 py-7 sm:px-9 sm:py-8">
+          <SectionHeader
+            icon={ImageIcon}
+            title="جلد کتاب"
+            description="اختیاری — در نبود جلد، تصویر پیش‌فرض نمایش داده می‌شود"
+          />
+
           <Controller
-            control={form.control}
-            name="format"
+            control={control}
+            name="cover"
             render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={(v) => field.onChange(v as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="انتخاب فرمت" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PHYSICAL">چاپی</SelectItem>
-                  <SelectItem value="ELECTRONIC">الکترونیکی</SelectItem>
-                </SelectContent>
-              </Select>
+              <ImageUploader
+                value={typeof field.value === "string" ? field.value : null}
+                onChange={field.onChange}
+                folder="covers"
+                aspect="cover"
+                placeholder="بکشید و رها کنید یا برای انتخاب جلد کلیک کنید"
+                description="JPG، PNG یا WEBP تا ۵۰۰ کیلوبایت"
+                disabled={isSubmitting}
+              />
             )}
           />
-        </div>
+          <FieldError message={errors.cover?.message as string | undefined} />
+        </section>
+
+        {/* ===== نوار اقدامات ===== */}
+        <section className="border-t border-border bg-white/[0.02] px-6 py-5 sm:px-9">
+          <div className="flex flex-col-reverse items-center gap-4 sm:flex-row sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              فیلدهای دارای <span className="text-destructive/70">*</span> الزامی
+              هستند.
+            </p>
+
+            <div className="flex w-full gap-3 sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={isSubmitting}
+                className="flex-1 rounded-xl border-border sm:flex-none"
+              >
+                انصراف
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 gap-2 rounded-xl px-8 font-semibold sm:flex-none"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    در حال ثبت...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    {submitLabel}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </section>
       </div>
-      <Button
-        type="submit"
-        className="w-full text-lg py-5 rounded-2xl bg-primary flex items-center justify-center gap-2"
-        disabled={loading}
-      >
-        {loading && <Loader2 className="animate-spin w-5 h-5" />}
-        {loading ? "در حال ثبت..." : "ثبت کتاب"}
-      </Button>
     </form>
   );
 }

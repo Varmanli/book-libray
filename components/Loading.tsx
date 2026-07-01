@@ -27,7 +27,7 @@ export default function Loading({
 }: LoadingProps) {
   const baseClasses = "flex items-center justify-center";
   const fullScreenClasses = fullScreen
-    ? "fixed inset-0 bg-[#1C1C22]/90 backdrop-blur-sm z-50"
+    ? "fixed inset-0 bg-card backdrop-blur-sm z-50"
     : "";
 
   const containerClasses = cn(baseClasses, fullScreenClasses, className);
@@ -35,7 +35,7 @@ export default function Loading({
   const renderSpinner = () => (
     <div
       className={cn(
-        "border-2 border-gray-600 border-t-[#00FF99] rounded-full animate-spin",
+        "border-2 border-gray-600 border-t-primary rounded-full animate-spin",
         sizeClasses[size]
       )}
     />
@@ -47,7 +47,7 @@ export default function Loading({
         <div
           key={i}
           className={cn(
-            "bg-[#00FF99] rounded-sm animate-bounce",
+            "bg-primary rounded-sm animate-bounce",
             size === "sm"
               ? "w-2 h-3"
               : size === "md"
@@ -72,7 +72,7 @@ export default function Loading({
           <div
             key={i}
             className={cn(
-              "bg-[#00FF99]/20 border border-[#00FF99]/40 rounded-sm animate-pulse",
+              "bg-primary/20 border border-primary/40 rounded-sm animate-pulse",
               size === "sm"
                 ? "w-2 h-3"
                 : size === "md"
@@ -90,7 +90,7 @@ export default function Loading({
       </div>
       <div className="absolute inset-0 flex items-center justify-center">
         <BookOpen
-          className={cn("text-[#00FF99] animate-pulse", sizeClasses[size])}
+          className={cn("text-primary animate-pulse", sizeClasses[size])}
         />
       </div>
     </div>
@@ -102,7 +102,7 @@ export default function Loading({
         <div
           key={i}
           className={cn(
-            "bg-[#00FF99] rounded-full animate-pulse",
+            "bg-primary rounded-full animate-pulse",
             size === "sm"
               ? "w-1 h-1"
               : size === "md"
@@ -123,7 +123,7 @@ export default function Loading({
   const renderPulse = () => (
     <div
       className={cn(
-        "bg-[#00FF99] rounded-full animate-pulse",
+        "bg-primary rounded-full animate-pulse",
         sizeClasses[size]
       )}
     />
@@ -158,7 +158,7 @@ export default function Loading({
     <div className={containerClasses}>
       <div className="flex flex-col items-center gap-3">
         {renderContent()}
-        {text && <p className="text-sm text-gray-300 animate-pulse">{text}</p>}
+        {text && <p className="text-sm text-foreground animate-pulse">{text}</p>}
       </div>
     </div>
   );
@@ -185,7 +185,7 @@ export function CardLoading({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "p-6 space-y-4 bg-[#26262E] border border-gray-700 rounded-lg",
+        "p-6 space-y-4 bg-card border border-gray-700 rounded-lg",
         className
       )}
     >
@@ -201,7 +201,7 @@ export function CardLoading({ className }: { className?: string }) {
 
 export function TableLoading({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-3 bg-[#26262E] border border-gray-700 rounded-lg p-4">
+    <div className="space-y-3 bg-card border border-gray-700 rounded-lg p-4">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex space-x-4 rtl:space-x-reverse">
           <div className="h-4 bg-gray-700 rounded animate-pulse flex-1" />
@@ -217,13 +217,13 @@ export function ChartLoading({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center h-64 bg-[#26262E] border border-gray-700 rounded-lg",
+        "flex items-center justify-center h-64 bg-card border border-gray-700 rounded-lg",
         className
       )}
     >
       <div className="text-center space-y-4">
         <Loading size="lg" variant="books" />
-        <p className="text-gray-300">در حال بارگذاری نمودار...</p>
+        <p className="text-foreground">در حال بارگذاری نمودار...</p>
       </div>
     </div>
   );

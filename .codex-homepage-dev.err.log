@@ -1,0 +1,533 @@
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json',
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json',
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json',
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json',
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ Failed to generate static paths for /book/[id]:
+[Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: Cannot find module './vendor-chunks/react-icons.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\book\[id]\page.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/book/%D9%85%D8%B1%DA%AF-%D8%A7%DB%8C%D9%88%D8%A7%D9%86-%D8%A7%DB%8C%D9%84%DB%8C%DA%86'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\routes-manifest.json',
+  page: '/favicon.ico'
+}
+ ⨯ ./app/book/[id]/page.tsx
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\amirhosein\Desktop\Project\book-libray\app\book\[id]\page.tsx[0m:362:1]
+ [2m359[0m |               containerClassName="justify-start gap-3"
+ [2m360[0m |               slides={metaItems}
+ [2m361[0m |               showControls={}
+ [2m362[0m |             />
+     : [35;1m            ^[0m
+ [2m363[0m |           ) : null}
+ [2m364[0m | 
+ [2m365[0m |           <section className="relative mt-9 overflow-hidden rounded-[2rem] border border-border/70 bg-card/65 p-5 shadow-[0_24px_80px_-52px_rgba(0,0,0,0.85)] backdrop-blur-md sm:p-6 lg:p-7">
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\amirhosein\Desktop\Project\book-libray\app\book\[id]\page.tsx[0m:362:1]
+ [2m359[0m |               containerClassName="justify-start gap-3"
+ [2m360[0m |               slides={metaItems}
+ [2m361[0m |               showControls={}
+ [2m362[0m |             />
+     : [35;1m             ^[0m
+ [2m363[0m |           ) : null}
+ [2m364[0m | 
+ [2m365[0m |           <section className="relative mt-9 overflow-hidden rounded-[2rem] border border-border/70 bg-card/65 p-5 shadow-[0_24px_80px_-52px_rgba(0,0,0,0.85)] backdrop-blur-md sm:p-6 lg:p-7">
+     `----
+  [31mx[0m Expected '</', got ')'
+     ,-[[36;1;4mC:\Users\amirhosein\Desktop\Project\book-libray\app\book\[id]\page.tsx[0m:363:1]
+ [2m360[0m |               slides={metaItems}
+ [2m361[0m |               showControls={}
+ [2m362[0m |             />
+ [2m363[0m |           ) : null}
+     : [35;1m          ^[0m
+ [2m364[0m | 
+ [2m365[0m |           <section className="relative mt-9 overflow-hidden rounded-[2rem] border border-border/70 bg-card/65 p-5 shadow-[0_24px_80px_-52px_rgba(0,0,0,0.85)] backdrop-blur-md sm:p-6 lg:p-7">
+ [2m366[0m |             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/book/[id]/page.tsx
+ ⚠ ./app/page.tsx
+Attempted import error: 'HOME_PLACEHOLDER_BLOG_POSTS' is not exported from '@/lib/home/service' (imported as 'HOME_PLACEHOLDER_BLOG_POSTS').
+
+Import trace for requested module:
+./app/page.tsx
+ ⨯ ./components/home/HomeQuickActions.tsx
+Error:   [31mx[0m 'import', and 'export' cannot be used outside of module code
+    ,-[[36;1;4mC:\Users\amirhosein\Desktop\Project\book-libray\components\home\HomeQuickActions.tsx[0m:89:1]
+ [2m86[0m | }
+ [2m87[0m | 
+ [2m88[0m | export default function HomeQuickActions() {
+ [2m89[0m | export default function HomeQuickActions({
+    : [35;1m^^^^^^[0m
+ [2m90[0m |   isLoggedIn,
+ [2m91[0m |   libraryHref,
+ [2m92[0m |   profileHref,
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/home/HomeQuickActions.tsx
+./app/page.tsx
+[Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\2.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\2.pack.gz'
+}
+ ⨯ unhandledRejection: [Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\2.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\2.pack.gz'
+}
+ ⨯ unhandledRejection:  [Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\2.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\2.pack.gz'
+}
+[Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\3.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\3.pack.gz'
+}
+ ⨯ unhandledRejection: [Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\3.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\3.pack.gz'
+}
+ ⨯ unhandledRejection:  [Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\3.pack.gz'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\cache\\webpack\\server-development\\3.pack.gz'
+}
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\2.pack.gz'
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/favicon.ico'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\favicon.ico\route.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\favicon.ico\route.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/favicon.ico'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\favicon.ico\route.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json',
+  page: '/admin/home-content'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\webpack-runtime.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\app\favicon.ico\route.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\require.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\load-components.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\utils.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\options.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\swc\index.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\config.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\next.js
+- C:\Users\amirhosein\Desktop\Project\book-libray\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\amirhosein\Desktop\Project\book-libray\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\prerender-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\book-libray\\.next\\prerender-manifest.json'
+}
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\1.pack.gz'
+ ⨯ ./components/home/HomeBlogPreview.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amirhosein\Desktop\Project\book-libray\components\home\HomeBlogPreview.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/home/HomeBlogPreview.tsx
+./app/page.tsx
+ ⨯ ./components/home/HomeQuotesSection.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amirhosein\Desktop\Project\book-libray\components\home\HomeQuotesSection.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./components/home/HomeQuotesSection.tsx
+./app/page.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\client-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\0.pack.gz_' -> 'C:\Users\amirhosein\Desktop\Project\book-libray\.next\cache\webpack\server-development\0.pack.gz'

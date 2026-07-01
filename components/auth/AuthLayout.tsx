@@ -1,0 +1,36 @@
+import type { ReactNode } from "react";
+import { FaBookOpen } from "react-icons/fa";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+
+export function AuthLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#07110d] text-foreground">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(111,170,143,0.22),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(42,98,82,0.28),transparent_30%),linear-gradient(135deg,#07110d_0%,#0d1713_45%,#111c18_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:72px_72px] opacity-[0.08]" />
+      <div className="absolute left-[-8rem] top-24 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="absolute bottom-[-7rem] right-[-4rem] h-80 w-80 rounded-full bg-emerald-300/10 blur-3xl" />
+
+      <div className="relative z-10 flex min-h-screen">
+        <AuthBrandPanel />
+
+        <main className="flex min-h-screen flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
+          <div className="w-full max-w-[30rem]">
+            <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/8 shadow-[0_12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                <FaBookOpen className="text-[1.05rem] text-emerald-200" />
+              </span>
+              <div>
+                <p className="text-lg font-black tracking-tight text-white">
+                  قفسه
+                </p>
+                <p className="text-xs text-white/55">کتابخانه‌ی شخصی تو</p>
+              </div>
+            </div>
+
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

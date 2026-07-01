@@ -114,16 +114,6 @@ export async function GET(req: NextRequest) {
       .where(eq(Book.userId, userId))
       .groupBy(Book.status);
 
-    // آمار فرمت کتاب‌ها
-    const formatStats = await db
-      .select({
-        format: Book.format,
-        count: count(Book.id),
-      })
-      .from(Book)
-      .where(eq(Book.userId, userId))
-      .groupBy(Book.format);
-
     // آمار ماهانه کتاب‌های اضافه شده (آخرین 12 ماه)
     const monthlyStats = await db
       .select({
@@ -213,10 +203,6 @@ export async function GET(req: NextRequest) {
               : stat.status === "READING"
               ? "در حال خواندن"
               : "خوانده نشده",
-          value: stat.count,
-        })),
-        byFormat: formatStats.map((stat) => ({
-          name: stat.format === "PHYSICAL" ? "فیزیکی" : "الکترونیکی",
           value: stat.count,
         })),
         byRating: ratingStats.map((stat) => ({

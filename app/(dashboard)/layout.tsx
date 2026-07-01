@@ -1,41 +1,45 @@
-import Footer from "@/components/Footer";
 import "../globals.css";
-import Header from "@/components/Header";
+import SiteHeader from "@/components/layout/SiteHeader";
+import SiteFooter from "@/components/layout/SiteFooter";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { PageLoading } from "@/components/Loading";
-import { Toaster } from "react-hot-toast";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/roles";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // 👇 چون async component نوشتی، اینجا می‌تونی صبر کنی
-  const cookieStore = await cookies(); // در نسخه تو Promise برمی‌گردونه
-  const token = cookieStore.get("token")?.value;
+  // اعتبارسنجی واقعی توکن و وجود کاربر در دیتابیس (محیط Node)
+  const user = await getCurrentUser();
 
-  if (!token) {
-    redirect("/login");
-  }
-
-  try {
-    jwt.verify(token, process.env.JWT_SECRET!);
-  } catch (err) {
-    redirect("/login");
+  if (!user) {
+    redirect("/auth/login");
   }
 
   return (
-    <>
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <main className="flex-1 pt-33 md:pt-20">
-          <ErrorBoundary>{children}</ErrorBoundary>
-        </main>
-        <Footer />
-      </div>
-    </>
+    <div className="flex min-h-screen flex-col bg-background">
+      <SiteHeader
+        user={{
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          username: user.username,
+        }}
+        isAdmin={isAdmin(user)}
+      />
+      <main className="flex-1">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
+      <SiteFooter
+        user={{
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          username: user.username,
+        }}
+      />
+    </div>
   );
 }

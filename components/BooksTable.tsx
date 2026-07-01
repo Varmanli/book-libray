@@ -114,22 +114,22 @@ export default function BooksTable({
   return (
     <Card className={`bg-gray-800 border-gray-700 ${className}`}>
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-white">{title}</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">{title}</CardTitle>
         <div className="flex flex-col md:flex-row gap-4 mt-4">
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+              className="pr-10 bg-gray-700 border-gray-600 text-foreground placeholder-gray-400"
             />
           </div>
           {filterOptions.length > 0 && (
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
+              <Filter className="w-4 h-4 text-muted-foreground" />
               <Select value={filter} onValueChange={handleFilterChange}>
-                <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-white">
+                <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-foreground">
                   <SelectValue placeholder="فیلتر" />
                 </SelectTrigger>
                 <SelectContent>
@@ -147,8 +147,8 @@ export default function BooksTable({
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-700 text-sm text-gray-300">
-            <thead className="bg-gray-800 text-gray-300">
+          <table className="w-full border-collapse border border-gray-700 text-sm text-foreground">
+            <thead className="bg-gray-800 text-foreground">
               <tr>
                 {[
                   { key: "title", label: "عنوان" },
@@ -202,7 +202,7 @@ export default function BooksTable({
                           ? "bg-green-700 text-green-100"
                           : item.status === "READING"
                           ? "bg-blue-700 text-blue-100"
-                          : "bg-gray-600 text-gray-100"
+                          : "bg-gray-600 text-foreground"
                       }`}
                     >
                       {item.status === "FINISHED"
@@ -223,7 +223,7 @@ export default function BooksTable({
             </tbody>
           </table>
           {sortedData.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
+            <div className="text-center py-8 text-muted-foreground">
               هیچ کتابی یافت نشد
             </div>
           )}

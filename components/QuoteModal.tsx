@@ -98,7 +98,7 @@ export default function QuoteModal({
 
         {isDeleting ? (
           <div className="py-4">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               آیا از حذف این نقل قول اطمینان دارید؟
             </p>
             <div className="bg-gray-100 p-3 rounded-md">

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { PageLoading } from "@/components/Loading";
+import { useConfirm } from "@/components/common/ConfirmDialog";
 
 type Priority =
   | "MUST_HAVE"
@@ -69,6 +70,7 @@ type SortField =
 type SortOrder = "asc" | "desc";
 
 export default function WishlistPage() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -229,29 +231,32 @@ export default function WishlistPage() {
     setOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm("آیا از حذف این کتاب مطمئن هستید؟");
-    if (!confirmed) return;
-
-    setDeletingId(id);
-    try {
-      const res = await fetch(`/api/wishlist/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        toast.success("کتاب حذف شد");
-        fetchItems();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err?.error || "حذف ناموفق بود");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("خطا در حذف کتاب");
-    } finally {
-      setDeletingId(null);
-    }
+  const handleDelete = (id: string) => {
+    void confirm({
+      title: "حذف کتاب",
+      description: "این کتاب از فهرست خرید حذف شود؟ این عملیات قابل بازگشت نیست.",
+      onConfirm: async () => {
+        setDeletingId(id);
+        try {
+          const res = await fetch(`/api/wishlist/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (res.ok) {
+            toast.success("کتاب حذف شد.");
+            fetchItems();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            toast.error(err?.error || "حذف کتاب ناموفق بود.");
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error("خطا در حذف کتاب");
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   };
 
   const handleBuy = async (item: WishlistItem) => {
@@ -286,7 +291,7 @@ export default function WishlistPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-primary">لیست خرید کتاب</h2>
-          <p className="text-gray-300 mt-1 text-sm">
+          <p className="text-foreground mt-1 text-sm">
             مدیریت کتاب‌های مورد علاقه‌تان برای خرید آینده
           </p>
         </div>
@@ -296,7 +301,7 @@ export default function WishlistPage() {
               + افزودن کتاب جدید
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg bg-gray-900 text-white rounded-lg p-6">
+          <DialogContent className="sm:max-w-lg bg-gray-900 text-foreground rounded-lg p-6">
             <DialogHeader>
               <DialogTitle>
                 {editingId ? "ویرایش کتاب" : "افزودن کتاب"}{" "}
@@ -375,7 +380,7 @@ export default function WishlistPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                  className="border-gray-600 text-foreground hover:bg-gray-800"
                   onClick={() => {
                     resetForm();
                     setOpen(false);
@@ -392,13 +397,13 @@ export default function WishlistPage() {
       {isLoading ? (
         <PageLoading text="در حال بارگذاری لیست خرید..." />
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-700 p-6 text-center text-gray-100">
+        <div className="rounded-lg border border-dashed border-gray-700 p-6 text-center text-foreground">
           <p className="mb-4">
             📚 هیچ کتابی اضافه نشده — لطفاً یک مورد اضافه کنید.
           </p>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white">
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-foreground">
                 افزودن کتاب
               </Button>
             </DialogTrigger>
@@ -406,8 +411,8 @@ export default function WishlistPage() {
         </div>
       ) : (
         <div className="overflow-x-auto mt-4">
-          <table className="w-full border-collapse border border-gray-700 text-sm text-gray-300">
-            <thead className="bg-gray-800 text-gray-300">
+          <table className="w-full border-collapse border border-gray-700 text-sm text-foreground">
+            <thead className="bg-gray-800 text-foreground">
               <tr>
                 {[
                   { key: "title", label: "عنوان" },
@@ -459,7 +464,7 @@ export default function WishlistPage() {
                           ? "bg-yellow-700 text-yellow-100"
                           : item.priority === "IF_EXTRA_MONEY"
                           ? "bg-orange-700 text-orange-100"
-                          : "bg-gray-600 text-gray-100"
+                          : "bg-gray-600 text-foreground"
                       }`}
                     >
                       {priorities.find((p) => p.value === item.priority)?.label}
@@ -496,7 +501,7 @@ export default function WishlistPage() {
                             ⋮
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md bg-gray-900 text-white rounded-lg p-6">
+                        <DialogContent className="sm:max-w-md bg-gray-900 text-foreground rounded-lg p-6">
                           <DialogHeader>
                             <DialogTitle>جزئیات کتاب</DialogTitle>
                           </DialogHeader>
@@ -539,7 +544,7 @@ export default function WishlistPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleBuy(item)}
-                              className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                              className="bg-green-600 hover:bg-green-700 text-foreground border-green-600"
                             >
                               خرید
                             </Button>
@@ -568,7 +573,7 @@ export default function WishlistPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBuy(item)}
-                        className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white border-green-600"
+                        className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-foreground border-green-600"
                         title="خرید"
                       >
                         <ShoppingCart className="w-4 h-4" />

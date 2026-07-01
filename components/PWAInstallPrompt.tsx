@@ -101,20 +101,20 @@ export default function PWAInstallPrompt() {
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
-                <Download className="w-6 h-6 text-[#00FF99]" />
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                <Download className="w-6 h-6 text-primary" />
               </div>
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-white mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 نصب قفسه
               </h3>
-              <p className="text-sm text-gray-300 mb-3">
+              <p className="text-sm text-foreground mb-3">
                 قفسه را روی دستگاه خود نصب کنید تا دسترسی سریع‌تری داشته باشید
               </p>
 
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                 <Smartphone className="w-4 h-4" />
                 <span>موبایل و تبلت</span>
                 <Monitor className="w-4 h-4" />
@@ -124,7 +124,7 @@ export default function PWAInstallPrompt() {
               <div className="flex gap-2">
                 <Button
                   onClick={handleInstallClick}
-                  className="flex-1 bg-[#00FF99] hover:bg-[#00FF99]/90 text-black font-medium"
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                   size="sm"
                 >
                   نصب
@@ -133,7 +133,7 @@ export default function PWAInstallPrompt() {
                   onClick={handleDismiss}
                   variant="outline"
                   size="sm"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className="border-gray-600 text-foreground hover:bg-gray-700"
                 >
                   بعداً
                 </Button>
@@ -144,7 +144,7 @@ export default function PWAInstallPrompt() {
               onClick={handleDismiss}
               variant="ghost"
               size="sm"
-              className="flex-shrink-0 p-1 h-auto text-gray-400 hover:text-white"
+              className="flex-shrink-0 p-1 h-auto text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
             </Button>

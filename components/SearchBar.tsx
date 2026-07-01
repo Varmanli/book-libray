@@ -48,7 +48,7 @@ export default function SearchBar({
     <div className={`relative w-full max-w-md ${className}`}>
       <div className="relative">
         {/* آیکون سرچ */}
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
 
         <Input
           type="text"
@@ -59,8 +59,8 @@ export default function SearchBar({
           className="
             pr-10 pl-10 py-2
             rounded-full border border-gray-600
-            bg-gray-900 text-gray-100
-            placeholder:text-gray-400
+            bg-gray-900 text-foreground
+            placeholder:text-muted-foreground
             shadow-sm
             focus:border-primary focus:ring-2 focus:ring-primary/50
             transition-all duration-200
@@ -78,7 +78,7 @@ export default function SearchBar({
               absolute left-2 top-1/2 -translate-y-1/2
               h-6 w-6 p-0
               hover:bg-gray-800
-              text-gray-400 hover:text-gray-200
+              text-muted-foreground hover:text-foreground
               rounded-full
               transition-colors
             "

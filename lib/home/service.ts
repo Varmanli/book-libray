@@ -1,0 +1,783 @@
+import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+
+import { db } from "@/db";
+import {
+  Book,
+  CatalogBook,
+  HomeFeaturedBook,
+  HomeHeroSlide,
+  HomeHeroSlideBook,
+  User,
+} from "@/db/schema";
+import {
+  homeBookColumns,
+  homeBookJoins,
+  normalizeResolvedHomeBook,
+} from "@/lib/home/book-resolver";
+import { searchAdminCatalogBooks } from "@/lib/admin/service";
+import { coalesceCoverImage } from "@/lib/book/cover";
+import {
+  getLatestPublishedBlogPosts,
+  type PublicBlogPostPreview,
+} from "@/lib/blog/service";
+import {
+  getLatestPublicQuotes,
+  type PublicQuote,
+} from "@/lib/quotes/service";
+
+export interface HomeHeroSlideSeed {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  accent: string;
+  guestPrimaryLabel: string;
+  guestPrimaryHref: string;
+  guestSecondaryLabel?: string;
+  guestSecondaryHref?: string;
+  memberPrimaryLabel: string;
+  memberPrimaryHref: string;
+  memberSecondaryLabel?: string;
+  memberSecondaryHref?: string;
+  visualBooks: Array<{
+    title: string;
+    author: string;
+    tintClassName: string;
+  }>;
+}
+
+export interface HomeBookCard {
+  id: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  coverImage: string | null;
+  genre: string | null;
+  status: string | null;
+}
+
+export interface AdminFeaturedBook {
+  id: string;
+  bookId: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  coverImage: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface FeaturedBookSearchResult {
+  id: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  coverImage: string | null;
+}
+
+export interface HomeHeroSlide {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  accent: string;
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
+  visualBooks: Array<{
+    title: string;
+    author: string;
+    tintClassName: string;
+  }>;
+}
+
+export type HomeQuotePreview = PublicQuote;
+
+export interface HomeReadingListPreview {
+  id: string;
+  title: string;
+  description: string;
+  books: string[];
+  mood: string;
+}
+
+export type HomeBlogPostPreview = PublicBlogPostPreview;
+
+export const HOME_FALLBACK_SLIDES: HomeHeroSlideSeed[] = [
+  {
+    id: "library",
+    eyebrow: "کتابخانه شخصی",
+    title: "جایی برای تمام کتاب‌هایی که با تو می‌مانند",
+    description:
+      "قفسه را برای ثبت کتاب‌ها، دسته‌بندی ساده و برگشتن به مسیر خواندن روزانه بساز.",
+    accent: "ساخت کتابخانه شخصی",
+    guestPrimaryLabel: "شروع با ثبت‌نام",
+    guestPrimaryHref: "/auth/signup",
+    guestSecondaryLabel: "ورود",
+    guestSecondaryHref: "/auth/login",
+    memberPrimaryLabel: "کتابخانه من",
+    memberPrimaryHref: "/books",
+    memberSecondaryLabel: "افزودن کتاب",
+    memberSecondaryHref: "/books/add",
+    visualBooks: [
+      {
+        title: "کتاب‌های خوانده‌شده",
+        author: "قفسه شخصی",
+        tintClassName: "bg-[var(--paper)] text-[#3f3425]",
+      },
+      {
+        title: "در حال خواندن",
+        author: "مسیر مطالعه",
+        tintClassName: "bg-primary/15 text-foreground",
+      },
+      {
+        title: "برای بعد",
+        author: "یادداشت روزانه",
+        tintClassName: "bg-secondary text-foreground",
+      },
+    ],
+  },
+  {
+    id: "discover",
+    eyebrow: "کشف کتاب",
+    title: "از قفسه‌های عمومی الهام بگیر و کتاب بعدی‌ات را پیدا کن",
+    description:
+      "کتاب‌های تازه، تکه‌های محبوب و مسیرهای مطالعاتی دیگران را در یک صفحه ببین.",
+    accent: "کشف کتاب‌های تازه",
+    guestPrimaryLabel: "دیدن کتاب‌ها",
+    guestPrimaryHref: "/auth/signup",
+    guestSecondaryLabel: "ورود",
+    guestSecondaryHref: "/auth/login",
+    memberPrimaryLabel: "رفتن به داشبورد",
+    memberPrimaryHref: "/dashboard",
+    memberSecondaryLabel: "پروفایل من",
+    memberSecondaryHref: "/settings/profile",
+    visualBooks: [
+      {
+        title: "کشف هفتگی",
+        author: "از میان قفسه‌ها",
+        tintClassName: "bg-secondary text-foreground",
+      },
+      {
+        title: "یادداشت‌ها و نقل‌قول‌ها",
+        author: "خواندن جمعی",
+        tintClassName: "bg-[var(--paper)] text-[#3f3425]",
+      },
+      {
+        title: "نقشه مطالعه",
+        author: "مسیرهای پیشنهادی",
+        tintClassName: "bg-primary/15 text-foreground",
+      },
+    ],
+  },
+  {
+    id: "quotes",
+    eyebrow: "تکه‌های ماندگار",
+    title: "جمله‌هایی را نگه دار که دوباره باید به آن‌ها برگردی",
+    description:
+      "تکه‌های کتاب، یادداشت‌های عمومی و برداشت‌های کوتاه را کنار کتاب‌هایت ثبت کن.",
+    accent: "تکه‌های ماندگار از کتاب‌ها",
+    guestPrimaryLabel: "عضویت در قفسه",
+    guestPrimaryHref: "/auth/signup",
+    guestSecondaryLabel: "ورود",
+    guestSecondaryHref: "/auth/login",
+    memberPrimaryLabel: "افزودن کتاب",
+    memberPrimaryHref: "/books/add",
+    memberSecondaryLabel: "کتابخانه من",
+    memberSecondaryHref: "/books",
+    visualBooks: [
+      {
+        title: "تکه‌های تازه",
+        author: "نقل‌قول‌های امروز",
+        tintClassName: "bg-primary/15 text-foreground",
+      },
+      {
+        title: "یادداشت عمومی",
+        author: "برداشت خواننده",
+        tintClassName: "bg-secondary text-foreground",
+      },
+      {
+        title: "بازگشت به کتاب",
+        author: "صفحه‌های مهم",
+        tintClassName: "bg-[var(--paper)] text-[#3f3425]",
+      },
+    ],
+  },
+  {
+    id: "lists",
+    eyebrow: "لیست‌های خواندنی",
+    title: "برای حال‌وهوای هر دوره، یک مسیر خواندن آماده کن",
+    description:
+      "لیست‌های جمع‌وجور و کاربردی برای شروع، ادامه یا تغییر حال‌وهوای مطالعه.",
+    accent: "لیست‌های خواندنی کاربران",
+    guestPrimaryLabel: "ساخت حساب",
+    guestPrimaryHref: "/auth/signup",
+    guestSecondaryLabel: "ورود",
+    guestSecondaryHref: "/auth/login",
+    memberPrimaryLabel: "پروفایل من",
+    memberPrimaryHref: "/settings/profile",
+    memberSecondaryLabel: "کتابخانه من",
+    memberSecondaryHref: "/books",
+    visualBooks: [
+      {
+        title: "شروع ادبیات روسیه",
+        author: "یک مسیر آرام",
+        tintClassName: "bg-[var(--paper)] text-[#3f3425]",
+      },
+      {
+        title: "برای روزهای سنگین",
+        author: "خواندن کوتاه",
+        tintClassName: "bg-secondary text-foreground",
+      },
+      {
+        title: "کلاسیک‌های شروع",
+        author: "پیشنهاد جمعی",
+        tintClassName: "bg-primary/15 text-foreground",
+      },
+    ],
+  },
+];
+
+export const HOME_PLACEHOLDER_LISTS: HomeReadingListPreview[] = [
+  {
+    id: "russian",
+    title: "شروع ادبیات روسیه",
+    description: "سه کتاب برای ورود آرام و قابل‌فهم به جهان نویسندگان روس.",
+    books: ["ابله", "مرگ ایوان ایلیچ", "شب‌های روشن"],
+    mood: "شروع مسیر",
+  },
+  {
+    id: "heavy-days",
+    title: "کتاب‌هایی برای روزهای سنگین",
+    description: "کتاب‌هایی کوتاه‌تر و همدلانه برای وقتی که تمرکز کم است.",
+    books: ["انسان در جست‌وجوی معنا", "پیرمرد و دریا", "سووشون"],
+    mood: "حال‌وهوای شخصی",
+  },
+  {
+    id: "classics",
+    title: "کلاسیک‌هایی که ارزش شروع دارند",
+    description: "فهرستی ساده برای شروع کلاسیک‌خوانی بدون سردرگمی.",
+    books: ["بیگانه", "کوری", "صد سال تنهایی"],
+    mood: "کلاسیک‌خوانی",
+  },
+];
+
+/**
+ * Popular books for the homepage.
+ *
+ * NOTE: there is no view-count / popularity metric yet. As a safe fallback we
+ * return the most recently added books from public profiles, de-duplicated by
+ * canonical identity (`catalogBookId`, else lowercased title) so the same book
+ * from different users isn't repeated. When a real popularity signal exists,
+ * only the query ordering here should change.
+ */
+export async function getPopularBooks(limit = 12): Promise<HomeBookCard[]> {
+  const rows = await db
+    .select({
+      id: Book.id,
+      slug: Book.slug,
+      title: Book.title,
+      author: Book.author,
+      coverImage: Book.coverImage,
+      genre: Book.genre,
+      status: Book.status,
+      catalogBookId: Book.catalogBookId,
+    })
+    .from(Book)
+    .innerJoin(User, eq(Book.userId, User.id))
+    .where(eq(User.profileVisibility, "PUBLIC"))
+    .orderBy(desc(Book.createdAt))
+    .limit(limit * 5);
+
+  const seen = new Set<string>();
+  const out: HomeBookCard[] = [];
+
+  for (const row of rows) {
+    const key = row.catalogBookId ?? row.title.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      author: row.author,
+      coverImage: coalesceCoverImage(row.coverImage),
+      genre: row.genre,
+      status: row.status,
+    });
+    if (out.length >= limit) break;
+  }
+
+  return out;
+}
+
+/**
+ * کتاب‌های پیشنهادیِ انتخاب‌شده توسط ادمین (فقط فعال‌ها، به ترتیب دلخواه ادمین).
+ * اگر ادمین چیزی انتخاب نکرده باشد، آرایه‌ی خالی برمی‌گردد و صفحه‌ی اصلی به
+ * کتاب‌های اخیرِ عمومی به‌عنوان fallback برمی‌گردد.
+ */
+export async function getFeaturedBooks(limit = 12): Promise<HomeBookCard[]> {
+  const j = homeBookJoins("feat_pub");
+  const cols = homeBookColumns(j);
+  const rows = await db
+    .select({
+      homeId: HomeFeaturedBook.id,
+      sortOrder: HomeFeaturedBook.sortOrder,
+      createdAt: HomeFeaturedBook.createdAt,
+      ...cols,
+    })
+    .from(HomeFeaturedBook)
+    .leftJoin(
+      j.directCatalog,
+      eq(j.directCatalog.id, HomeFeaturedBook.catalogBookId),
+    )
+    .leftJoin(j.linkedBook, eq(j.linkedBook.id, HomeFeaturedBook.bookId))
+    .leftJoin(j.linkedCatalog, eq(j.linkedCatalog.id, j.linkedBook.catalogBookId))
+    .where(
+      and(
+        eq(HomeFeaturedBook.isActive, true),
+        // فقط آیتم‌هایی که هویت عمومیِ معتبر دارند: کتاب کانونیِ تأییدشده، یا یک
+        // ردیف کتابخانه‌ی قدیمیِ مستقل (بدون لینک کاتالوگ) که اسلاگ خودش را دارد.
+        or(
+          eq(j.directCatalog.status, "APPROVED"),
+          eq(j.linkedCatalog.status, "APPROVED"),
+          and(
+            sql`${HomeFeaturedBook.catalogBookId} is null`,
+            isNotNull(HomeFeaturedBook.bookId),
+            sql`${j.linkedBook.catalogBookId} is null`,
+          ),
+        ),
+      ),
+    )
+    .orderBy(asc(HomeFeaturedBook.sortOrder), asc(HomeFeaturedBook.createdAt))
+    .limit(limit);
+
+  return rows
+    .map((row): HomeBookCard | null => {
+      const resolved = normalizeResolvedHomeBook(row);
+      if (!resolved) return null;
+      return {
+        id: row.homeId,
+        slug: resolved.slug,
+        title: resolved.title,
+        author: resolved.author,
+        coverImage: resolved.coverImage,
+        genre: resolved.genre,
+        status: null,
+      };
+    })
+    .filter((b): b is HomeBookCard => b !== null);
+}
+
+// ---------------- مدیریت ادمین: کتاب‌های پیشنهادی ----------------
+export async function adminListFeaturedBooks(): Promise<AdminFeaturedBook[]> {
+  const j = homeBookJoins("feat_admin");
+  const cols = homeBookColumns(j);
+  const rows = await db
+    .select({
+      id: HomeFeaturedBook.id,
+      catalogBookId: HomeFeaturedBook.catalogBookId,
+      legacyBookId: HomeFeaturedBook.bookId,
+      isActive: HomeFeaturedBook.isActive,
+      sortOrder: HomeFeaturedBook.sortOrder,
+      resolvedCatalogId: cols.catalogBookId,
+      slug: cols.slug,
+      title: cols.title,
+      author: cols.author,
+      coverImage: cols.coverImage,
+      genre: cols.genre,
+    })
+    .from(HomeFeaturedBook)
+    .leftJoin(
+      j.directCatalog,
+      eq(j.directCatalog.id, HomeFeaturedBook.catalogBookId),
+    )
+    .leftJoin(j.linkedBook, eq(j.linkedBook.id, HomeFeaturedBook.bookId))
+    .leftJoin(j.linkedCatalog, eq(j.linkedCatalog.id, j.linkedBook.catalogBookId))
+    .orderBy(asc(HomeFeaturedBook.sortOrder), asc(HomeFeaturedBook.createdAt));
+
+  return rows.map((row) => {
+    const resolved = normalizeResolvedHomeBook(row);
+    return {
+      id: row.id,
+      // شناسه‌ی هویتِ کانونی برای dedupه با نتایج جست‌وجو (catalogBookId جدید یا
+      // book_id قدیمی به‌عنوان fallback تا آیتم‌های legacy هم کلید یکتا داشته باشند).
+      bookId:
+        row.resolvedCatalogId ?? row.catalogBookId ?? row.legacyBookId ?? row.id,
+      slug: resolved?.slug ?? null,
+      title: resolved?.title ?? "—",
+      author: resolved?.author ?? "",
+      coverImage: resolved?.coverImage ?? null,
+      isActive: row.isActive,
+      sortOrder: row.sortOrder,
+    } satisfies AdminFeaturedBook;
+  });
+}
+
+export async function adminAddFeaturedBook(identityId: string): Promise<void> {
+  const [row] = await db
+    .select({
+      max: sql<number>`coalesce(max(${HomeFeaturedBook.sortOrder}), -1)::int`,
+    })
+    .from(HomeFeaturedBook);
+  const nextOrder = (row?.max ?? -1) + 1;
+  const ref = await resolveHomeBookRef(identityId);
+  await db
+    .insert(HomeFeaturedBook)
+    .values({ ...ref, sortOrder: nextOrder })
+    .onConflictDoNothing();
+}
+
+export async function adminSetFeaturedActive(
+  id: string,
+  isActive: boolean
+): Promise<void> {
+  await db
+    .update(HomeFeaturedBook)
+    .set({ isActive, updatedAt: new Date() })
+    .where(eq(HomeFeaturedBook.id, id));
+}
+
+export async function adminRemoveFeaturedBook(id: string): Promise<void> {
+  await db.delete(HomeFeaturedBook).where(eq(HomeFeaturedBook.id, id));
+}
+
+/** ترتیب جدید را بر اساس آرایه‌ی idها اعمال می‌کند (index = sortOrder). */
+export async function adminReorderFeaturedBooks(
+  orderedIds: string[]
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      db
+        .update(HomeFeaturedBook)
+        .set({ sortOrder: index, updatedAt: new Date() })
+        .where(eq(HomeFeaturedBook.id, id))
+    )
+  );
+}
+
+// ---------------- اسلایدر هیرو: نوع‌ها ----------------
+export interface HeroSlideBook {
+  id: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  coverImage: string | null;
+}
+
+/** شکل عمومیِ اسلاید برای رندر در صفحه‌ی اصلی. */
+export interface HeroSlideView {
+  id: string;
+  badge: string | null;
+  title: string;
+  description: string | null;
+  primaryLabel: string | null;
+  primaryHref: string | null;
+  secondaryLabel: string | null;
+  secondaryHref: string | null;
+  imageUrl: string | null;
+  books: HeroSlideBook[];
+}
+
+/** شکل اسلاید برای مدیریت ادمین (شامل وضعیت و ترتیب). */
+export interface AdminHeroSlide {
+  id: string;
+  title: string;
+  description: string | null;
+  badge: string | null;
+  primaryCtaLabel: string | null;
+  primaryCtaHref: string | null;
+  secondaryCtaLabel: string | null;
+  secondaryCtaHref: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  books: HeroSlideBook[];
+}
+
+export interface HeroSlideInput {
+  title: string;
+  description?: string | null;
+  badge?: string | null;
+  primaryCtaLabel?: string | null;
+  primaryCtaHref?: string | null;
+  secondaryCtaLabel?: string | null;
+  secondaryCtaHref?: string | null;
+  imageUrl?: string | null;
+  isActive?: boolean;
+}
+
+/** حداکثر تعداد کتاب در هر اسلاید. */
+export const HERO_SLIDE_MAX_BOOKS = 3;
+
+/** کتاب‌های انتخابیِ مجموعه‌ای از اسلایدها را گروه‌بندی‌شده برمی‌گرداند. */
+async function loadSlideBooks(
+  slideIds: string[]
+): Promise<Map<string, HeroSlideBook[]>> {
+  const map = new Map<string, HeroSlideBook[]>();
+  if (slideIds.length === 0) return map;
+
+  const j = homeBookJoins("hero");
+  const cols = homeBookColumns(j);
+  const rows = await db
+    .select({
+      slideId: HomeHeroSlideBook.slideId,
+      // شناسه‌ی هویت = catalogBookId جدید یا book_id قدیمی (برای ذخیره‌ی دوباره).
+      identityId: sql<string | null>`coalesce(
+        ${HomeHeroSlideBook.catalogBookId},
+        ${cols.catalogBookId},
+        ${HomeHeroSlideBook.bookId}
+      )`,
+      catalogBookId: cols.catalogBookId,
+      slug: cols.slug,
+      title: cols.title,
+      author: cols.author,
+      coverImage: cols.coverImage,
+      genre: cols.genre,
+    })
+    .from(HomeHeroSlideBook)
+    .leftJoin(
+      j.directCatalog,
+      eq(j.directCatalog.id, HomeHeroSlideBook.catalogBookId),
+    )
+    .leftJoin(j.linkedBook, eq(j.linkedBook.id, HomeHeroSlideBook.bookId))
+    .leftJoin(j.linkedCatalog, eq(j.linkedCatalog.id, j.linkedBook.catalogBookId))
+    .where(inArray(HomeHeroSlideBook.slideId, slideIds))
+    .orderBy(asc(HomeHeroSlideBook.sortOrder));
+
+  for (const row of rows) {
+    const resolved = normalizeResolvedHomeBook(row);
+    if (!resolved) continue;
+    const list = map.get(row.slideId) ?? [];
+    list.push({
+      id: row.identityId ?? resolved.slug ?? row.slideId,
+      slug: resolved.slug,
+      title: resolved.title,
+      author: resolved.author,
+      coverImage: resolved.coverImage,
+    });
+    map.set(row.slideId, list);
+  }
+  return map;
+}
+
+/** اسلایدهای فعال صفحه‌ی اصلی (به ترتیب) همراه کتاب‌های انتخابی. */
+export async function getHeroSlides(): Promise<HeroSlideView[]> {
+  const slides = await db
+    .select()
+    .from(HomeHeroSlide)
+    .where(eq(HomeHeroSlide.isActive, true))
+    .orderBy(asc(HomeHeroSlide.sortOrder), asc(HomeHeroSlide.createdAt));
+
+  if (slides.length === 0) return [];
+
+  const books = await loadSlideBooks(slides.map((s) => s.id));
+  return slides.map((s) => ({
+    id: s.id,
+    badge: s.badge,
+    title: s.title,
+    description: s.description,
+    primaryLabel: s.primaryCtaLabel,
+    primaryHref: s.primaryCtaHref,
+    secondaryLabel: s.secondaryCtaLabel,
+    secondaryHref: s.secondaryCtaHref,
+    imageUrl: s.imageUrl,
+    books: books.get(s.id) ?? [],
+  }));
+}
+
+// ---------------- مدیریت ادمین: اسلایدر هیرو ----------------
+export async function adminListHeroSlides(): Promise<AdminHeroSlide[]> {
+  const slides = await db
+    .select()
+    .from(HomeHeroSlide)
+    .orderBy(asc(HomeHeroSlide.sortOrder), asc(HomeHeroSlide.createdAt));
+
+  const books = await loadSlideBooks(slides.map((s) => s.id));
+  return slides.map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    badge: s.badge,
+    primaryCtaLabel: s.primaryCtaLabel,
+    primaryCtaHref: s.primaryCtaHref,
+    secondaryCtaLabel: s.secondaryCtaLabel,
+    secondaryCtaHref: s.secondaryCtaHref,
+    imageUrl: s.imageUrl,
+    isActive: s.isActive,
+    sortOrder: s.sortOrder,
+    books: books.get(s.id) ?? [],
+  }));
+}
+
+function normalizeSlideValues(input: HeroSlideInput) {
+  const clean = (v: string | null | undefined) => {
+    const t = (v ?? "").trim();
+    return t ? t : null;
+  };
+  return {
+    title: input.title.trim(),
+    description: clean(input.description),
+    badge: clean(input.badge),
+    primaryCtaLabel: clean(input.primaryCtaLabel),
+    primaryCtaHref: clean(input.primaryCtaHref),
+    secondaryCtaLabel: clean(input.secondaryCtaLabel),
+    secondaryCtaHref: clean(input.secondaryCtaHref),
+    imageUrl: clean(input.imageUrl),
+  };
+}
+
+export async function adminCreateHeroSlide(
+  input: HeroSlideInput
+): Promise<string> {
+  const [row] = await db
+    .select({
+      max: sql<number>`coalesce(max(${HomeHeroSlide.sortOrder}), -1)::int`,
+    })
+    .from(HomeHeroSlide);
+  const nextOrder = (row?.max ?? -1) + 1;
+
+  const [created] = await db
+    .insert(HomeHeroSlide)
+    .values({
+      ...normalizeSlideValues(input),
+      isActive: input.isActive ?? true,
+      sortOrder: nextOrder,
+    })
+    .returning({ id: HomeHeroSlide.id });
+  return created.id;
+}
+
+export async function adminUpdateHeroSlide(
+  id: string,
+  input: HeroSlideInput
+): Promise<void> {
+  await db
+    .update(HomeHeroSlide)
+    .set({
+      ...normalizeSlideValues(input),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(HomeHeroSlide.id, id));
+}
+
+export async function adminSetHeroSlideActive(
+  id: string,
+  isActive: boolean
+): Promise<void> {
+  await db
+    .update(HomeHeroSlide)
+    .set({ isActive, updatedAt: new Date() })
+    .where(eq(HomeHeroSlide.id, id));
+}
+
+export async function adminDeleteHeroSlide(id: string): Promise<void> {
+  await db.delete(HomeHeroSlide).where(eq(HomeHeroSlide.id, id));
+}
+
+export async function adminReorderHeroSlides(
+  orderedIds: string[]
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      db
+        .update(HomeHeroSlide)
+        .set({ sortOrder: index, updatedAt: new Date() })
+        .where(eq(HomeHeroSlide.id, id))
+    )
+  );
+}
+
+/**
+ * کتاب‌های یک اسلاید را جایگزین می‌کند (حداکثر ۳، به ترتیب). شناسه‌های ورودی،
+ * شناسه‌ی کانونیِ کاتالوگ‌اند؛ ولی برای سازگاری اگر شناسه‌ای به یک ردیف legacy
+ * کتابخانه اشاره داشته باشد، در ستون book_id ذخیره می‌شود.
+ */
+export async function adminSetHeroSlideBooks(
+  slideId: string,
+  identityIds: string[]
+): Promise<void> {
+  const limited = identityIds.slice(0, HERO_SLIDE_MAX_BOOKS);
+  await db
+    .delete(HomeHeroSlideBook)
+    .where(eq(HomeHeroSlideBook.slideId, slideId));
+  if (limited.length === 0) return;
+
+  const values = await Promise.all(
+    limited.map(async (identityId, index) => {
+      const ref = await resolveHomeBookRef(identityId);
+      return { slideId, ...ref, sortOrder: index };
+    }),
+  );
+  await db.insert(HomeHeroSlideBook).values(values);
+}
+
+/**
+ * شناسه‌ی هویت (از انتخابگر) را به مرجع ستونیِ home content تبدیل می‌کند:
+ * اگر CatalogBook باشد → catalog_book_id (مسیر جدید و کانونی)، اگر یک ردیف
+ * legacy کتابخانه باشد → book_id (سازگاری). انتخابگرِ جدید همیشه catalogBookId
+ * می‌دهد؛ این تابع فقط برای حفظ سازگاریِ آیتم‌های قدیمی هنگام ذخیره‌ی دوباره است.
+ */
+async function resolveHomeBookRef(
+  identityId: string,
+): Promise<{ catalogBookId: string | null; bookId: string | null }> {
+  const [catalog] = await db
+    .select({ id: CatalogBook.id })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, identityId))
+    .limit(1);
+  if (catalog) return { catalogBookId: catalog.id, bookId: null };
+
+  const [book] = await db
+    .select({ id: Book.id })
+    .from(Book)
+    .where(eq(Book.id, identityId))
+    .limit(1);
+  if (book) return { catalogBookId: null, bookId: book.id };
+
+  // پیش‌فرض: به‌عنوان شناسه‌ی کاتالوگ (در صورت نامعتبربودن، قید FK جلوگیری می‌کند).
+  return { catalogBookId: identityId, bookId: null };
+}
+
+/**
+ * جست‌وجوی کتاب برای انتخابگر صفحه‌ی اصلی. هویت = CatalogBook (کانونی)، پس
+ * کتاب‌های ساخته‌شده توسط ادمین هم دیده می‌شوند. منطق در `searchAdminCatalogBooks`
+ * متمرکز است تا تکرار نشود.
+ */
+export async function searchBooksForFeature(
+  q: string,
+  limit = 10
+): Promise<FeaturedBookSearchResult[]> {
+  const results = await searchAdminCatalogBooks(q, { limit });
+  return results.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    author: r.author,
+    coverImage: r.coverImage,
+  }));
+}
+
+/** نام رسمیِ موردنظرِ سرویس برای انتخابگرِ کتابِ صفحه‌ی اصلی. */
+export const getHomepageBookSelectorOptions = searchBooksForFeature;
+
+/**
+ * Recent public quotes for the homepage.
+ *
+ * Quote rows have no timestamp yet, so we sort by id descending as the current
+ * "newest first" proxy. Public reachability is delegated to
+ * `getLatestPublicQuotes`, which mirrors the public book-page rules.
+ */
+export async function getRecentHomeQuotes(
+  limit = 6,
+): Promise<HomeQuotePreview[]> {
+  return getLatestPublicQuotes(limit);
+}
+
+export async function getLatestHomeBlogPosts(
+  limit = 3,
+): Promise<HomeBlogPostPreview[]> {
+  return getLatestPublishedBlogPosts(limit);
+}

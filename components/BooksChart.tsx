@@ -124,7 +124,7 @@ export default function BooksChart({
         {data.length > 0 ? (
           <div className="w-full h-full px-2 sm:px-4">{renderChart()}</div>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">
+          <div className="flex items-center justify-center h-full text-muted-foreground">
             داده‌ای برای نمایش وجود ندارد
           </div>
         )}

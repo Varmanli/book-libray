@@ -30,8 +30,6 @@ export default function EditBookPage() {
         });
         const data = await res.json();
 
-        console.log("[EditBookPage] /api/books/:", { id, ok: res.ok, data });
-
         if (!res.ok) {
           toast.error(data?.error || "خطا در دریافت اطلاعات کتاب");
           if (mounted) setLoading(false);
@@ -53,7 +51,6 @@ export default function EditBookPage() {
             raw.pageCount === undefined || raw.pageCount === null
               ? 0
               : Number(raw.pageCount),
-          format: raw.format ?? "PHYSICAL",
           cover: raw.coverImage ?? raw.cover ?? undefined,
         };
 
@@ -76,25 +73,10 @@ export default function EditBookPage() {
 
   const handleSubmit = async (data: BookFormType) => {
     try {
-      let coverUrl: string | undefined =
-        typeof data.cover === "string" ? data.cover : undefined;
-
-      if (data.cover instanceof File) {
-        const formData = new FormData();
-        formData.append("file", data.cover);
-
-        const uploadRes = await fetch("/api/upload/image", {
-          method: "POST",
-          body: formData,
-        });
-
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) {
-          toast.error(uploadData.error || "خطا در آپلود عکس");
-          return;
-        }
-        coverUrl = uploadData.url;
-      }
+      const coverUrl =
+        typeof data.cover === "string" && data.cover.trim()
+          ? data.cover
+          : undefined;
 
       const payload = {
         title: data.title,
@@ -105,7 +87,6 @@ export default function EditBookPage() {
         country: data.country,
         genre: data.genre,
         pageCount: Number(data.pageCount),
-        format: data.format,
         coverImage: coverUrl,
       };
 
@@ -124,7 +105,7 @@ export default function EditBookPage() {
       toast.success(result.message || "کتاب با موفقیت ویرایش شد");
 
       // Redirect to book detail page
-      router.push(`/books/${id}`);
+      router.push(`/book/${id}`);
     } catch (err) {
       console.error(err);
       toast.error("خطای سرور در ویرایش کتاب");

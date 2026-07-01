@@ -1,0 +1,100 @@
+import { NextRequest } from "next/server";
+
+import { apiError, apiSuccess } from "@/lib/api/response";
+import { assertAdminApi } from "@/lib/admin/permissions";
+import {
+  adminDeleteCatalogBook,
+  getAdminCatalogBookForEdit,
+  setCatalogBookStatus,
+  updateAdminCatalogBook,
+} from "@/lib/admin/service";
+import { catalogStatusSchema } from "@/lib/validations/admin";
+import { adminBookUpdateWithLinksSchema } from "@/lib/validations/catalog";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  const { id } = await params;
+  const book = await getAdminCatalogBookForEdit(id);
+  if (!book) return apiError("کتاب یافت نشد", 404, "NOT_FOUND");
+  return apiSuccess({ book });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  const { id } = await params;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return apiError("درخواست نامعتبر است", 400);
+  }
+
+  const parsed = adminBookUpdateWithLinksSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+  }
+
+  try {
+    const { externalLinks, ...bookInput } = parsed.data;
+    const result = await updateAdminCatalogBook(id, bookInput, externalLinks);
+    return apiSuccess({
+      id: result.id,
+      slug: result.slug,
+      message: "تغییرات کتاب ذخیره شد",
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "CATALOG_BOOK_NOT_FOUND") {
+      return apiError("کتاب یافت نشد", 404, "NOT_FOUND");
+    }
+    console.error("admin book update failed:", err);
+    return apiError("ذخیره‌ی تغییرات ناموفق بود", 500);
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  const { id } = await params;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return apiError("درخواست نامعتبر است", 400);
+  }
+
+  const parsed = catalogStatusSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+  }
+
+  await setCatalogBookStatus(id, parsed.data.status);
+  return apiSuccess({
+    message: parsed.data.status === "APPROVED" ? "تأیید شد" : "رد شد",
+  });
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  const { id } = await params;
+  await adminDeleteCatalogBook(id);
+  return apiSuccess({ message: "کتاب کاتالوگ حذف شد" });
+}

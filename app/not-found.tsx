@@ -23,9 +23,9 @@ export default function NotFound() {
             {/* Book Icon Animation */}
             <div className="relative mb-8">
               <div className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6 relative">
-                <div className="absolute inset-0 bg-[#00FF99]/10 rounded-3xl animate-pulse"></div>
-                <div className="absolute inset-2 bg-[#00FF99]/20 rounded-2xl animate-bounce"></div>
-                <BookOpen className="absolute inset-0 w-full h-full text-[#00FF99] p-6 animate-pulse" />
+                <div className="absolute inset-0 bg-primary/10 rounded-3xl animate-pulse"></div>
+                <div className="absolute inset-2 bg-primary/20 rounded-2xl animate-bounce"></div>
+                <BookOpen className="absolute inset-0 w-full h-full text-primary p-6 animate-pulse" />
               </div>
 
               {/* Floating Books */}
@@ -37,14 +37,14 @@ export default function NotFound() {
             {/* Error Content */}
             <div className="space-y-6">
               <div className="space-y-2">
-                <h1 className="text-6xl md:text-8xl font-bold text-[#00FF99]">
+                <h1 className="text-6xl md:text-8xl font-bold text-primary">
                   404
                 </h1>
-                <h2 className="text-2xl md:text-4xl font-semibold text-white">
+                <h2 className="text-2xl md:text-4xl font-semibold text-foreground">
                   صفحه پیدا نشد
                 </h2>
               </div>
-              <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg md:text-xl text-foreground max-w-2xl mx-auto leading-relaxed">
                 متأسفانه صفحه‌ای که دنبال آن می‌گردید در قفسه کتاب‌های ما پیدا
                 نشد. شاید کتاب مورد نظرتان به قفسه دیگری منتقل شده باشد!
               </p>
@@ -55,7 +55,7 @@ export default function NotFound() {
               <Link href="/books">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto bg-[#00FF99] hover:bg-[#00FF99]/90 text-black font-semibold px-8 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-3 rounded-xl transition-all duration-200 hover:scale-105"
                 >
                   <Home className="w-5 h-5 ml-2" />
                   بازگشت به کتابخانه
@@ -66,7 +66,7 @@ export default function NotFound() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="w-full sm:w-auto border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white px-8 py-3 rounded-xl transition-all duration-200"
+                  className="w-full sm:w-auto border-gray-600 text-foreground hover:bg-gray-700 hover:text-foreground px-8 py-3 rounded-xl transition-all duration-200"
                 >
                   <Heart className="w-5 h-5 ml-2" />
                   لیست خرید
@@ -79,37 +79,37 @@ export default function NotFound() {
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
           <Link href="/books">
-            <Card className="bg-gray-800/30 border-gray-700 hover:border-[#00FF99]/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
+            <Card className="bg-gray-800/30 border-gray-700 hover:border-primary/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
               <CardContent className="p-6 text-center">
-                <BookOpen className="w-8 h-8 text-[#00FF99] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <BookOpen className="w-8 h-8 text-primary mx-auto mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   همه کتاب‌ها
                 </h3>
-                <p className="text-sm text-gray-400">مشاهده کتابخانه کامل</p>
+                <p className="text-sm text-muted-foreground">مشاهده کتابخانه کامل</p>
               </CardContent>
             </Card>
           </Link>
 
           <Link href="/books/add">
-            <Card className="bg-gray-800/30 border-gray-700 hover:border-[#00FF99]/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
+            <Card className="bg-gray-800/30 border-gray-700 hover:border-primary/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
               <CardContent className="p-6 text-center">
-                <Plus className="w-8 h-8 text-[#00FF99] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <Plus className="w-8 h-8 text-primary mx-auto mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   افزودن کتاب
                 </h3>
-                <p className="text-sm text-gray-400">کتاب جدید اضافه کنید</p>
+                <p className="text-sm text-muted-foreground">کتاب جدید اضافه کنید</p>
               </CardContent>
             </Card>
           </Link>
 
-          <Link href="/account">
-            <Card className="bg-gray-800/30 border-gray-700 hover:border-[#00FF99]/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
+          <Link href="/dashboard">
+            <Card className="bg-gray-800/30 border-gray-700 hover:border-primary/50 transition-all duration-200 hover:bg-gray-800/50 group cursor-pointer">
               <CardContent className="p-6 text-center">
-                <BarChart3 className="w-8 h-8 text-[#00FF99] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <BarChart3 className="w-8 h-8 text-primary mx-auto mb-3 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   آمار و گزارش
                 </h3>
-                <p className="text-sm text-gray-400">مشاهده داشبورد</p>
+                <p className="text-sm text-muted-foreground">مشاهده داشبورد</p>
               </CardContent>
             </Card>
           </Link>
@@ -117,34 +117,34 @@ export default function NotFound() {
 
         {/* Helpful Links */}
         <div className="pt-8">
-          <p className="text-sm text-gray-400 mb-6">
+          <p className="text-sm text-muted-foreground mb-6">
             یا از این لینک‌های مفید استفاده کنید:
           </p>
           <div className="flex flex-wrap justify-center gap-6 text-sm">
             <Link
               href="/books"
-              className="flex items-center gap-2 text-[#00FF99] hover:text-[#00FF99]/80 transition-colors group"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group"
             >
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               همه کتاب‌ها
             </Link>
             <Link
               href="/books/add"
-              className="flex items-center gap-2 text-[#00FF99] hover:text-[#00FF99]/80 transition-colors group"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group"
             >
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               افزودن کتاب جدید
             </Link>
             <Link
               href="/wishlist"
-              className="flex items-center gap-2 text-[#00FF99] hover:text-[#00FF99]/80 transition-colors group"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group"
             >
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               لیست خرید
             </Link>
             <Link
-              href="/account"
-              className="flex items-center gap-2 text-[#00FF99] hover:text-[#00FF99]/80 transition-colors group"
+              href="/dashboard"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors group"
             >
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               آمار و گزارش
@@ -153,10 +153,10 @@ export default function NotFound() {
         </div>
 
         {/* Decorative Elements */}
-        <div className="absolute top-20 left-10 w-2 h-2 bg-[#00FF99]/30 rounded-full animate-ping"></div>
-        <div className="absolute top-40 right-16 w-1 h-1 bg-[#00FF99]/40 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-32 left-20 w-3 h-3 bg-[#00FF99]/20 rounded-full animate-bounce"></div>
-        <div className="absolute bottom-20 right-10 w-2 h-2 bg-[#00FF99]/30 rounded-full animate-ping"></div>
+        <div className="absolute top-20 left-10 w-2 h-2 bg-primary/30 rounded-full animate-ping"></div>
+        <div className="absolute top-40 right-16 w-1 h-1 bg-primary/40 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-32 left-20 w-3 h-3 bg-primary/20 rounded-full animate-bounce"></div>
+        <div className="absolute bottom-20 right-10 w-2 h-2 bg-primary/30 rounded-full animate-ping"></div>
       </div>
 
       <style jsx>{`

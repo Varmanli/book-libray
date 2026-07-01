@@ -1,7 +1,7 @@
 export type BookType = {
   id: string;
   title: string;
-  coverImage: string;
+  coverImage: string | null;
   author: string;
   translator?: string | null;
   description?: string | null;

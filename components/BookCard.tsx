@@ -53,7 +53,7 @@ const BookCard = memo(function BookCard({
   }, [status, book.id, onStatusChange]);
 
   const handleViewDetails = useCallback(() => {
-    router.push(`/books/${book.id}`);
+    router.push(`/book/${book.id}`);
   }, [router, book.id]);
 
   const handleEdit = useCallback(() => {
@@ -65,7 +65,7 @@ const BookCard = memo(function BookCard({
       {/* جلد کتاب */}
       <div className="relative w-full h-130 md:w-55 md:h-80 flex-shrink-0">
         <Image
-          src={book.coverImage || "/placeholder-cover.jpg"}
+          src={book.coverImage || "/placeholder-cover.svg"}
           alt={book.title}
           fill
           className="object-cover rounded-t-xl md:rounded-t-none md:rounded-r-xl w-full h-full"
@@ -84,38 +84,38 @@ const BookCard = memo(function BookCard({
 
         {/* اطلاعات به صورت جدول دو رنگ */}
         <div className="grid grid-cols-[1fr_3fr]  gap-2 ">
-          <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
+          <div className="bg-gray-700/50 p-2 text-foreground text-sm md:text-base">
             نویسنده
           </div>
-          <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+          <div className="bg-gray-600/50 p-2 text-foreground text-sm md:text-base">
             {book.author}
           </div>
           {book.translator && (
             <>
-              <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
+              <div className="bg-gray-700/50 p-2 text-foreground text-sm md:text-base">
                 مترجم
               </div>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+              <div className="bg-gray-600/50 p-2 text-foreground text-sm md:text-base">
                 {book.translator}
               </div>
             </>
           )}
           {book.country && (
             <>
-              <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
+              <div className="bg-gray-700/50 p-2 text-foreground text-sm md:text-base">
                 کشور
               </div>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+              <div className="bg-gray-600/50 p-2 text-foreground text-sm md:text-base">
                 {book.country}
               </div>
             </>
           )}
           {book.genre && (
             <>
-              <div className="bg-gray-700/50 p-2 text-gray-300 text-sm md:text-base">
+              <div className="bg-gray-700/50 p-2 text-foreground text-sm md:text-base">
                 ژانر
               </div>
-              <div className="bg-gray-600/50 p-2 text-gray-100 text-sm md:text-base">
+              <div className="bg-gray-600/50 p-2 text-foreground text-sm md:text-base">
                 {book.genre}
               </div>
             </>

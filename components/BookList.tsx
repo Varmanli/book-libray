@@ -93,9 +93,6 @@ export default function BookList({ books }: BookListProps) {
             <CardContent>
               <p className="text-sm">✍️ نویسنده: {b.author}</p>
               <p className="text-sm">🎭 ژانر: {b.genre}</p>
-              <p className="text-sm">
-                💾 فرمت: {b.format === "PHYSICAL" ? "فیزیکی" : "الکترونیکی"}
-              </p>
             </CardContent>
           </Card>
         ))}

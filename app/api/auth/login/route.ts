@@ -1,52 +1,51 @@
-import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { User } from "@/db/schema";
-import bcrypt from "bcryptjs";
-import { signJwt } from "@/lib/jwt";
-import { serialize } from "cookie";
-import { eq } from "drizzle-orm";
+import { NextRequest } from "next/server";
+import { apiError, apiSuccess } from "@/lib/api/response";
+import { loginSchema } from "@/lib/validations/auth";
+import { AuthError, authenticateUser, createAuthTokenForUser } from "@/lib/auth/service";
+import { setAuthCookie } from "@/lib/auth/cookies";
+import { getClientKey, rateLimit } from "@/lib/rate-limit";
 
-export async function POST(req: Request) {
-  try {
-    const { email, password } = await req.json();
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "ایمیل و پسورد لازم است" },
-        { status: 400 }
-      );
-    }
-
-    // جستجوی کاربر با Drizzle
-    const [user] = await db.select().from(User).where(eq(User.email, email));
-
-    if (!user || !user.password) {
-      return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 401 });
-    }
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return NextResponse.json({ error: "پسورد اشتباه است" }, { status: 401 });
-    }
-
-    // ساخت JWT
-    const token = signJwt({ id: user.id });
-
-    // ست کردن کوکی HTTPOnly
-    const cookieSerialized = serialize("token", token, {
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 روز
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    return NextResponse.json(
-      { message: "ورود موفق" },
-      { headers: { "Set-Cookie": cookieSerialized } }
+export async function POST(req: NextRequest) {
+  const limit = rateLimit(getClientKey(req, "login"), {
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!limit.allowed) {
+    return apiError(
+      "تلاش‌های ناموفق زیاد بود. کمی بعد دوباره تلاش کنید.",
+      429,
+      "RATE_LIMITED"
     );
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return apiError("درخواست نامعتبر است", 400);
+  }
+
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      "ایمیل، نام کاربری یا رمز عبور اشتباه است",
+      401,
+      "INVALID_CREDENTIALS"
+    );
+  }
+
+  try {
+    const user = await authenticateUser(parsed.data);
+    const token = await createAuthTokenForUser(user.id);
+
+    const res = apiSuccess({ message: "ورود موفق", user });
+    setAuthCookie(res, token, parsed.data.rememberMe);
+    return res;
   } catch (err) {
-    console.error("❌ خطا در Login:", err);
-    return NextResponse.json({ error: "خطای سرور" }, { status: 500 });
+    if (err instanceof AuthError) {
+      return apiError(err.message, err.status, err.code);
+    }
+    console.error("❌ login error:", err);
+    return apiError("خطای سرور. بعداً دوباره تلاش کنید.", 500);
   }
 }

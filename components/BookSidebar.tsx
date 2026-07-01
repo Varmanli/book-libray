@@ -74,7 +74,7 @@ export default function BooksSidebar({
 
     return (
       <div>
-        <p className="text-gray-300 font-medium mb-1">{label}:</p>
+        <p className="text-foreground font-medium mb-1">{label}:</p>
         <Select
           value={selected || "all"}
           onValueChange={(val) => onChange(val === "all" ? null : val)}
@@ -103,7 +103,7 @@ export default function BooksSidebar({
 
   return (
     <aside className="md:col-span-1 border rounded-xl p-4 space-y-6 h-fit bg-card">
-      <h2 className="font-bold text-xl text-gray-100 mb-4">فیلتر کتاب‌ها</h2>
+      <h2 className="font-bold text-xl text-foreground mb-4">فیلتر کتاب‌ها</h2>
 
       {renderSelect("نویسنده", authors, selectedAuthor, onAuthorChange)}
       {renderSelect("ژانر", genres, selectedGenre, onGenreChange)}
@@ -130,7 +130,7 @@ export default function BooksSidebar({
 
       {/* مرتب‌سازی */}
       <div>
-        <p className="text-gray-300 font-medium mb-1">مرتب‌سازی بر اساس:</p>
+        <p className="text-foreground font-medium mb-1">مرتب‌سازی بر اساس:</p>
         <Select
           value={sortBy || "none"}
           onValueChange={(val) =>
@@ -159,7 +159,7 @@ export default function BooksSidebar({
       </div>
 
       <div>
-        <p className="text-gray-300 font-medium mb-1">ترتیب:</p>
+        <p className="text-foreground font-medium mb-1">ترتیب:</p>
         <Select
           value={sortOrder}
           onValueChange={(val) => onSortOrderChange(val as "asc" | "desc")}

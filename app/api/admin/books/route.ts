@@ -1,0 +1,69 @@
+import { NextRequest } from "next/server";
+
+import { apiError, apiSuccess } from "@/lib/api/response";
+import { assertAdminApi } from "@/lib/admin/permissions";
+import {
+  adminCreateCatalogBook,
+  adminListCatalogBooks,
+} from "@/lib/admin/service";
+import { adminBookCreateSchema } from "@/lib/validations/catalog";
+
+const PAGE_SIZE = 20;
+
+export async function GET(req: NextRequest) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  const sp = req.nextUrl.searchParams;
+  const page = Math.max(1, Number(sp.get("page")) || 1);
+  const s = sp.get("status");
+  const status =
+    s === "PENDING" || s === "APPROVED" || s === "REJECTED" ? s : undefined;
+
+  const { books, total } = await adminListCatalogBooks({
+    q: sp.get("q") ?? undefined,
+    status,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  });
+
+  return apiSuccess({
+    books,
+    total,
+    page,
+    pageSize: PAGE_SIZE,
+    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  });
+}
+
+export async function POST(req: NextRequest) {
+  const gate = await assertAdminApi();
+  if ("error" in gate) return gate.error;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return apiError("درخواست نامعتبر است", 400);
+  }
+
+  const parsed = adminBookCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+  }
+
+  const { externalLinks, ...bookInput } = parsed.data;
+  const result = await adminCreateCatalogBook(
+    bookInput,
+    gate.user.id,
+    externalLinks,
+  );
+  return apiSuccess(
+    {
+      id: result.id,
+      slug: result.slug,
+      message: "کتاب در کاتالوگ ثبت و تأیید شد",
+    },
+    { status: 201 }
+  );
+}

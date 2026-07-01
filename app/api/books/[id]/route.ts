@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
+import { sanitizeMoodTags } from "@/lib/book/moods";
 
 // Helper برای گرفتن ID از مسیر
 function getIdFromUrl(req: NextRequest) {
@@ -70,6 +71,18 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // حس‌ها فقط از فهرست مجاز پذیرفته می‌شوند (ضد ورودی دلخواه)
+    if ("moodTags" in body) {
+      const moods = sanitizeMoodTags(body.moodTags);
+      if (moods === undefined) {
+        return NextResponse.json(
+          { error: "فهرست حس‌ها نامعتبر است" },
+          { status: 400 }
+        );
+      }
+      updateData.moodTags = moods;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "هیچ مقداری برای بروزرسانی ارسال نشده" },
@@ -99,6 +112,7 @@ export async function PUT(req: NextRequest) {
         progress: Book.progress,
         rating: Book.rating,
         review: Book.review,
+        moodTags: Book.moodTags,
       });
 
     return NextResponse.json({
