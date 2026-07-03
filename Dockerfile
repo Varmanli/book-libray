@@ -16,8 +16,9 @@ COPY . .
 
 # NEXT_PUBLIC_* values are inlined at build time — Coolify must provide these
 # as build-time variables. DATABASE_URL is also read at build time by pages
-# that import the DB client at module scope; set it as a build variable too
-# (it does not need to be a reachable/real connection during build).
+# that import the DB client at module scope, and by db:push below — it must
+# be a real, reachable connection string at build time (Coolify's Docker
+# build must be able to reach the database over the network).
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BASE_URL
 ARG DATABASE_URL
@@ -27,6 +28,7 @@ ENV DATABASE_URL=$DATABASE_URL
 ENV NODE_ENV=production
 
 RUN npx tsc --noEmit
+RUN npm run db:push
 RUN npm run build
 
 # ---- runner: minimal production image --------------------------------------
@@ -49,5 +51,7 @@ EXPOSE 3005
 
 # Real secrets (DATABASE_URL, JWT_SECRET, S3_*, GOOGLE_CLIENT_SECRET) must be
 # provided as runtime environment variables in Coolify — never baked into
-# this image. No database migration or seed command runs here.
+# this image. The schema is applied during the builder stage (above, via
+# db:push, since this project has no tracked migration journal); no seed
+# command runs here.
 CMD ["node", "server.js"]

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:push": "drizzle-kit push",
     "backfill:usernames": "tsx scripts/backfill-usernames.ts",
     "backfill:catalog-public": "tsx --env-file=.env scripts/backfill-catalog-public-books.ts",
     "db:apply:blog": "tsx --env-file=.env scripts/apply-blog-posts.ts",
