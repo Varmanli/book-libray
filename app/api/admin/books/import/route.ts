@@ -5,6 +5,7 @@ import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { parseImportFile } from "@/lib/books/import/file";
 import { importNormalizedBooks } from "@/lib/books/import/importer";
+import { buildImportPreview } from "@/lib/books/import/validate";
 
 export async function POST(req: NextRequest) {
   const gate = await assertAdminApi();
@@ -24,12 +25,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const books = await parseImportFile(file);
-    const result = await importNormalizedBooks(books, gate.user.id);
+    const preview = await buildImportPreview(books);
+    if (preview.validCount <= 0) {
+      return apiError("کتاب معتبری برای ورود وجود ندارد", 422, "IMPORT_NO_VALID_BOOKS");
+    }
+    const result = await importNormalizedBooks(books, gate.user.id, preview);
     revalidatePath("/admin");
     revalidatePath("/admin/books");
     return apiSuccess({
       ...result,
-      message: "واردسازی انجام شد",
+      message: `${result.importedCount.toLocaleString("fa-IR")} کتاب با موفقیت وارد شد.`,
     });
   } catch (error) {
     if (error instanceof Error) {

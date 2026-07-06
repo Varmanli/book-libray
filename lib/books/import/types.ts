@@ -85,6 +85,8 @@ export type ImportPreviewBook = Omit<
 };
 
 export type ImportPreviewResponse = {
+  validCount: number;
+  invalidCount: number;
   summary: {
     totalBooks: number;
     totalEditions: number;
@@ -99,6 +101,9 @@ export type ImportPreviewResponse = {
 };
 
 export type ImportResultResponse = {
+  importedCount: number;
+  skippedCount: number;
+  invalidCount: number;
   createdBooks: number;
   reusedBooks: number;
   createdEditions: number;

@@ -16,6 +16,7 @@ import {
   resolveReferenceItem,
 } from "@/lib/reference/service";
 import type {
+  ImportPreviewResponse,
   ImportResultResponse,
   NormalizedImportBook,
   ReferencePreviewSummary,
@@ -73,10 +74,14 @@ function addReferenceSummary(
 export async function importNormalizedBooks(
   books: NormalizedImportBook[],
   adminId: string,
+  previewInput?: ImportPreviewResponse,
 ): Promise<ImportResultResponse> {
-  const preview = await buildImportPreview(books);
+  const preview = previewInput ?? await buildImportPreview(books);
   const errors: string[] = [];
   const result: ImportResultResponse = {
+    importedCount: 0,
+    skippedCount: 0,
+    invalidCount: preview.invalidCount,
     createdBooks: 0,
     reusedBooks: 0,
     createdEditions: 0,
@@ -144,6 +149,7 @@ export async function importNormalizedBooks(
         } else {
           result.createdBooks += 1;
         }
+        result.importedCount += 1;
 
         for (const author of previewBook.authors) {
           const resolved = await resolveReferenceItem(tx, {
@@ -270,6 +276,8 @@ export async function importNormalizedBooks(
       );
     }
   }
+
+  result.skippedCount = preview.summary.totalBooks - result.importedCount;
 
   return result;
 }

@@ -189,21 +189,17 @@ export default function ImportBooksClient() {
     setMounted(true);
   }, []);
 
-  const hasHardErrors = useMemo(
-    () =>
-      Boolean(
-        preview?.books.some(
-          (book) =>
-            book.errors.length > 0 ||
-            book.editions.some(
-              (edition) =>
-                edition.errors.length > 0 ||
-                edition.duplicateState === "file_duplicate",
-            ),
-        ),
-      ),
+  const validCount = useMemo(
+    () => preview?.validCount ?? preview?.summary.validBooks ?? 0,
     [preview],
   );
+
+  const invalidCount = useMemo(
+    () => preview?.invalidCount ?? preview?.summary.invalidBooks ?? 0,
+    [preview],
+  );
+
+  const canImport = Boolean(preview) && validCount > 0 && !previewing && !importing;
 
   const jsonLineCount = useMemo(() => {
     if (!jsonText) return 0;
@@ -332,6 +328,9 @@ export default function ImportBooksClient() {
       if (!data) return;
 
       setPreview(data);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("import preview result", data);
+      }
       toast.success("بررسی و پیش‌نمایش انجام شد");
     } catch {
       toast.error("ارتباط با سرور برقرار نشد");
@@ -341,8 +340,8 @@ export default function ImportBooksClient() {
   }
 
   async function handleImport() {
-    if (hasHardErrors) {
-      toast.error("ابتدا خطاهای فایل را برطرف کنید");
+    if (!preview || validCount <= 0) {
+      toast.error("کتاب معتبری برای ورود وجود ندارد.");
       return;
     }
 
@@ -353,7 +352,7 @@ export default function ImportBooksClient() {
       if (!data) return;
 
       setResult(data);
-      toast.success(data.message || "ورود کتاب‌ها انجام شد");
+      toast.success(data.message || `${validCount.toLocaleString("fa-IR")} کتاب با موفقیت وارد شد.`);
     } catch {
       toast.error("ارتباط با سرور برقرار نشد");
     } finally {
@@ -642,12 +641,7 @@ export default function ImportBooksClient() {
               type="button"
               variant="outline"
               onClick={handleImport}
-              disabled={
-                (mode === "file" ? !activeFile : !jsonText.trim()) ||
-                !preview ||
-                hasHardErrors ||
-                importing
-              }
+              disabled={!canImport}
               className="h-11 rounded-2xl border-border/80 bg-background/60 px-5 font-bold"
             >
               {importing ? (
@@ -655,7 +649,11 @@ export default function ImportBooksClient() {
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              {importing ? "در حال ورود..." : "ورود کتاب‌های معتبر"}
+              {importing
+                ? "در حال ورود..."
+                : validCount > 0
+                  ? `ورود ${validCount.toLocaleString("fa-IR")} کتاب معتبر`
+                  : "کتاب معتبری برای ورود وجود ندارد"}
             </Button>
           </div>
         </CardContent>
@@ -804,16 +802,13 @@ export default function ImportBooksClient() {
             />
             <SummaryCard
               label="آماده واردسازی"
-              value={preview.summary.readyEditions}
+              value={validCount}
               tone="success"
             />
             <SummaryCard
               label="موارد دارای اشکال"
-              value={
-                preview.summary.invalidBooks +
-                (preview.summary.totalEditions - preview.summary.readyEditions)
-              }
-              tone={hasHardErrors ? "danger" : "warning"}
+              value={invalidCount}
+              tone={invalidCount > 0 ? "danger" : "warning"}
             />
           </div>
 
@@ -824,9 +819,12 @@ export default function ImportBooksClient() {
               </CardTitle>
 
               <CardDescription>
-                {hasHardErrors
-                  ? "تا زمانی که خطاهای قرمز برطرف نشوند، واردسازی فعال نمی‌شود."
-                  : "فایل از نظر ساختاری قابل واردسازی است. نسخه‌های تکراری موجود فقط رد می‌شوند."}
+                {validCount > 0
+                  ? `${validCount.toLocaleString("fa-IR")} کتاب آماده ورود هستند.`
+                  : "کتاب معتبری برای ورود وجود ندارد."}
+                {invalidCount > 0
+                  ? ` ${invalidCount.toLocaleString("fa-IR")} مورد نیاز به اصلاح دارند.`
+                  : ""}
               </CardDescription>
             </CardHeader>
 
@@ -882,6 +880,7 @@ export default function ImportBooksClient() {
                         <Notice
                           key={itemIndex}
                           tone="danger"
+                          label="نیاز به اصلاح"
                           message={message}
                         />
                       ))}
@@ -958,6 +957,7 @@ export default function ImportBooksClient() {
                             <Notice
                               key={itemIndex}
                               tone="danger"
+                              label="نیاز به اصلاح"
                               message={message}
                             />
                           ))}
@@ -1237,9 +1237,11 @@ function StateBadge({
 }
 
 function Notice({
+  label,
   message,
   tone,
 }: {
+  label?: string;
   message: string;
   tone: "warning" | "danger";
 }) {
@@ -1257,7 +1259,14 @@ function Notice({
       )}
     >
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span>{message}</span>
+      <span className="space-y-1">
+        {label ? (
+          <span className="block text-[10px] font-black uppercase tracking-wide opacity-80">
+            {label}
+          </span>
+        ) : null}
+        <span>{message}</span>
+      </span>
     </div>
   );
 }

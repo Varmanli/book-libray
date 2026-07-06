@@ -261,6 +261,8 @@ export async function buildImportPreview(
   ).length;
 
   return {
+    validCount: validBooks,
+    invalidCount: invalidBooks,
     summary: {
       totalBooks: previewBooks.length,
       totalEditions,
