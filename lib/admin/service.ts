@@ -19,6 +19,8 @@ import {
 } from "@/lib/book/external-links";
 import { adminCreateReference } from "@/lib/reference/service";
 import type {
+  AdminEditionCreateInput,
+  AdminEditionUpdateInput,
   AdminBookUpdateInput,
   ManualBookInput,
 } from "@/lib/validations/catalog";
@@ -620,6 +622,141 @@ export interface AdminBookEditData {
   publishedYear: number | null;
   editionLabel: string | null;
   externalLinks: AdminExternalLink[];
+  editions: AdminBookEditionRow[];
+}
+
+export interface AdminBookEditionRow {
+  id: string;
+  catalogBookId: string;
+  titleOverride: string | null;
+  translator: string | null;
+  publisher: string | null;
+  isbn10: string | null;
+  isbn13: string | null;
+  format: "PHYSICAL" | "ELECTRONIC";
+  pageCount: number | null;
+  publishedYear: number | null;
+  editionLabel: string | null;
+  editionDescription: string | null;
+  language: string | null;
+  coverImage: string | null;
+  coverFilename: string | null;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  sourceEditionCode: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function cleanNullable(value: string | null | undefined) {
+  if (value === undefined) return undefined;
+  const trimmed = (value ?? "").trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeIsbn(value: string | null | undefined) {
+  const cleaned = cleanNullable(value);
+  return cleaned ? cleaned.replace(/[\s-]+/g, "") : null;
+}
+
+function assertMeaningfulEdition(input: {
+  titleOverride?: string | null;
+  translator?: string | null;
+  publisher?: string | null;
+  isbn10?: string | null;
+  isbn13?: string | null;
+  coverImage?: string | null;
+  editionDescription?: string | null;
+  publishedYear?: number | null;
+  pageCount?: number | null;
+}) {
+  const hasMeaningfulField = [
+    input.titleOverride,
+    input.translator,
+    input.publisher,
+    input.isbn10,
+    input.isbn13,
+    input.coverImage,
+    input.editionDescription,
+    input.publishedYear,
+    input.pageCount,
+  ].some((item) => item != null && String(item).trim() !== "");
+
+  if (!hasMeaningfulField) {
+    throw new Error("EDITION_NOT_DISTINGUISHED");
+  }
+}
+
+async function ensureEditionIsbnUnique(
+  input: { isbn10?: string | null; isbn13?: string | null },
+  excludeEditionId?: string,
+) {
+  const isbn10 = normalizeIsbn(input.isbn10);
+  const isbn13 = normalizeIsbn(input.isbn13);
+
+  if (isbn10) {
+    const [row] = await db
+      .select({ id: BookEdition.id })
+      .from(BookEdition)
+      .where(
+        excludeEditionId
+          ? and(eq(BookEdition.isbn10, isbn10), sql`${BookEdition.id} <> ${excludeEditionId}`)
+          : eq(BookEdition.isbn10, isbn10),
+      )
+      .limit(1);
+    if (row) throw new Error("DUPLICATE_ISBN10");
+  }
+
+  if (isbn13) {
+    const [row] = await db
+      .select({ id: BookEdition.id })
+      .from(BookEdition)
+      .where(
+        excludeEditionId
+          ? and(eq(BookEdition.isbn13, isbn13), sql`${BookEdition.id} <> ${excludeEditionId}`)
+          : eq(BookEdition.isbn13, isbn13),
+      )
+      .limit(1);
+    if (row) throw new Error("DUPLICATE_ISBN13");
+  }
+}
+
+export async function listAdminBookEditions(
+  catalogBookId: string,
+): Promise<AdminBookEditionRow[]> {
+  return db
+    .select({
+      id: BookEdition.id,
+      catalogBookId: BookEdition.catalogBookId,
+      titleOverride: BookEdition.titleOverride,
+      translator: BookEdition.translator,
+      publisher: BookEdition.publisher,
+      isbn10: BookEdition.isbn10,
+      isbn13: BookEdition.isbn13,
+      format: BookEdition.format,
+      pageCount: BookEdition.pageCount,
+      publishedYear: BookEdition.publishedYear,
+      editionLabel: BookEdition.editionLabel,
+      editionDescription: BookEdition.editionDescription,
+      language: BookEdition.language,
+      coverImage: BookEdition.coverImage,
+      coverFilename: BookEdition.coverFilename,
+      sourceName: BookEdition.sourceName,
+      sourceUrl: BookEdition.sourceUrl,
+      sourceEditionCode: BookEdition.sourceEditionCode,
+      status: BookEdition.status,
+      createdAt: BookEdition.createdAt,
+      updatedAt: BookEdition.updatedAt,
+    })
+    .from(BookEdition)
+    .where(eq(BookEdition.catalogBookId, catalogBookId))
+    .orderBy(
+      desc(sql`(${BookEdition.status} = 'APPROVED')`),
+      desc(sql`${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> ''`),
+      desc(BookEdition.publishedYear),
+      desc(BookEdition.createdAt),
+    );
 }
 
 /** شناسه‌ی بهترین نسخه‌ی یک کتاب کانونی (همان معیار نماینده)، یا null. */
@@ -664,7 +801,10 @@ export async function getAdminCatalogBookForEdit(
 
   if (!book) return null;
 
-  const externalLinks = await listBookExternalLinks(id);
+  const [externalLinks, editions] = await Promise.all([
+    listBookExternalLinks(id),
+    listAdminBookEditions(id),
+  ]);
   const editionId = await findRepresentativeEditionId(id);
   const edition = editionId
     ? (
@@ -707,6 +847,7 @@ export async function getAdminCatalogBookForEdit(
     publishedYear: edition?.publishedYear ?? null,
     editionLabel: edition?.editionLabel ?? null,
     externalLinks,
+    editions,
   };
 }
 
@@ -816,4 +957,128 @@ export async function updateAdminCatalogBook(
   }
 
   return { id, slug: nextSlug };
+}
+
+export async function createAdminBookEdition(
+  catalogBookId: string,
+  input: AdminEditionCreateInput,
+  adminId: string,
+): Promise<{ id: string }> {
+  const [book] = await db
+    .select({ id: CatalogBook.id })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, catalogBookId))
+    .limit(1);
+
+  if (!book) throw new Error("CATALOG_BOOK_NOT_FOUND");
+
+  await ensureEditionIsbnUnique(input);
+  assertMeaningfulEdition(input);
+
+  const [created] = await db
+    .insert(BookEdition)
+    .values({
+      catalogBookId,
+      titleOverride: cleanNullable(input.titleOverride) ?? null,
+      translator: cleanNullable(input.translator) ?? null,
+      publisher: cleanNullable(input.publisher) ?? null,
+      isbn10: normalizeIsbn(input.isbn10),
+      isbn13: normalizeIsbn(input.isbn13),
+      format: input.format ?? "PHYSICAL",
+      coverImage: input.coverImage ?? null,
+      publishedYear: input.publishedYear ?? null,
+      editionLabel: cleanNullable(input.editionLabel) ?? null,
+      editionDescription: cleanNullable(input.editionDescription) ?? null,
+      pageCount: input.pageCount ?? null,
+      language: cleanNullable(input.language) ?? null,
+      sourceName: cleanNullable(input.sourceName) ?? null,
+      sourceUrl: cleanNullable(input.sourceUrl) ?? null,
+      sourceEditionCode: cleanNullable(input.sourceEditionCode) ?? null,
+      status: input.status ?? "PENDING",
+      createdById: adminId,
+      updatedAt: new Date(),
+    })
+    .returning({ id: BookEdition.id });
+
+  try {
+    await Promise.all([
+      input.translator
+        ? adminCreateReference("TRANSLATOR", input.translator)
+        : Promise.resolve(),
+      input.publisher
+        ? adminCreateReference("PUBLISHER", input.publisher)
+        : Promise.resolve(),
+    ]);
+  } catch (err) {
+    console.error("admin reference promote (edition create) failed:", err);
+  }
+
+  return created;
+}
+
+export async function updateAdminBookEdition(
+  editionId: string,
+  input: AdminEditionUpdateInput,
+): Promise<{ id: string; catalogBookId: string }> {
+  const [existing] = await db
+    .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+    .from(BookEdition)
+    .where(eq(BookEdition.id, editionId))
+    .limit(1);
+
+  if (!existing) throw new Error("EDITION_NOT_FOUND");
+
+  await ensureEditionIsbnUnique(input, editionId);
+  assertMeaningfulEdition(input);
+
+  const [updated] = await db
+    .update(BookEdition)
+    .set({
+      titleOverride: cleanNullable(input.titleOverride) ?? null,
+      translator: cleanNullable(input.translator) ?? null,
+      publisher: cleanNullable(input.publisher) ?? null,
+      isbn10: normalizeIsbn(input.isbn10),
+      isbn13: normalizeIsbn(input.isbn13),
+      format: input.format ?? "PHYSICAL",
+      coverImage: input.coverImage ?? null,
+      publishedYear: input.publishedYear ?? null,
+      editionLabel: cleanNullable(input.editionLabel) ?? null,
+      editionDescription: cleanNullable(input.editionDescription) ?? null,
+      pageCount: input.pageCount ?? null,
+      language: cleanNullable(input.language) ?? null,
+      sourceName: cleanNullable(input.sourceName) ?? null,
+      sourceUrl: cleanNullable(input.sourceUrl) ?? null,
+      sourceEditionCode: cleanNullable(input.sourceEditionCode) ?? null,
+      status: input.status ?? "PENDING",
+      updatedAt: new Date(),
+    })
+    .where(eq(BookEdition.id, editionId))
+    .returning({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId });
+
+  try {
+    await Promise.all([
+      input.translator
+        ? adminCreateReference("TRANSLATOR", input.translator)
+        : Promise.resolve(),
+      input.publisher
+        ? adminCreateReference("PUBLISHER", input.publisher)
+        : Promise.resolve(),
+    ]);
+  } catch (err) {
+    console.error("admin reference promote (edition update) failed:", err);
+  }
+
+  return updated;
+}
+
+export async function deleteAdminBookEdition(
+  editionId: string,
+): Promise<{ catalogBookId: string }> {
+  const [deleted] = await db
+    .delete(BookEdition)
+    .where(eq(BookEdition.id, editionId))
+    .returning({ catalogBookId: BookEdition.catalogBookId });
+
+  if (!deleted) throw new Error("EDITION_NOT_FOUND");
+  return deleted;
 }

@@ -7,9 +7,7 @@ import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
-import type {
-  ReferenceSearchPage,
-} from "@/lib/reference/service";
+import type { ReferenceSearchPage } from "@/lib/reference/service";
 
 function toReferenceSearchParams(q: string, page: number) {
   const params = new URLSearchParams();

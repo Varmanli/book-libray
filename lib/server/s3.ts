@@ -164,9 +164,13 @@ export async function uploadImageToS3(params: {
   contentType: string;
   filename: string;
   folder: ImageUploadFolder;
+  objectKey?: string;
 }) {
   const client = getClient();
-  const key = buildUploadKey(params.folder, params.filename);
+  const key =
+    params.objectKey && params.objectKey.trim()
+      ? params.objectKey.trim().replace(/^\/+/, "")
+      : buildUploadKey(params.folder, params.filename);
 
   // لاگِ بدون افشای راز: نوع/پوشه، حجم، mime، هاستِ اندپوینت، باکت، forcePathStyle.
   const started = Date.now();

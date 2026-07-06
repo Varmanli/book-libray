@@ -2,6 +2,7 @@ import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { Book, ReferenceItem } from "@/db/schema";
+import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 
 export interface ReferenceEntity {
@@ -89,6 +90,14 @@ export async function getReferenceBooks(
   name: string
 ): Promise<ReferenceBookCard[]> {
   const field = FIELD_BY_TYPE[type];
+  const where =
+    type === "GENRE"
+      ? sql`exists (
+          select 1
+          from unnest(string_to_array(coalesce(${field}, ''), ${STORED_GENRE_SEPARATOR})) as genre_value
+          where lower(trim(genre_value)) = lower(${name})
+        )`
+      : sql`lower(${field}) = lower(${name})`;
   const rows = await db
     .select({
       id: Book.id,
@@ -103,7 +112,7 @@ export async function getReferenceBooks(
       catalogBookId: Book.catalogBookId,
     })
     .from(Book)
-    .where(sql`lower(${field}) = lower(${name})`)
+    .where(where)
     .orderBy(desc(Book.createdAt));
 
   const seen = new Set<string>();

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiValidationError } from "@/lib/api/validation";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import {
   adminDeleteCatalogBook,
@@ -9,6 +10,7 @@ import {
   updateAdminCatalogBook,
 } from "@/lib/admin/service";
 import { catalogStatusSchema } from "@/lib/validations/admin";
+import { ADMIN_BOOK_FIELD_LABELS } from "@/lib/validations/catalog-limits";
 import { adminBookUpdateWithLinksSchema } from "@/lib/validations/catalog";
 
 export async function GET(
@@ -41,7 +43,7 @@ export async function PATCH(
 
   const parsed = adminBookUpdateWithLinksSchema.safeParse(body);
   if (!parsed.success) {
-    return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+    return apiValidationError(parsed.error, ADMIN_BOOK_FIELD_LABELS, body);
   }
 
   try {

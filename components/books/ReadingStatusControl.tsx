@@ -42,8 +42,7 @@ export default function ReadingStatusControl({
   viewer,
   isLoggedIn,
   loginHref,
-  averageRating = null,
-  ratingCount = 0,
+  selectedEditionId = null,
 }: {
   subjectBookId: string;
   viewer: ViewerLibraryEntry | null;
@@ -51,11 +50,14 @@ export default function ReadingStatusControl({
   loginHref: string;
   averageRating?: number | null;
   ratingCount?: number;
+  selectedEditionId?: string | null;
 }) {
   const router = useRouter();
+
   const [statusOpen, setStatusOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
   const [followEntryId, setFollowEntryId] = useState<string | null>(null);
   const [followStatus, setFollowStatus] = useState<BookStatus | null>(null);
   const [followRating, setFollowRating] = useState(0);
@@ -87,7 +89,10 @@ export default function ReadingStatusControl({
         const res = await fetch(`/api/book/${subjectBookId}/library`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status,
+            editionId: selectedEditionId ?? undefined,
+          }),
         });
 
         const data = await res.json();
@@ -178,14 +183,14 @@ export default function ReadingStatusControl({
 
   if (!isLoggedIn) {
     return (
-      <div className="w-full max-w-md rounded-[1.6rem] border border-border/80 bg-card/75 p-3.5 shadow-[0_14px_36px_-28px_rgba(0,0,0,0.45)]">
-        <p className="mb-3 text-center text-xs text-muted-foreground">
-          برای افزودن این کتاب وارد شو.
+      <div className="w-full rounded-[1.6rem] border border-border/75 bg-background/60 p-3 shadow-[0_16px_44px_-34px_rgba(0,0,0,0.45)] backdrop-blur-md">
+        <p className="mb-3 text-center text-xs leading-6 text-muted-foreground">
+          برای افزودن این کتاب به قفسه‌ات وارد شو.
         </p>
 
         <Button
           asChild
-          className="h-11 w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+          className="h-11 w-full rounded-2xl bg-primary text-sm font-black text-primary-foreground shadow-lg shadow-primary/15 hover:bg-primary/90"
         >
           <a href={loginHref}>
             <LogIn className="h-4 w-4" />
@@ -197,29 +202,29 @@ export default function ReadingStatusControl({
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full">
       <div className="flex w-full flex-col gap-2.5">
         <button
           type="button"
           onClick={() => setStatusOpen(true)}
           disabled={busy}
-          className="flex h-12 w-full items-center justify-between rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/15 transition-colors hover:bg-primary/90 disabled:opacity-60"
+          className="group flex h-12 w-full items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/15 transition-all hover:-translate-y-0.5 hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
         >
-          <span className="inline-flex items-center gap-2">
-            <BookMarked className="h-4 w-4" />
-            {viewer ? STATUS_LABEL[viewer.status] : "وضعیت خواندن"}
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <BookMarked className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {viewer ? STATUS_LABEL[viewer.status] : "وضعیت خواندن"}
+            </span>
           </span>
 
-          <ChevronLeft className="h-4 w-4 opacity-70" />
+          <ChevronLeft className="h-4 w-4 shrink-0 opacity-75 transition-transform group-hover:-translate-x-0.5" />
         </button>
 
         {viewer ? (
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <RatingSummary
               value={viewer.rating ?? 0}
               moods={viewer.moodTags ?? []}
-              averageRating={averageRating}
-              ratingCount={ratingCount}
               onSubmit={saveRatingAndMoods}
               disabled={busy}
             />
@@ -239,7 +244,7 @@ export default function ReadingStatusControl({
             وضعیت خواندن
           </DialogTitle>
 
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-xs leading-6 text-muted-foreground">
             وضعیت این کتاب را در کتابخانه‌ات انتخاب کن.
           </DialogDescription>
 
@@ -254,23 +259,24 @@ export default function ReadingStatusControl({
                   disabled={busy}
                   onClick={() => chooseStatus(status.key)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-2xl border p-3 text-right transition-colors disabled:opacity-60",
+                    "group flex w-full items-center justify-between rounded-2xl border p-3 text-right transition-all disabled:opacity-60",
                     active
                       ? "border-primary/30 bg-primary/10"
-                      : "border-border bg-white/[0.025] hover:bg-white/[0.05]",
+                      : "border-border bg-background/50 hover:border-primary/20 hover:bg-background/80 dark:bg-white/[0.025] dark:hover:bg-white/[0.05]",
                   )}
                 >
                   <span>
-                    <span className="block text-sm font-bold text-foreground">
+                    <span className="block text-sm font-black text-foreground">
                       {status.label}
                     </span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
+
+                    <span className="mt-0.5 block text-xs leading-6 text-muted-foreground">
                       {status.hint}
                     </span>
                   </span>
 
                   {active ? (
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                       <Check className="h-4 w-4" />
                     </span>
                   ) : null}
@@ -289,7 +295,7 @@ export default function ReadingStatusControl({
               : "شروع خوبی داشته؟"}
           </DialogTitle>
 
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-xs leading-6 text-muted-foreground">
             اختیاری است؛ می‌توانی بعداً هم تکمیلش کنی.
           </DialogDescription>
 
@@ -304,6 +310,7 @@ export default function ReadingStatusControl({
               <p className="text-xs font-bold text-foreground">
                 این کتاب چه حسی داشت؟
               </p>
+
               <MoodChips
                 value={followMoods}
                 onChange={setFollowMoods}
@@ -315,7 +322,7 @@ export default function ReadingStatusControl({
               value={followNote}
               onChange={(event) => setFollowNote(event.target.value)}
               placeholder="برداشت شخصی‌ات..."
-              className="min-h-28 rounded-2xl border-border bg-background/45 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
+              className="min-h-28 rounded-2xl border-border bg-background/55 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
             />
 
             <div className="flex justify-end gap-2">
@@ -324,7 +331,7 @@ export default function ReadingStatusControl({
                 variant="ghost"
                 onClick={skipFollowup}
                 disabled={busy}
-                className="rounded-xl text-foreground hover:bg-white/[0.05]"
+                className="rounded-xl text-foreground hover:bg-background/70 dark:hover:bg-white/[0.05]"
               >
                 بعداً
               </Button>
@@ -353,21 +360,20 @@ export default function ReadingStatusControl({
 function RatingSummary({
   value,
   moods,
-  averageRating,
-  ratingCount,
   onSubmit,
   disabled,
 }: {
   value: number;
   moods: string[];
-  averageRating: number | null;
-  ratingCount: number;
   onSubmit: (rating: number, moods: string[]) => void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [draftMoods, setDraftMoods] = useState<string[]>(moods);
+
+  const hasRating = value > 0;
+  const hasMoods = moods.length > 0;
 
   function openDialog() {
     setDraft(value);
@@ -392,36 +398,52 @@ function RatingSummary({
         type="button"
         disabled={disabled}
         onClick={openDialog}
-        className="flex h-12 w-full items-center justify-between rounded-2xl border border-border/80 bg-background/55 px-3.5 text-right transition-colors hover:bg-background/80 disabled:opacity-60"
+        className={cn(
+          "group flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-right transition-all disabled:pointer-events-none disabled:opacity-60",
+          hasRating
+            ? "border-amber-300/30 bg-amber-400/10 text-foreground hover:bg-amber-400/15"
+            : "border-border/80 bg-background/55 text-foreground hover:border-primary/25 hover:bg-background/80",
+        )}
       >
-        <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-          <Star className="h-3.5 w-3.5" />
-          <span>امتیاز کلی</span>
-          <span className="font-bold tabular-nums text-foreground">
-            {averageRating != null
-              ? `${averageRating.toLocaleString("fa-IR")} / ۱۰`
-              : "—"}
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
+              hasRating
+                ? "border-amber-300/30 bg-amber-400/15 text-amber-700 dark:text-amber-300"
+                : "border-border/70 bg-card/70 text-muted-foreground group-hover:text-primary",
+            )}
+          >
+            <Star className={cn("h-4 w-4", hasRating && "fill-current")} />
           </span>
-          {averageRating != null && ratingCount > 0 ? (
-            <span className="text-[10px] text-muted-foreground">
-              ({ratingCount.toLocaleString("fa-IR")})
+
+          <span className="min-w-0">
+            <span className="mt-0.5 block truncate text-[10px] font-medium text-muted-foreground">
+              {hasMoods ? moods.slice(0, 2).join("، ") : "حس و امتیاز کتاب"}
             </span>
-          ) : null}
+          </span>
         </span>
 
-        <span className="rounded-xl border border-border/80 bg-card/80 px-2.5 py-1 text-[11px] font-bold text-foreground">
-          {value ? `${value.toLocaleString("fa-IR")} / ۱۰` : "امتیاز بده"}
+        <span
+          className={cn(
+            "shrink-0 rounded-xl border px-2.5 py-1 text-[11px] font-black tabular-nums",
+            hasRating
+              ? "border-amber-300/30 bg-amber-400/15 text-amber-800 dark:text-amber-300"
+              : "border-border/70 bg-card/75 text-muted-foreground",
+          )}
+        >
+          {hasRating ? `${value.toLocaleString("fa-IR")} / ۱۰` : "ثبت"}
         </span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[88vh] overflow-y-auto rounded-3xl border-border bg-card p-5 shadow-2xl sm:max-w-md">
           <DialogTitle className="text-base font-black text-foreground">
-            امتیاز و حس کتاب
+            امتیاز تو به کتاب
           </DialogTitle>
 
-          <DialogDescription className="text-xs text-muted-foreground">
-            امتیاز خودت را از ۱ تا ۱۰ بده و حس کتاب را انتخاب کن.
+          <DialogDescription className="text-xs leading-6 text-muted-foreground">
+            امتیاز شخصی خودت را از ۱ تا ۱۰ ثبت کن و حس کتاب را انتخاب کن.
           </DialogDescription>
 
           <div className="mt-5 space-y-5">
@@ -429,6 +451,7 @@ function RatingSummary({
 
             <div className="space-y-2">
               <p className="text-xs font-bold text-foreground">حس کتاب</p>
+
               <MoodChips
                 value={draftMoods}
                 onChange={setDraftMoods}
@@ -442,7 +465,7 @@ function RatingSummary({
                 variant="ghost"
                 onClick={clear}
                 disabled={disabled || !value}
-                className="rounded-xl text-xs text-muted-foreground hover:bg-white/[0.05] hover:text-foreground"
+                className="rounded-xl text-xs text-muted-foreground hover:bg-background/70 hover:text-foreground dark:hover:bg-white/[0.05]"
               >
                 حذف امتیاز
               </Button>
@@ -454,7 +477,7 @@ function RatingSummary({
                 className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Check className="h-4 w-4" />
-                ثبت
+                ثبت امتیاز
               </Button>
             </div>
           </div>
@@ -478,7 +501,7 @@ function RatingPicker({
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">ضعیف</span>
 
-        <span className="rounded-full border border-border bg-white/[0.035] px-2.5 py-1 font-bold tabular-nums text-foreground">
+        <span className="rounded-full border border-border bg-background/70 px-2.5 py-1 font-bold tabular-nums text-foreground">
           {value ? `${value.toLocaleString("fa-IR")} از ۱۰` : "انتخاب نشده"}
         </span>
 
@@ -504,11 +527,12 @@ function RatingPicker({
               disabled={disabled}
               onClick={() => onPick(rating)}
               className={cn(
-                "h-9 rounded-lg border border-border bg-white/[0.035] text-xs font-black tabular-nums text-muted-foreground transition-all",
+                "h-9 rounded-lg border border-border bg-background/60 text-xs font-black tabular-nums text-muted-foreground transition-all disabled:opacity-60",
                 "hover:border-primary/25 hover:bg-primary/10 hover:text-primary",
-                active && "border-primary/20 bg-primary/10 text-primary",
+                active &&
+                  "border-amber-300/30 bg-amber-400/10 text-amber-800 dark:text-amber-300",
                 selected &&
-                  "scale-105 border-primary/45 bg-primary/20 shadow-[0_0_0_3px_rgba(128,167,150,0.08)]",
+                  "scale-105 border-amber-400/45 bg-amber-400/20 shadow-[0_0_0_3px_rgba(245,158,11,0.10)]",
               )}
             >
               {rating.toLocaleString("fa-IR")}
@@ -557,31 +581,34 @@ function PersonalNoteButton({
           setOpen(true);
         }}
         className={cn(
-          "flex h-12 w-full items-center justify-between rounded-2xl border px-3.5 text-xs font-medium transition-colors disabled:opacity-60",
+          "group flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-xs transition-all disabled:pointer-events-none disabled:opacity-60",
           hasNote
-            ? "border-primary/20 bg-primary/[0.08] text-primary hover:bg-primary/[0.12]"
-            : "border-border/80 bg-background/55 text-foreground hover:bg-background/80",
+            ? "border-primary/25 bg-primary/[0.08] text-primary hover:bg-primary/[0.12]"
+            : "border-border/80 bg-background/55 text-foreground hover:border-primary/25 hover:bg-background/80",
         )}
       >
-        <span className="inline-flex items-center gap-2">
-          <NotebookPen
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <span
             className={cn(
-              "h-3.5 w-3.5",
-              hasNote ? "text-primary" : "text-muted-foreground",
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
+              hasNote
+                ? "border-primary/25 bg-primary/12 text-primary"
+                : "border-border/70 bg-card/70 text-muted-foreground group-hover:text-primary",
             )}
-          />
-          یادداشت شخصی
+          >
+            <NotebookPen className="h-4 w-4" />
+          </span>
         </span>
 
         <span
           className={cn(
-            "rounded-lg px-2 py-1 text-[10px] font-bold",
+            "shrink-0 rounded-xl border px-2.5 py-1 text-[8px] font-black",
             hasNote
-              ? "bg-primary/12 text-primary"
-              : "bg-card/80 text-muted-foreground",
+              ? "border-primary/20 bg-primary/12 text-primary"
+              : "border-border/70 bg-card/75 text-muted-foreground",
           )}
         >
-          {hasNote ? "دارد" : "افزودن"}
+          {hasNote ? "دارد" : "یادداشت شخصی"}
         </span>
       </button>
 
@@ -601,7 +628,7 @@ function PersonalNoteButton({
               value={value}
               onChange={(event) => setValue(event.target.value)}
               placeholder="برداشت خصوصی‌ات از این کتاب..."
-              className="min-h-36 rounded-2xl border-border bg-background/45 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
+              className="min-h-36 rounded-2xl border-border bg-background/55 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
             />
 
             <div className="flex items-center justify-between gap-2">
@@ -610,7 +637,7 @@ function PersonalNoteButton({
                 variant="ghost"
                 onClick={() => setValue("")}
                 disabled={saving || !value.trim()}
-                className="rounded-xl text-xs text-muted-foreground hover:bg-white/[0.05] hover:text-foreground"
+                className="rounded-xl text-xs text-muted-foreground hover:bg-background/70 hover:text-foreground dark:hover:bg-white/[0.05]"
               >
                 پاک کردن
               </Button>
@@ -624,7 +651,7 @@ function PersonalNoteButton({
                     setOpen(false);
                   }}
                   disabled={saving}
-                  className="rounded-xl text-foreground hover:bg-white/[0.05]"
+                  className="rounded-xl text-foreground hover:bg-background/70 dark:hover:bg-white/[0.05]"
                 >
                   بستن
                 </Button>

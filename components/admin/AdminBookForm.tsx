@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Link2, Loader2, Save } from "lucide-react";
 import toast from "react-hot-toast";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { serializeGenres } from "@/lib/book/genres";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import { ADMIN_BOOK_STRING_LIMITS } from "@/lib/validations/catalog-limits";
 
 const COMMON_LANGUAGES = [
   "فارسی",
@@ -118,6 +119,92 @@ interface AdminBookFormProps {
   /** برای حالت ویرایش: شناسه‌ی کتاب کانونی و مقادیر اولیه. */
   bookId?: string;
   initialValues?: AdminBookFormInitialValues;
+}
+
+type ValidationField = {
+  path: string
+  message: string
+  faMessage: string
+  receivedLength?: number
+  maxLength?: number
+}
+
+type ValidationErrorResponse = {
+  error?: string
+  message?: string
+  fields?: ValidationField[]
+}
+
+const API_FIELD_TO_FORM_FIELD: Partial<Record<string, keyof FormState>> = {
+  title: "title",
+  originalTitle: "originalTitle",
+  author: "author",
+  genre: "genres",
+  description: "description",
+  language: "language",
+  country: "country",
+  publisher: "publisher",
+  translator: "translator",
+  isbn: "isbn",
+  editionLabel: "editionLabel",
+  pageCount: "pageCount",
+  publishedYear: "publishedYear",
+  status: "status",
+}
+
+const DEV_STRING_LIMITS: Partial<Record<keyof FormState | "genre", number>> = {
+  title: ADMIN_BOOK_STRING_LIMITS.title,
+  originalTitle: ADMIN_BOOK_STRING_LIMITS.originalTitle,
+  author: ADMIN_BOOK_STRING_LIMITS.author,
+  genre: ADMIN_BOOK_STRING_LIMITS.genre,
+  description: ADMIN_BOOK_STRING_LIMITS.description,
+  language: ADMIN_BOOK_STRING_LIMITS.language,
+  country: ADMIN_BOOK_STRING_LIMITS.country,
+  publisher: ADMIN_BOOK_STRING_LIMITS.publisher,
+  translator: ADMIN_BOOK_STRING_LIMITS.translator,
+  isbn: ADMIN_BOOK_STRING_LIMITS.isbn,
+  editionLabel: ADMIN_BOOK_STRING_LIMITS.editionLabel,
+}
+
+function logPayloadDiagnostics(payload: Record<string, unknown>) {
+  if (process.env.NODE_ENV !== "development") return
+
+  const overLimit = Object.entries(DEV_STRING_LIMITS)
+    .map(([field, maxLength]) => {
+      const value = payload[field]
+      if (typeof value !== "string") return null
+      if (value.length <= (maxLength ?? Number.MAX_SAFE_INTEGER)) return null
+      return {
+        field,
+        receivedLength: value.length,
+        maxLength,
+      }
+    })
+    .filter(Boolean)
+
+  if (overLimit.length > 0) {
+    console.warn("[AdminBookForm] over-limit payload fields", overLimit)
+  }
+}
+
+function applyApiValidationErrors(
+  fields: ValidationField[] | undefined,
+  setErrors: Dispatch<SetStateAction<Partial<Record<keyof FormState, string>>>>,
+) {
+  if (!fields || fields.length === 0) return false
+
+  const nextErrors: Partial<Record<keyof FormState, string>> = {}
+  for (const field of fields) {
+    const key = API_FIELD_TO_FORM_FIELD[field.path]
+    if (!key || nextErrors[key]) continue
+    nextErrors[key] = field.faMessage || field.message
+  }
+
+  if (Object.keys(nextErrors).length > 0) {
+    setErrors((current) => ({ ...current, ...nextErrors }))
+  }
+
+  return true
 }
 
 /**
@@ -243,15 +330,35 @@ export default function AdminBookForm({
           externalLinks,
         };
 
+        logPayloadDiagnostics(payload)
+
         const res = await fetch(`/api/admin/books/${bookId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(payload),
         });
-        const data = (await res.json()) as { error?: string; message?: string };
+        const data = (await res.json()) as
+          | { error?: string; message?: string }
+          | ValidationErrorResponse;
         if (!res.ok) {
-          toast.error(data.error || "ذخیره‌ی تغییرات ناموفق بود.");
+          const validation =
+            data.error === "VALIDATION_ERROR"
+              ? (data as ValidationErrorResponse)
+              : null
+          const hasFieldErrors = applyApiValidationErrors(
+            validation?.fields,
+            setErrors,
+          )
+          const summary =
+            validation?.fields?.map((field) => field.faMessage).join(" ") ||
+            data.message ||
+            data.error ||
+            "ذخیره‌ی تغییرات ناموفق بود."
+          toast.error(summary)
+          if (!hasFieldErrors && !validation) {
+            setErrors({})
+          }
           return;
         }
         toast.success(data.message || "تغییرات ذخیره شد.");
@@ -283,15 +390,29 @@ export default function AdminBookForm({
       if (cover) payload.coverImage = cover;
       if (externalLinks.length > 0) payload.externalLinks = externalLinks;
 
+      logPayloadDiagnostics(payload)
+
       const res = await fetch("/api/admin/books", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      const data = (await res.json()) as { error?: string; message?: string };
+      const data = (await res.json()) as
+        | { error?: string; message?: string }
+        | ValidationErrorResponse;
       if (!res.ok) {
-        toast.error(data.error || "ثبت کتاب ناموفق بود.");
+        const validation =
+          data.error === "VALIDATION_ERROR"
+            ? (data as ValidationErrorResponse)
+            : null
+        applyApiValidationErrors(validation?.fields, setErrors)
+        const summary =
+          validation?.fields?.map((field) => field.faMessage).join(" ") ||
+          data.message ||
+          data.error ||
+          "ثبت کتاب ناموفق بود."
+        toast.error(summary)
         return;
       }
       toast.success(data.message || "کتاب با موفقیت ثبت شد.");
@@ -318,7 +439,10 @@ export default function AdminBookForm({
                 />
               </AdminFormField>
 
-              <AdminFormField label="عنوان به زبان اصلی">
+              <AdminFormField
+                label="عنوان به زبان اصلی"
+                error={errors.originalTitle}
+              >
                 <Input
                   dir="ltr"
                   value={form.originalTitle}
@@ -344,33 +468,36 @@ export default function AdminBookForm({
                 />
               </AdminFormField>
 
-              <AdminFormField label="مترجم">
+              <AdminFormField label="مترجم" error={errors.translator}>
                 <AdminReferenceCombobox
                   type="TRANSLATOR"
                   value={form.translator}
                   onChange={(value) => setField("translator", value)}
                   placeholder="جست‌وجو در مترجم‌ها..."
                   manageHref="/admin/reference"
+                  invalid={Boolean(errors.translator)}
                 />
               </AdminFormField>
 
-              <AdminFormField label="ناشر">
+              <AdminFormField label="ناشر" error={errors.publisher}>
                 <AdminReferenceCombobox
                   type="PUBLISHER"
                   value={form.publisher}
                   onChange={(value) => setField("publisher", value)}
                   placeholder="جست‌وجو در ناشرها..."
                   manageHref="/admin/reference"
+                  invalid={Boolean(errors.publisher)}
                 />
               </AdminFormField>
 
-              <AdminFormField label="کشور">
+              <AdminFormField label="کشور" error={errors.country}>
                 <AdminReferenceCombobox
                   type="COUNTRY"
                   value={form.country}
                   onChange={(value) => setField("country", value)}
                   placeholder="جست‌وجو در کشورها..."
                   manageHref="/admin/reference"
+                  invalid={Boolean(errors.country)}
                 />
               </AdminFormField>
             </div>
@@ -389,12 +516,13 @@ export default function AdminBookForm({
               </AdminFormField>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                <AdminFormField label="زبان">
+                <AdminFormField label="زبان" error={errors.language}>
                   <AdminReferenceCombobox
                     value={form.language}
                     onChange={(value) => setField("language", value)}
                     placeholder="جست‌وجو در زبان‌ها..."
                     localOptions={COMMON_LANGUAGES}
+                    invalid={Boolean(errors.language)}
                   />
                 </AdminFormField>
 
@@ -430,7 +558,7 @@ export default function AdminBookForm({
                   />
                 </AdminFormField>
 
-                <AdminFormField label="شابک">
+                <AdminFormField label="شابک" error={errors.isbn}>
                   <Input
                     dir="ltr"
                     value={form.isbn}
@@ -439,7 +567,10 @@ export default function AdminBookForm({
                   />
                 </AdminFormField>
 
-                <AdminFormField label="عنوان نسخه/چاپ">
+                <AdminFormField
+                  label="عنوان نسخه/چاپ"
+                  error={errors.editionLabel}
+                >
                   <Input
                     value={form.editionLabel}
                     onChange={(event) =>
@@ -470,7 +601,7 @@ export default function AdminBookForm({
           </AdminFormSection>
 
           <AdminFormSection title="توضیحات">
-            <AdminFormField label="توضیحات">
+            <AdminFormField label="توضیحات" error={errors.description}>
               <AdminRichTextEditor
                 value={form.description}
                 onChange={(value) => setField("description", value)}

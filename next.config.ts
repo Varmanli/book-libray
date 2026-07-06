@@ -7,8 +7,14 @@ import withPWA from "next-pwa";
  * دستی نباشد. هاست فعلی هم به‌عنوان fallback نگه داشته می‌شود.
  */
 function resolveImageHosts(): string[] {
-  const hosts = new Set<string>(["qafaseh-prod.s3.ir-thr-at1.arvanstorage.ir"]);
+  const hosts = new Set<string>([
+    "qafaseh-prod.s3.ir-thr-at1.arvanstorage.ir",
+    "www.iranketab.ir",
+    "iranketab.ir",
+  ]);
+
   const base = process.env.S3_PUBLIC_BASE_URL;
+
   if (base) {
     try {
       hosts.add(new URL(base).hostname);
@@ -16,21 +22,33 @@ function resolveImageHosts(): string[] {
       // اگر مقدار نامعتبر بود، فقط fallback استفاده می‌شود.
     }
   }
+
   return [...hosts];
 }
 
 const nextConfig: NextConfig = {
-  // Standalone output for Docker/Coolify deployments — bundles only the
-  // production dependencies actually needed into .next/standalone. next-pwa
-  // still writes its service worker into public/, which the Dockerfile
-  // copies alongside .next/standalone and .next/static.
   output: "standalone",
+
   images: {
-    remotePatterns: resolveImageHosts().map((hostname) => ({
-      protocol: "https" as const,
-      hostname,
-      pathname: "/**",
-    })),
+    remotePatterns: [
+      ...resolveImageHosts().map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
+        pathname: "/**",
+      })),
+
+      // Explicit IranKetab patterns برای اطمینان بیشتر
+      {
+        protocol: "https",
+        hostname: "www.iranketab.ir",
+        pathname: "/Images/ProductImages/**",
+      },
+      {
+        protocol: "https",
+        hostname: "iranketab.ir",
+        pathname: "/Images/ProductImages/**",
+      },
+    ],
   },
 };
 
@@ -48,7 +66,7 @@ const pwaConfig = withPWA({
         cacheName: "google-fonts-cache",
         expiration: {
           maxEntries: 10,
-          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+          maxAgeSeconds: 60 * 60 * 24 * 365,
         },
         cacheableResponse: {
           statuses: [0, 200],
@@ -62,7 +80,7 @@ const pwaConfig = withPWA({
         cacheName: "gstatic-fonts-cache",
         expiration: {
           maxEntries: 10,
-          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+          maxAgeSeconds: 60 * 60 * 24 * 365,
         },
         cacheableResponse: {
           statuses: [0, 200],
@@ -76,7 +94,7 @@ const pwaConfig = withPWA({
         cacheName: "static-font-assets",
         expiration: {
           maxEntries: 4,
-          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+          maxAgeSeconds: 60 * 60 * 24 * 7,
         },
       },
     },
@@ -87,7 +105,7 @@ const pwaConfig = withPWA({
         cacheName: "static-image-assets",
         expiration: {
           maxEntries: 64,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          maxAgeSeconds: 60 * 60 * 24 * 30,
         },
       },
     },
@@ -98,7 +116,7 @@ const pwaConfig = withPWA({
         cacheName: "next-image",
         expiration: {
           maxEntries: 64,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          maxAgeSeconds: 60 * 60 * 24 * 30,
         },
       },
     },
@@ -109,7 +127,7 @@ const pwaConfig = withPWA({
         cacheName: "static-js-assets",
         expiration: {
           maxEntries: 32,
-          maxAgeSeconds: 60 * 60 * 24, // 24 hours
+          maxAgeSeconds: 60 * 60 * 24,
         },
       },
     },
@@ -120,18 +138,36 @@ const pwaConfig = withPWA({
         cacheName: "static-style-assets",
         expiration: {
           maxEntries: 32,
-          maxAgeSeconds: 60 * 60 * 24, // 24 hours
+          maxAgeSeconds: 60 * 60 * 24,
         },
       },
     },
     {
-      urlPattern: /^https:\/\/qafaseh-prod\.s3\.ir-thr-at1\.arvanstorage\.ir\/.*/i,
+      urlPattern:
+        /^https:\/\/qafaseh-prod\.s3\.ir-thr-at1\.arvanstorage\.ir\/.*/i,
       handler: "CacheFirst",
       options: {
         cacheName: "arvan-images",
         expiration: {
           maxEntries: 100,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          maxAgeSeconds: 60 * 60 * 24 * 30,
+        },
+        cacheableResponse: {
+          statuses: [0, 200],
+        },
+      },
+    },
+
+    // Optional cache for IranKetab images
+    {
+      urlPattern:
+        /^https:\/\/(?:www\.)?iranketab\.ir\/Images\/ProductImages\/.*/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "iranketab-images",
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60 * 24 * 7,
         },
         cacheableResponse: {
           statuses: [0, 200],

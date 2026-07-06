@@ -49,6 +49,8 @@ export const BlogPostStatus = pgEnum("BlogPostStatus", [
   "PUBLISHED",
 ]);
 
+export const NoteScope = pgEnum("NoteScope", ["book", "edition"]);
+
 // وضعیت انتشار صفحه‌ی ثابت (درباره ما، تماس، قوانین، …)
 export const StaticPageStatus = pgEnum("StaticPageStatus", [
   "DRAFT",
@@ -250,6 +252,7 @@ export const CatalogBook = pgTable("CatalogBook", {
     .notNull()
     .default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
+  subtitle: text("subtitle"),
   slug: text("slug").unique(),
   originalTitle: text("original_title"),
   description: text("description"),
@@ -258,6 +261,9 @@ export const CatalogBook = pgTable("CatalogBook", {
   language: varchar("language", { length: 50 }),
   genre: text("genre"),
   country: text("country"),
+  firstPublishedYear: integer("first_published_year"),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
   // وضعیت تأیید برای نمایش در کاتالوگ عمومی (پیش‌فرض APPROVED؛ ساخت دستی PENDING)
   status: ApprovalStatus("status").default("APPROVED").notNull(),
   // کاربری که این کتاب کانونی را ساخته (برای حسابرسی؛ با حذف کاربر null می‌شود)
@@ -277,15 +283,23 @@ export const BookEdition = pgTable("BookEdition", {
   catalogBookId: varchar("catalog_book_id")
     .notNull()
     .references(() => CatalogBook.id, { onDelete: "cascade" }),
+  titleOverride: text("title_override"),
   translator: text("translator"),
   publisher: text("publisher"),
   isbn: varchar("isbn", { length: 20 }),
+  isbn10: varchar("isbn10", { length: 20 }),
+  isbn13: varchar("isbn13", { length: 20 }),
   format: BookFormat("format").notNull().default("PHYSICAL"),
   coverImage: text("cover_image"),
+  coverFilename: text("cover_filename"),
   publishedYear: integer("published_year"),
   editionLabel: text("edition_label"),
+  editionDescription: text("edition_description"),
   pageCount: integer("page_count"),
   language: varchar("language", { length: 50 }),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
+  sourceEditionCode: text("source_edition_code"),
   status: ApprovalStatus("status").default("APPROVED").notNull(),
   createdById: varchar("created_by_id").references(() => User.id, {
     onDelete: "set null",
@@ -379,6 +393,12 @@ export const Quote = pgTable("Quote", {
     .default(sql`gen_random_uuid()`),
   content: text("content").notNull(),
   page: integer("page"),
+  catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
+    onDelete: "set null",
+  }),
+  bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
+    onDelete: "set null",
+  }),
   bookId: varchar("book_id")
     .notNull()
     .references(() => Book.id, { onDelete: "cascade" }),
@@ -422,9 +442,14 @@ export const PublishedBookNote = pgTable("PublishedBookNote", {
   userId: varchar("user_id")
     .notNull()
     .references(() => User.id, { onDelete: "cascade" }),
-  bookId: varchar("book_id")
-    .notNull()
-    .references(() => Book.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id").references(() => Book.id, { onDelete: "cascade" }),
+  catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
+    onDelete: "cascade",
+  }),
+  bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
+    onDelete: "set null",
+  }),
+  scope: NoteScope("scope").default("book").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
@@ -626,6 +651,8 @@ export const PasswordResetTokenRelations = relations(
 export const CatalogBookRelations = relations(CatalogBook, ({ many }) => ({
   editions: many(BookEdition),
   externalLinks: many(BookExternalLink),
+  notes: many(PublishedBookNote),
+  quotes: many(Quote),
 }));
 
 export const BookExternalLinkRelations = relations(
@@ -648,6 +675,8 @@ export const BookEditionRelations = relations(BookEdition, ({ one, many }) => ({
     references: [CatalogBook.id],
   }),
   libraryEntries: many(Book),
+  notes: many(PublishedBookNote),
+  quotes: many(Quote),
 }));
 
 export const BookRelations = relations(Book, ({ one, many }) => ({
@@ -665,6 +694,14 @@ export const BookRelations = relations(Book, ({ one, many }) => ({
 
 export const QuoteRelations = relations(Quote, ({ one, many }) => ({
   book: one(Book, { fields: [Quote.bookId], references: [Book.id] }),
+  catalogBook: one(CatalogBook, {
+    fields: [Quote.catalogBookId],
+    references: [CatalogBook.id],
+  }),
+  edition: one(BookEdition, {
+    fields: [Quote.bookEditionId],
+    references: [BookEdition.id],
+  }),
   likes: many(QuoteLike),
 }));
 
@@ -683,6 +720,14 @@ export const PublishedBookNoteRelations = relations(
     book: one(Book, {
       fields: [PublishedBookNote.bookId],
       references: [Book.id],
+    }),
+    catalogBook: one(CatalogBook, {
+      fields: [PublishedBookNote.catalogBookId],
+      references: [CatalogBook.id],
+    }),
+    edition: one(BookEdition, {
+      fields: [PublishedBookNote.bookEditionId],
+      references: [BookEdition.id],
     }),
     likes: many(PublishedBookNoteLike),
   })

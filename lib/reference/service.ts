@@ -1,7 +1,9 @@
 import { and, desc, eq, ilike, like, or, sql } from "drizzle-orm";
+
 import { db } from "@/db";
 import { ReferenceItem } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
+import { hasMultiValueSeparator, splitMultiValueText } from "@/lib/book/genres";
 import type {
   ReferenceTypeValue,
   UpdateReferenceInput,
@@ -34,35 +36,59 @@ export interface ReferenceSearchPage {
   pageCount: number;
 }
 
-/** اسلاگ یکتا در یک نوع؛ در صورت تداخل پسوند عددی اضافه می‌شود. */
-async function uniqueReferenceSlug(
-  type: ReferenceTypeValue,
-  rawName: string,
-  excludeId?: string
-): Promise<string> {
-  const base = slugify(rawName) || "item";
-  const rows = await db
-    .select({ id: ReferenceItem.id, slug: ReferenceItem.slug })
-    .from(ReferenceItem)
-    .where(
-      and(
-        eq(ReferenceItem.type, type),
-        or(eq(ReferenceItem.slug, base), like(ReferenceItem.slug, `${base}-%`))
-      )
-    );
-  const taken = new Set(
-    rows
-      .filter((r) => r.id !== excludeId)
-      .map((r) => r.slug)
-      .filter((s): s is string => !!s)
-  );
-  if (!taken.has(base)) return base;
-  for (let i = 2; i < 10000; i += 1) {
-    const candidate = `${base}-${i}`;
-    if (!taken.has(candidate)) return candidate;
-  }
-  return `${base}-${Date.now().toString(36)}`;
-}
+export type ImportReferenceInput =
+  | string
+  | {
+      id?: string;
+      name?: string | null;
+      originalName?: string | null;
+      slug?: string | null;
+      description?: string | null;
+      imageUrl?: string | null;
+      website?: string | null;
+      country?: ImportReferenceInput | null;
+      birthYear?: number | null;
+      deathYear?: number | null;
+      sourceName?: string | null;
+      sourceUrl?: string | null;
+      sourceId?: string | null;
+      status?: "pending" | "approved" | "rejected";
+    };
+
+export type NormalizedReferenceInput = {
+  id?: string;
+  name: string;
+  normalizedName: string;
+  originalName?: string | null;
+  slug?: string | null;
+  normalizedSlug?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  website?: string | null;
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  sourceId?: string | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+};
+
+export type ReferenceResolutionStatus = "reused" | "created" | "updated";
+
+export type ResolvedReferenceItem = ReferenceItemDTO & {
+  resolution: ReferenceResolutionStatus;
+};
+
+type ReferenceRow = typeof ReferenceItem.$inferSelect;
+
+type ReferenceExecutor = {
+  select: typeof db.select;
+  insert: typeof db.insert;
+  update: typeof db.update;
+};
+
+type ReferenceResolutionCache = {
+  byKey: Map<string, ResolvedReferenceItem>;
+  byType: Map<ReferenceTypeValue, ReferenceRow[]>;
+};
 
 const REFERENCE_COLUMNS = {
   id: ReferenceItem.id,
@@ -76,11 +102,424 @@ const REFERENCE_COLUMNS = {
   createdAt: ReferenceItem.createdAt,
 };
 
-/** جست‌وجوی مقادیر مرجع برای کمبوباکس (پیش‌فرض فقط تأییدشده‌ها). */
+function toApprovalStatus(
+  value: string | null | undefined,
+): "PENDING" | "APPROVED" | "REJECTED" | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "approved") return "APPROVED";
+  if (normalized === "rejected") return "REJECTED";
+  if (normalized === "pending") return "PENDING";
+  return undefined;
+}
+
+function trimNullable(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[٠-٩]/g, (char) => String(char.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (char) => String(char.charCodeAt(0) - 1776));
+}
+
+export function normalizeReferenceName(value: string): string {
+  return normalizeDigits(value)
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/ة/g, "ه")
+    .replace(/[‐‑‒–—]/g, "-")
+    .replace(/[ـ]/g, "")
+    .replace(/[“”"'`]+/g, "")
+    .replace(/[،,؛;:(){}\[\]]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("en-US");
+}
+
+function cacheKey(type: ReferenceTypeValue, key: string) {
+  return `${type}:${key}`;
+}
+
+function candidateCacheKeys(
+  type: ReferenceTypeValue,
+  input: NormalizedReferenceInput,
+): string[] {
+  const keys = [cacheKey(type, `name:${input.normalizedName}`)];
+  if (input.id) keys.push(cacheKey(type, `id:${input.id}`));
+  if (input.normalizedSlug) keys.push(cacheKey(type, `slug:${input.normalizedSlug}`));
+  if (input.sourceName && (input.sourceId || input.sourceUrl)) {
+    keys.push(
+      cacheKey(
+        type,
+        `source:${normalizeReferenceName(input.sourceName)}:${input.sourceId ?? ""}:${input.sourceUrl ?? ""}`,
+      ),
+    );
+  }
+  if (input.originalName) {
+    keys.push(cacheKey(type, `original:${normalizeReferenceName(input.originalName)}`));
+  }
+  return keys;
+}
+
+function hydrateCache(
+  cache: ReferenceResolutionCache | undefined,
+  type: ReferenceTypeValue,
+  input: NormalizedReferenceInput,
+  item: ResolvedReferenceItem,
+) {
+  if (!cache) return;
+  for (const key of candidateCacheKeys(type, input)) {
+    cache.byKey.set(key, item);
+  }
+}
+
+function updateTypeCache(
+  cache: ReferenceResolutionCache | undefined,
+  row: ReferenceRow,
+) {
+  if (!cache) return;
+  const rows = cache.byType.get(row.type);
+  if (!rows) {
+    cache.byType.set(row.type, [row]);
+    return;
+  }
+
+  const index = rows.findIndex((item) => item.id === row.id);
+  if (index >= 0) {
+    rows[index] = row;
+  } else {
+    rows.push(row);
+  }
+}
+
+function toDto(row: ReferenceRow): ReferenceItemDTO {
+  return {
+    id: row.id,
+    type: row.type,
+    name: row.name,
+    slug: row.slug,
+    coverImage: row.coverImage,
+    bannerImage: row.bannerImage,
+    description: row.description,
+    status: row.status,
+    createdAt: row.createdAt,
+  };
+}
+
+async function uniqueReferenceSlug(
+  type: ReferenceTypeValue,
+  rawName: string,
+  excludeId?: string,
+  executor: ReferenceExecutor = db,
+): Promise<string> {
+  const base = slugify(rawName) || "item";
+  const rows = await executor
+    .select({ id: ReferenceItem.id, slug: ReferenceItem.slug })
+    .from(ReferenceItem)
+    .where(
+      and(
+        eq(ReferenceItem.type, type),
+        or(eq(ReferenceItem.slug, base), like(ReferenceItem.slug, `${base}-%`)),
+      ),
+    );
+  const taken = new Set(
+    rows
+      .filter((row) => row.id !== excludeId)
+      .map((row) => row.slug)
+      .filter((slug): slug is string => Boolean(slug)),
+  );
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 10000; i += 1) {
+    const candidate = `${base}-${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+export function createReferenceResolutionCache(): ReferenceResolutionCache {
+  return {
+    byKey: new Map(),
+    byType: new Map(),
+  };
+}
+
+export function normalizeReferenceInput(
+  input: ImportReferenceInput,
+): NormalizedReferenceInput | null {
+  if (typeof input === "string") {
+    const name = trimNullable(input);
+    if (!name) return null;
+    return {
+      name,
+      normalizedName: normalizeReferenceName(name),
+    };
+  }
+
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null;
+  }
+
+  const name = trimNullable(input.name);
+  if (!name) return null;
+
+  const slug = trimNullable(input.slug);
+
+  return {
+    id: trimNullable(input.id) ?? undefined,
+    name,
+    normalizedName: normalizeReferenceName(name),
+    originalName: trimNullable(input.originalName),
+    slug,
+    normalizedSlug: slug ? slugify(slug) || slug : null,
+    description: trimNullable(input.description),
+    imageUrl: trimNullable(input.imageUrl),
+    website: trimNullable(input.website),
+    sourceName: trimNullable(input.sourceName),
+    sourceUrl: trimNullable(input.sourceUrl),
+    sourceId: trimNullable(input.sourceId),
+    status: toApprovalStatus(input.status),
+  };
+}
+
+async function loadReferenceRows(
+  executor: ReferenceExecutor,
+  type: ReferenceTypeValue,
+  cache?: ReferenceResolutionCache,
+): Promise<ReferenceRow[]> {
+  const cached = cache?.byType.get(type);
+  if (cached) return cached;
+
+  const rows = await executor.select().from(ReferenceItem).where(eq(ReferenceItem.type, type));
+  cache?.byType.set(type, rows);
+  return rows;
+}
+
+function findReferenceMatch(
+  rows: ReferenceRow[],
+  type: ReferenceTypeValue,
+  input: NormalizedReferenceInput,
+): ReferenceRow | null {
+  if (input.id) {
+    const exactId = rows.find((row) => row.type === type && row.id === input.id);
+    if (exactId) return exactId;
+  }
+
+  if (input.normalizedSlug) {
+    const bySlug = rows.find(
+      (row) => row.type === type && row.slug && slugify(row.slug) === input.normalizedSlug,
+    );
+    if (bySlug) return bySlug;
+  }
+
+  // TODO: add source-based matching when the schema gains source fields.
+
+  const byName = rows.find(
+    (row) =>
+      row.type === type && normalizeReferenceName(row.name) === input.normalizedName,
+  );
+  if (byName) return byName;
+
+  if (input.originalName) {
+    const normalizedOriginal = normalizeReferenceName(input.originalName);
+    const byOriginal = rows.find(
+      (row) =>
+        row.type === type && normalizeReferenceName(row.name) === normalizedOriginal,
+    );
+    if (byOriginal) return byOriginal;
+  }
+
+  return null;
+}
+
+function buildReferencePatch(
+  existing: ReferenceRow,
+  input: NormalizedReferenceInput,
+): Partial<typeof ReferenceItem.$inferInsert> {
+  const patch: Partial<typeof ReferenceItem.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (!existing.slug && input.slug) patch.slug = input.normalizedSlug ?? input.slug;
+  if (!existing.description && input.description) patch.description = input.description;
+  if (!existing.coverImage && input.imageUrl) patch.coverImage = input.imageUrl;
+
+  if (input.status === "APPROVED" && existing.status === "PENDING") {
+    patch.status = "APPROVED";
+  }
+
+  return patch;
+}
+
+function assertNoSuspiciousMultiValueName(
+  type: ReferenceTypeValue,
+  input: NormalizedReferenceInput,
+) {
+  if (type !== "GENRE") return;
+
+  if (hasMultiValueSeparator(input.name) && splitMultiValueText(input.name).length > 1) {
+    throw new ReferenceError(
+      "نام ژانر شامل چند مقدار است و باید قبل از ثبت جدا شود",
+      422,
+      "MULTI_VALUE_GENRE_REFERENCE",
+    );
+  }
+}
+
+export async function previewResolveReferenceItem(
+  executor: ReferenceExecutor,
+  options: {
+    type: ReferenceTypeValue;
+    input: ImportReferenceInput;
+    cache?: ReferenceResolutionCache;
+  },
+): Promise<ResolvedReferenceItem | null> {
+  const normalized = normalizeReferenceInput(options.input);
+  if (!normalized) return null;
+  assertNoSuspiciousMultiValueName(options.type, normalized);
+
+  const cached = options.cache
+    ? candidateCacheKeys(options.type, normalized)
+        .map((key) => options.cache!.byKey.get(key))
+        .find(Boolean)
+    : undefined;
+  if (cached) return { ...cached, resolution: "reused" };
+
+  const rows = await loadReferenceRows(executor, options.type, options.cache);
+  const existing = findReferenceMatch(rows, options.type, normalized);
+  if (!existing) {
+    const preview: ResolvedReferenceItem = {
+      id: normalized.id ?? `preview:${options.type}:${normalized.normalizedName}`,
+      type: options.type,
+      name: normalized.name,
+      slug: normalized.normalizedSlug ?? null,
+      coverImage: normalized.imageUrl ?? null,
+      bannerImage: null,
+      description: normalized.description ?? null,
+      status: normalized.status ?? "APPROVED",
+      createdAt: new Date(0),
+      resolution: "created",
+    };
+    hydrateCache(options.cache, options.type, normalized, preview);
+    return preview;
+  }
+
+  const patch = buildReferencePatch(existing, normalized);
+  const preview: ResolvedReferenceItem = {
+    ...toDto(existing),
+    resolution:
+      Object.keys(patch).filter((key) => key !== "updatedAt").length > 0
+        ? "updated"
+        : "reused",
+  };
+  hydrateCache(options.cache, options.type, normalized, preview);
+  return preview;
+}
+
+export async function resolveReferenceItem(
+  executor: ReferenceExecutor,
+  options: {
+    type: ReferenceTypeValue;
+    input: ImportReferenceInput;
+    cache?: ReferenceResolutionCache;
+    createdById?: string | null;
+    defaultStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  },
+): Promise<ResolvedReferenceItem | null> {
+  const normalized = normalizeReferenceInput(options.input);
+  if (!normalized) return null;
+  assertNoSuspiciousMultiValueName(options.type, normalized);
+
+  const cached = options.cache
+    ? candidateCacheKeys(options.type, normalized)
+        .map((key) => options.cache!.byKey.get(key))
+        .find(Boolean)
+    : undefined;
+  if (cached && !String(cached.id).startsWith("preview:")) {
+    return { ...cached, resolution: "reused" };
+  }
+
+  const rows = await loadReferenceRows(executor, options.type, options.cache);
+  const existing = findReferenceMatch(rows, options.type, normalized);
+
+  if (existing) {
+    const patch = buildReferencePatch(existing, {
+      ...normalized,
+      status: normalized.status ?? options.defaultStatus,
+    });
+    const keys = Object.keys(patch).filter((key) => key !== "updatedAt");
+    if (keys.length > 0) {
+      const [updated] = await executor
+        .update(ReferenceItem)
+        .set(patch)
+        .where(eq(ReferenceItem.id, existing.id))
+        .returning();
+      const resolved: ResolvedReferenceItem = {
+        ...toDto(updated),
+        resolution: "updated",
+      };
+      updateTypeCache(options.cache, updated);
+      hydrateCache(options.cache, options.type, normalized, resolved);
+      return resolved;
+    }
+
+    const resolved: ResolvedReferenceItem = {
+      ...toDto(existing),
+      resolution: "reused",
+    };
+    hydrateCache(options.cache, options.type, normalized, resolved);
+    return resolved;
+  }
+
+  const slug =
+    normalized.normalizedSlug ??
+    (await uniqueReferenceSlug(options.type, normalized.name, undefined, executor));
+
+  const [created] = await executor
+    .insert(ReferenceItem)
+    .values({
+      type: options.type,
+      name: normalized.name,
+      slug,
+      coverImage: normalized.imageUrl ?? null,
+      description: normalized.description ?? null,
+      status: normalized.status ?? options.defaultStatus ?? "APPROVED",
+      createdById: options.createdById ?? null,
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  if (created) {
+    const resolved: ResolvedReferenceItem = {
+      ...toDto(created),
+      resolution: "created",
+    };
+    updateTypeCache(options.cache, created);
+    hydrateCache(options.cache, options.type, normalized, resolved);
+    return resolved;
+  }
+
+  const refreshedRows = await loadReferenceRows(executor, options.type);
+  const conflictWinner = findReferenceMatch(refreshedRows, options.type, normalized);
+  if (!conflictWinner) {
+    throw new ReferenceError("ثبت آیتم مرجع ناموفق بود", 500, "REFERENCE_RESOLVE_FAILED");
+  }
+
+  const resolved: ResolvedReferenceItem = {
+    ...toDto(conflictWinner),
+    resolution: "reused",
+  };
+  updateTypeCache(options.cache, conflictWinner);
+  hydrateCache(options.cache, options.type, normalized, resolved);
+  return resolved;
+}
+
 export async function searchReference(
   type: ReferenceTypeValue,
   q: string,
-  { approvedOnly = true, limit = 20 } = {}
+  { approvedOnly = true, limit = 20 } = {},
 ): Promise<ReferenceItemDTO[]> {
   const conds = [eq(ReferenceItem.type, type)];
   if (approvedOnly) conds.push(eq(ReferenceItem.status, "APPROVED"));
@@ -107,7 +546,7 @@ export async function searchReferencePage(
     approvedOnly?: boolean;
     page?: number;
     pageSize?: number;
-  } = {}
+  } = {},
 ): Promise<ReferenceSearchPage> {
   const safePageSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
   const safePage = Math.max(1, Math.trunc(page));
@@ -142,39 +581,19 @@ export async function searchReferencePage(
   };
 }
 
-/**
- * اطمینان از وجود یک مقدار مرجع: اگر هست برمی‌گرداند، وگرنه به‌صورت PENDING
- * (پیشنهاد کاربر) می‌سازد. برای جریان ساخت دستی کتاب استفاده می‌شود.
- */
 export async function ensureReferenceItem(
   type: ReferenceTypeValue,
   name: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-
-  const [existing] = await db
-    .select({ id: ReferenceItem.id })
-    .from(ReferenceItem)
-    .where(
-      and(
-        eq(ReferenceItem.type, type),
-        sql`lower(${ReferenceItem.name}) = lower(${trimmed})`
-      )
-    )
-    .limit(1);
-
-  if (existing) return;
-
-  const slug = await uniqueReferenceSlug(type, trimmed);
-  await db
-    .insert(ReferenceItem)
-    .values({ type, name: trimmed, slug, status: "PENDING", createdById: userId })
-    .onConflictDoNothing();
+  await resolveReferenceItem(db, {
+    type,
+    input: name,
+    createdById: userId,
+    defaultStatus: "PENDING",
+  });
 }
 
-// ---------------- مدیریت ادمین ----------------
 export async function adminListReference(filters: {
   type?: ReferenceTypeValue;
   status?: "PENDING" | "APPROVED" | "REJECTED";
@@ -183,8 +602,9 @@ export async function adminListReference(filters: {
   const conds = [];
   if (filters.type) conds.push(eq(ReferenceItem.type, filters.type));
   if (filters.status) conds.push(eq(ReferenceItem.status, filters.status));
-  if (filters.q?.trim())
+  if (filters.q?.trim()) {
     conds.push(ilike(ReferenceItem.name, `%${filters.q.trim()}%`));
+  }
 
   const rows = await db
     .select(REFERENCE_COLUMNS)
@@ -198,47 +618,24 @@ export async function adminListReference(filters: {
 
 export async function adminCreateReference(
   type: ReferenceTypeValue,
-  name: string
+  name: string,
 ): Promise<ReferenceItemDTO> {
-  const trimmed = name.trim();
+  const resolved = await resolveReferenceItem(db, {
+    type,
+    input: name,
+    defaultStatus: "APPROVED",
+  });
 
-  const [existing] = await db
-    .select()
-    .from(ReferenceItem)
-    .where(
-      and(
-        eq(ReferenceItem.type, type),
-        sql`lower(${ReferenceItem.name}) = lower(${trimmed})`
-      )
-    )
-    .limit(1);
-
-  if (existing) {
-    // اگر از قبل بود: تأیید + اطمینان از وجود اسلاگ
-    const patch: Partial<typeof ReferenceItem.$inferInsert> = {
-      updatedAt: new Date(),
-    };
-    if (existing.status !== "APPROVED") patch.status = "APPROVED";
-    if (!existing.slug) patch.slug = await uniqueReferenceSlug(type, trimmed, existing.id);
-    const [updated] = await db
-      .update(ReferenceItem)
-      .set(patch)
-      .where(eq(ReferenceItem.id, existing.id))
-      .returning(REFERENCE_COLUMNS);
-    return updated as ReferenceItemDTO;
+  if (!resolved) {
+    throw new ReferenceError("نام مرجع نامعتبر است", 422, "INVALID_REFERENCE_NAME");
   }
 
-  const slug = await uniqueReferenceSlug(type, trimmed);
-  const [created] = await db
-    .insert(ReferenceItem)
-    .values({ type, name: trimmed, slug, status: "APPROVED" })
-    .returning(REFERENCE_COLUMNS);
-  return created as ReferenceItemDTO;
+  return resolved;
 }
 
 export async function adminUpdateReference(
   id: string,
-  input: UpdateReferenceInput
+  input: UpdateReferenceInput,
 ): Promise<void> {
   const [current] = await db
     .select({ type: ReferenceItem.type, slug: ReferenceItem.slug })
@@ -256,15 +653,13 @@ export async function adminUpdateReference(
   if (input.description !== undefined) set.description = input.description || null;
   if (input.status !== undefined) set.status = input.status;
 
-  // اسلاگ: اگر ادمین صریح داده، یکتاسازی می‌کنیم؛ اگر نام عوض شده و اسلاگ خالی
-  // بوده، از روی نام می‌سازیم. اسلاگ موجود را خودسرانه عوض نمی‌کنیم تا لینک نشکند.
   if (input.slug !== undefined && input.slug.trim()) {
     set.slug = await uniqueReferenceSlug(current.type, input.slug, id);
   } else if (!current.slug && (input.name || set.name)) {
     set.slug = await uniqueReferenceSlug(
       current.type,
       (set.name as string) ?? "",
-      id
+      id,
     );
   }
 

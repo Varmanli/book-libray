@@ -183,13 +183,13 @@ export async function getUserDashboardData(
         .select({
           id: PublishedBookNote.id,
           content: PublishedBookNote.content,
-          bookId: PublishedBookNote.bookId,
+          bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, ${Book.id}, '')`,
           bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
-          bookTitle: Book.title,
+          bookTitle: sql<string>`coalesce(${CatalogBook.title}, ${Book.title}, 'کتاب')`,
           createdAt: PublishedBookNote.createdAt,
         })
         .from(PublishedBookNote)
-        .innerJoin(Book, eq(PublishedBookNote.bookId, Book.id))
+        .leftJoin(Book, eq(PublishedBookNote.bookId, Book.id))
         .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
         .where(eq(PublishedBookNote.userId, userId))
         .orderBy(desc(PublishedBookNote.createdAt))

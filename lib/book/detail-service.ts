@@ -5,29 +5,29 @@ import {
   Book,
   BookEdition,
   CatalogBook,
-  PublishedBookNote,
-  PublishedBookNoteLike,
   Quote,
   QuoteLike,
   ReferenceItem,
   User,
 } from "@/db/schema";
+import { coalesceCoverImage, getEditionCoverSrc } from "@/lib/book/cover";
 import {
   ensureCatalogBookSlug,
   ensureBookSlug,
   extractCatalogBookIdFromSlug,
 } from "@/lib/book/public-slug";
-import { coalesceCoverImage } from "@/lib/book/cover";
-import { splitStoredGenres } from "@/lib/book/genres";
 import {
   getPublicBookExternalLinks,
   type PublicBookExternalLink,
 } from "@/lib/book/external-links";
-import type { ReferenceTypeValue } from "@/lib/validations/reference";
+import { splitStoredGenres } from "@/lib/book/genres";
+import {
+  listPublishedNotesForBook,
+  type PublicNote,
+} from "@/lib/notes/service";
 import type { PublicQuote } from "@/lib/quotes/service";
-import type { PublicNote } from "@/lib/notes/service";
+import type { ReferenceTypeValue } from "@/lib/validations/reference";
 
-/** اسلاگ‌های صفحه‌ی عمومیِ موجودیت‌های مرجعِ مرتبط با کتاب (در صورت تأییدشده‌بودن). */
 export interface BookReferenceLinks {
   author?: string;
   translator?: string;
@@ -35,45 +35,51 @@ export interface BookReferenceLinks {
   country?: string;
 }
 
-/**
- * داده‌ی چیپ نویسنده/مترجم برای نمایش آواتار دایره‌ای: نام همیشه هست؛ `href`
- * فقط وقتی مرجع تأییدشده دارد و `image` تصویر همان مرجع است (در صورت وجود).
- */
 export interface ReferenceChipData {
   name: string;
   href: string | null;
   image: string | null;
 }
 
-/** تصویر مرجعِ هر فیلد متادیتا (در صورت وجود مرجع تأییدشده با تصویر). */
 export type BookReferenceImages = {
   [K in keyof BookReferenceLinks]?: string | null;
 };
 
 export type BookStatus = "UNREAD" | "READING" | "FINISHED";
 
+export interface BookEditionSummary {
+  id: string;
+  title: string;
+  titleOverride: string | null;
+  translator: string | null;
+  publisher: string | null;
+  publishedYear: number | null;
+  pageCount: number | null;
+  isbn: string | null;
+  isbn10: string | null;
+  isbn13: string | null;
+  editionLabel: string | null;
+  editionDescription: string | null;
+  coverImage: string | null;
+  language: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+}
+
 export interface BookDetailMeta {
   id: string;
   slug: string;
   title: string;
+  subtitle: string | null;
   originalTitle: string | null;
   description: string | null;
-  coverImage: string | null;
   author: string;
   authorSlug?: string | null;
-  translator: string | null;
-  translatorSlug?: string | null;
-  publisher: string | null;
-  publisherSlug?: string | null;
   genres: Array<{ name: string; slug: string | null }>;
   country: string | null;
   countrySlug?: string | null;
-  pageCount: number | null;
-  format: "PHYSICAL" | "ELECTRONIC";
   language: string | null;
-  publishedYear: number | null;
-  editionLabel: string | null;
-  isbn: string | null;
+  firstPublishedYear: number | null;
+  coverImage: string | null;
 }
 
 export interface ViewerLibraryEntry {
@@ -83,13 +89,10 @@ export interface ViewerLibraryEntry {
   isFavorite: boolean;
   privateNote: string | null;
   moodTags: string[];
+  editionId: string | null;
+  catalogBookId: string | null;
 }
 
-/**
- * Aggregate stats across the book identity (all library rows sharing the same
- * `catalogBookId`; for a legacy book with no catalog link this is just that one
- * row, so counts reflect the only data the model has). Ratings are 1..10.
- */
 export interface BookStats {
   wantToReadCount: number;
   readingCount: number;
@@ -103,6 +106,8 @@ export type BookDetailResult =
   | {
       found: true;
       book: BookDetailMeta;
+      selectedEdition: BookEditionSummary | null;
+      editions: BookEditionSummary[];
       viewer: ViewerLibraryEntry | null;
       stats: BookStats;
       topMoods: string[];
@@ -111,426 +116,187 @@ export type BookDetailResult =
       authorChip: ReferenceChipData;
       translatorChip: ReferenceChipData | null;
       quotes: PublicQuote[];
-      notes: PublicNote[];
+      bookNotes: PublicNote[];
+      editionNotes: PublicNote[];
       externalLinks: PublicBookExternalLink[];
     };
 
 type SubjectRow = {
-  id: string;
-  publicBookId: string;
-  sourceBookId: string | null;
+  catalogBookId: string;
   slug: string | null;
   title: string;
+  subtitle: string | null;
+  originalTitle: string | null;
+  description: string | null;
   author: string;
-  translator: string | null;
-  publisher: string | null;
   genre: string | null;
   country: string | null;
-  description: string | null;
-  coverImage: string | null;
-  pageCount: number | null;
-  format: "PHYSICAL" | "ELECTRONIC";
-  catalogBookId: string | null;
-  originalTitle: string | null;
-  catalogLanguage: string | null;
-  editionLanguage: string | null;
-  publishedYear: number | null;
-  editionLabel: string | null;
-  isbn: string | null;
-};
-
-type BestApprovedEditionRow = {
-  id: string;
-  translator: string | null;
-  publisher: string | null;
-  coverImage: string | null;
-  pageCount: number | null;
-  format: "PHYSICAL" | "ELECTRONIC" | null;
   language: string | null;
-  publishedYear: number | null;
-  editionLabel: string | null;
-  isbn: string | null;
-};
-
-type SampleCatalogBookRow = {
-  id: string;
+  firstPublishedYear: number | null;
   coverImage: string | null;
 };
 
-function bestEditionField<T>(catalogId: unknown, fieldName: string) {
-  return sql<T>`(
-    select be.${sql.raw(fieldName)}
-    from "BookEdition" be
-    where be.catalog_book_id = ${catalogId}
-      and be.status = 'APPROVED'
-    order by
-      (be.cover_image is not null and trim(be.cover_image) <> '') desc,
-      be.published_year desc nulls last,
-      be.created_at desc
-    limit 1
-  )`;
-}
-
-function sampleCatalogBookField<T>(catalogId: unknown, fieldName: string) {
-  return sql<T>`(
-    select b.${sql.raw(fieldName)}
-    from "Book" b
-    where b.catalog_book_id = ${catalogId}
-    order by
-      (b.cover_image is not null and trim(b.cover_image) <> '') desc,
-      (b.slug is not null) desc,
-      b.created_at desc
-    limit 1
-  )`;
-}
-
-async function loadBestApprovedEdition(
-  catalogBookId: string
-): Promise<BestApprovedEditionRow | null> {
-  const [edition] = await db
-    .select({
-      id: BookEdition.id,
-      translator: BookEdition.translator,
-      publisher: BookEdition.publisher,
-      coverImage: BookEdition.coverImage,
-      pageCount: BookEdition.pageCount,
-      format: BookEdition.format,
-      language: BookEdition.language,
-      publishedYear: BookEdition.publishedYear,
-      editionLabel: BookEdition.editionLabel,
-      isbn: BookEdition.isbn,
-    })
-    .from(BookEdition)
-    .where(
-      and(
-        eq(BookEdition.catalogBookId, catalogBookId),
-        eq(BookEdition.status, "APPROVED")
-      )
-    )
-    .orderBy(
-      desc(sql`${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> ''`),
-      desc(BookEdition.publishedYear),
-      desc(BookEdition.createdAt)
-    )
-    .limit(1);
-
-  return edition ?? null;
-}
-
-async function loadSampleCatalogBook(
-  catalogBookId: string
-): Promise<SampleCatalogBookRow | null> {
+async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> {
   const [book] = await db
     .select({
-      id: Book.id,
-      coverImage: Book.coverImage,
-    })
-    .from(Book)
-    .where(eq(Book.catalogBookId, catalogBookId))
-    .orderBy(
-      desc(sql`${Book.coverImage} is not null and trim(${Book.coverImage}) <> ''`),
-      desc(sql`${Book.slug} is not null`),
-      desc(Book.createdAt)
-    )
-    .limit(1);
-
-  return book ?? null;
-}
-
-/**
- * Book identity: rows sharing a `catalogBookId` are the same canonical book
- * across users; a legacy book with no catalog link is its own island. Public
- * quotes/notes and the viewer's own entry are resolved over this identity set.
- */
-async function resolveSiblingBookIds(
-  bookId: string | null,
-  catalogBookId: string | null
-): Promise<string[]> {
-  if (!catalogBookId) return bookId ? [bookId] : [];
-  const rows = await db
-    .select({ id: Book.id })
-    .from(Book)
-    .where(eq(Book.catalogBookId, catalogBookId));
-  return rows.map((r) => r.id);
-}
-
-/**
- * Loads the subject book row (by slug OR id) plus optional catalog/edition
- * extras. Accepting both keeps old `/book/[uuid]` links resolvable while the
- * canonical URL is slug-based.
- */
-async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> {
-  const [subject] = await db
-    .select({
-      id: sql<string>`coalesce(${CatalogBook.id}, ${Book.id})`,
-      publicBookId: sql<string>`coalesce(${CatalogBook.id}, ${Book.id})`,
-      sourceBookId: Book.id,
-      slug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
-      title: sql<string>`coalesce(${CatalogBook.title}, ${Book.title})`,
-      author: sql<string>`coalesce(${CatalogBook.author}, ${Book.author})`,
-      translator: Book.translator,
-      publisher: Book.publisher,
-      genre: sql<string | null>`coalesce(${CatalogBook.genre}, ${Book.genre})`,
-      country: sql<string | null>`coalesce(${CatalogBook.country}, ${Book.country})`,
-      description: sql<string | null>`coalesce(${CatalogBook.description}, ${Book.description})`,
-      coverImage: sql<string | null>`coalesce(${CatalogBook.coverImage}, ${Book.coverImage})`,
-      pageCount: Book.pageCount,
-      format: sql<"PHYSICAL" | "ELECTRONIC">`coalesce(${Book.format}, 'PHYSICAL')`,
-      catalogBookId: Book.catalogBookId,
+      catalogBookId: CatalogBook.id,
+      slug: CatalogBook.slug,
+      title: CatalogBook.title,
+      subtitle: CatalogBook.subtitle,
       originalTitle: CatalogBook.originalTitle,
-      catalogLanguage: CatalogBook.language,
-      editionLanguage: sql<string | null>`null`,
-      publishedYear: sql<number | null>`null`,
-      editionLabel: sql<string | null>`null`,
-      isbn: sql<string | null>`null`,
+      description: CatalogBook.description,
+      author: CatalogBook.author,
+      genre: CatalogBook.genre,
+      country: CatalogBook.country,
+      language: CatalogBook.language,
+      firstPublishedYear: CatalogBook.firstPublishedYear,
+      coverImage: CatalogBook.coverImage,
     })
-    .from(Book)
-    .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
+    .from(CatalogBook)
     .where(
-      or(
-        eq(Book.slug, ref),
-        eq(Book.id, ref),
-        eq(Book.catalogBookId, ref),
-        eq(CatalogBook.slug, ref),
-      )
-    )
-    .orderBy(
-      sql`case
-        when ${Book.slug} = ${ref} then 0
-        when ${Book.id} = ${ref} then 1
-        when ${Book.catalogBookId} = ${ref} then 2
-        else 3
-      end`,
-      desc(sql`${Book.slug} is not null`),
-      desc(Book.createdAt)
+      and(
+        eq(CatalogBook.status, "APPROVED"),
+        or(eq(CatalogBook.id, ref), eq(CatalogBook.slug, ref)),
+      ),
     )
     .limit(1);
 
-  if (!subject) return undefined;
-  if (!subject.catalogBookId) return subject;
+  if (book) return book;
 
-  const edition = await loadBestApprovedEdition(subject.catalogBookId);
-  if (!edition) return subject;
+  const [legacy] = await db
+    .select({
+      catalogBookId: CatalogBook.id,
+      slug: CatalogBook.slug,
+      title: CatalogBook.title,
+      subtitle: CatalogBook.subtitle,
+      originalTitle: CatalogBook.originalTitle,
+      description: CatalogBook.description,
+      author: CatalogBook.author,
+      genre: CatalogBook.genre,
+      country: CatalogBook.country,
+      language: CatalogBook.language,
+      firstPublishedYear: CatalogBook.firstPublishedYear,
+      coverImage: CatalogBook.coverImage,
+    })
+    .from(Book)
+    .innerJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
+    .where(or(eq(Book.id, ref), eq(Book.slug, ref)))
+    .limit(1);
 
-  return {
-    ...subject,
-    translator: edition.translator ?? subject.translator,
-    publisher: edition.publisher ?? subject.publisher,
-    coverImage: edition.coverImage ?? subject.coverImage,
-    pageCount: edition.pageCount ?? subject.pageCount,
-    format: edition.format ?? subject.format,
-    editionLanguage: edition.language,
-    publishedYear: edition.publishedYear,
-    editionLabel: edition.editionLabel,
-    isbn: edition.isbn,
-  };
-}
-
-async function loadCatalogSubjectRow(
-  catalogBookId: string
-): Promise<SubjectRow | undefined> {
-  const [catalog, edition, sampleBook] = await Promise.all([
-    db
-      .select({
-        id: CatalogBook.id,
-        publicBookId: CatalogBook.id,
-        slug: CatalogBook.slug,
-        title: CatalogBook.title,
-        author: CatalogBook.author,
-        genre: CatalogBook.genre,
-        country: CatalogBook.country,
-        description: CatalogBook.description,
-        coverImage: CatalogBook.coverImage,
-        originalTitle: CatalogBook.originalTitle,
-        catalogLanguage: CatalogBook.language,
-      })
-      .from(CatalogBook)
-      .where(
-        and(eq(CatalogBook.id, catalogBookId), eq(CatalogBook.status, "APPROVED"))
-      )
-      .limit(1),
-    loadBestApprovedEdition(catalogBookId),
-    loadSampleCatalogBook(catalogBookId),
-  ]);
-
-  const subject = catalog[0];
-  if (!subject) return undefined;
-
-  return {
-    id: subject.id,
-    publicBookId: subject.publicBookId,
-    sourceBookId: sampleBook?.id ?? null,
-    slug: subject.slug,
-    title: subject.title,
-    author: subject.author,
-    translator: edition?.translator ?? null,
-    publisher: edition?.publisher ?? null,
-    genre: subject.genre,
-    country: subject.country,
-    description: subject.description,
-    coverImage: edition?.coverImage ?? subject.coverImage ?? sampleBook?.coverImage ?? null,
-    pageCount: edition?.pageCount ?? null,
-    format: edition?.format ?? "PHYSICAL",
-    catalogBookId,
-    originalTitle: subject.originalTitle,
-    catalogLanguage: subject.catalogLanguage,
-    editionLanguage: edition?.language ?? null,
-    publishedYear: edition?.publishedYear ?? null,
-    editionLabel: edition?.editionLabel ?? null,
-    isbn: edition?.isbn ?? null,
-  };
+  return legacy;
 }
 
 async function loadSubjectRow(ref: string): Promise<SubjectRow | undefined> {
-  const [catalogBySlug] = await db
-    .select({ id: CatalogBook.id })
-    .from(CatalogBook)
-    .where(and(eq(CatalogBook.slug, ref), eq(CatalogBook.status, "APPROVED")))
-    .limit(1);
-  if (catalogBySlug) {
-    return loadCatalogSubjectRow(catalogBySlug.id);
-  }
-
   const subject = await loadBookSubjectRow(ref);
   if (subject) return subject;
 
   const catalogBookId =
     extractCatalogBookIdFromSlug(ref) ??
-    (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)
-      ? ref
-      : null);
+    (/^[0-9a-f-]{36}$/i.test(ref) ? ref : null);
+
   if (!catalogBookId) return undefined;
-  return loadCatalogSubjectRow(catalogBookId);
+  return loadBookSubjectRow(catalogBookId);
 }
 
-/**
- * Public quotes across a book identity, sorted by like count then newest
- * (Quote has no timestamp, so the id is the newest-first proxy). Shared by the
- * detail page (top N) and the all-quotes page (full list).
- */
-async function loadPublicQuotes(
-  siblingIds: string[],
-  subject: {
-    title: string;
-    author: string;
-    coverImage: string | null;
-    slug: string;
-  },
-  viewerId?: string,
-  limit?: number
-): Promise<PublicQuote[]> {
-  if (siblingIds.length === 0) return [];
-  const query = db
+async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionSummary[]> {
+  const rows = await db
     .select({
-      id: Quote.id,
-      content: Quote.content,
-      page: Quote.page,
-      bookId: Quote.bookId,
-      authorUsername: User.username,
-      authorName: User.name,
-      authorImage: User.image,
-      likeCount: sql<number>`count(${QuoteLike.id})::int`,
-      likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${
-        viewerId ?? null
-      }), false)`,
+      id: BookEdition.id,
+      title: CatalogBook.title,
+      titleOverride: BookEdition.titleOverride,
+      translator: BookEdition.translator,
+      publisher: BookEdition.publisher,
+      publishedYear: BookEdition.publishedYear,
+      pageCount: BookEdition.pageCount,
+      isbn: BookEdition.isbn,
+      isbn10: BookEdition.isbn10,
+      isbn13: BookEdition.isbn13,
+      editionLabel: BookEdition.editionLabel,
+      editionDescription: BookEdition.editionDescription,
+      coverImage: BookEdition.coverImage,
+      language: BookEdition.language,
+      status: BookEdition.status,
     })
-    .from(Quote)
-    .innerJoin(Book, eq(Quote.bookId, Book.id))
-    .innerJoin(User, eq(Book.userId, User.id))
-    .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
-    .where(inArray(Quote.bookId, siblingIds))
-    .groupBy(Quote.id, User.id)
-    .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.id));
+    .from(BookEdition)
+    .innerJoin(CatalogBook, eq(BookEdition.catalogBookId, CatalogBook.id))
+    .where(
+      and(
+        eq(BookEdition.catalogBookId, catalogBookId),
+        eq(BookEdition.status, "APPROVED"),
+      ),
+    )
+    .orderBy(
+      desc(sql`${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> ''`),
+      desc(BookEdition.publishedYear),
+      desc(BookEdition.createdAt),
+    );
 
-  const rows = await (limit ? query.limit(limit) : query);
-
-  return rows.map((q) => ({
-    id: q.id,
-    content: q.content,
-    page: q.page,
-    bookId: q.bookId,
-    bookSlug: subject.slug,
-    bookTitle: subject.title,
-    bookAuthor: subject.author,
-    bookCover: subject.coverImage,
-    likeCount: q.likeCount,
-    likedByViewer: Boolean(q.likedByViewer),
-    authorUsername: q.authorUsername,
-    authorName: q.authorName,
-    authorImage: q.authorImage,
+  return rows.map((row) => ({
+    ...row,
+    coverImage: getEditionCoverSrc(row),
   }));
 }
 
-/** The viewer's own Book row within a book identity, if any. */
-async function loadViewerEntry(
-  siblingIds: string[],
-  viewerId?: string
-): Promise<ViewerLibraryEntry | null> {
-  if (!viewerId || siblingIds.length === 0) return null;
-  const [entry] = await db
-    .select({
-      id: Book.id,
-      status: Book.status,
-      rating: Book.rating,
-      isFavorite: Book.isFavorite,
-      review: Book.review,
-      moodTags: Book.moodTags,
-    })
+async function resolveSiblingBookIds(catalogBookId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: Book.id })
     .from(Book)
-    .where(and(eq(Book.userId, viewerId), inArray(Book.id, siblingIds)))
-    .limit(1);
-
-  if (!entry) return null;
-  return {
-    id: entry.id,
-    status: entry.status,
-    rating: entry.rating,
-    isFavorite: entry.isFavorite,
-    privateNote: entry.review,
-    moodTags: entry.moodTags ?? [],
-  };
+    .where(eq(Book.catalogBookId, catalogBookId));
+  return rows.map((row) => row.id);
 }
 
-/**
- * Top mood tags across the whole book identity, most-common first (max 5).
- * Aggregated in JS over the small sibling set — no fake data, just what users
- * actually saved.
- */
-async function loadTopMoods(siblingIds: string[]): Promise<string[]> {
-  if (siblingIds.length === 0) return [];
-  const rows = await db
-    .select({ moodTags: Book.moodTags })
-    .from(Book)
-    .where(inArray(Book.id, siblingIds));
+async function loadViewerEntry(
+  viewerId: string | undefined,
+  catalogBookId: string,
+  selectedEditionId: string | null,
+): Promise<ViewerLibraryEntry | null> {
+  if (!viewerId) return null;
 
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    for (const tag of row.moodTags ?? []) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  const filters = selectedEditionId
+    ? [
+        and(
+          eq(Book.userId, viewerId),
+          eq(Book.catalogBookId, catalogBookId),
+          eq(Book.editionId, selectedEditionId),
+        ),
+        and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogBookId)),
+      ]
+    : [and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogBookId))];
+
+  for (const where of filters) {
+    const [entry] = await db
+      .select({
+        id: Book.id,
+        status: Book.status,
+        rating: Book.rating,
+        isFavorite: Book.isFavorite,
+        review: Book.review,
+        moodTags: Book.moodTags,
+        editionId: Book.editionId,
+        catalogBookId: Book.catalogBookId,
+      })
+      .from(Book)
+      .where(where)
+      .limit(1);
+
+    if (entry) {
+      return {
+        id: entry.id,
+        status: entry.status,
+        rating: entry.rating,
+        isFavorite: entry.isFavorite,
+        privateNote: entry.review,
+        moodTags: entry.moodTags ?? [],
+        editionId: entry.editionId,
+        catalogBookId: entry.catalogBookId,
+      };
     }
   }
 
-  // پرتکرارترین حس‌ها (بیشترین تعداد اول)، فقط ۳ مورد برتر.
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([tag]) => tag);
+  return null;
 }
 
-/**
- * Reading-status counts and average rating across the whole book identity
- * (`siblingIds`). Single grouped query — never call per component.
- */
-async function loadBookStats(siblingIds: string[]): Promise<BookStats> {
-  if (siblingIds.length === 0) {
-    return {
-      wantToReadCount: 0,
-      readingCount: 0,
-      finishedCount: 0,
-      averageRating: null,
-      ratingCount: 0,
-    };
-  }
+async function loadBookStats(catalogBookId: string): Promise<BookStats> {
   const [row] = await db
     .select({
       wantToReadCount: sql<number>`count(*) filter (where ${Book.status} = 'UNREAD')::int`,
@@ -540,24 +306,36 @@ async function loadBookStats(siblingIds: string[]): Promise<BookStats> {
       averageRating: sql<string | null>`round(avg(${Book.rating}) filter (where ${Book.rating} is not null and ${Book.rating} > 0), 1)`,
     })
     .from(Book)
-    .where(inArray(Book.id, siblingIds));
+    .where(eq(Book.catalogBookId, catalogBookId));
 
   return {
     wantToReadCount: row?.wantToReadCount ?? 0,
     readingCount: row?.readingCount ?? 0,
     finishedCount: row?.finishedCount ?? 0,
     ratingCount: row?.ratingCount ?? 0,
-    averageRating:
-      row?.averageRating != null ? Number(row.averageRating) : null,
+    averageRating: row?.averageRating != null ? Number(row.averageRating) : null,
   };
 }
 
-/**
- * Resolves which of the book's metadata names (author/genre/translator/
- * publisher/country) have an APPROVED public reference page, returning their
- * slugs so the detail page can link them. Names without an approved reference
- * are simply omitted (plain text fallback).
- */
+async function loadTopMoods(catalogBookId: string): Promise<string[]> {
+  const rows = await db
+    .select({ moodTags: Book.moodTags })
+    .from(Book)
+    .where(eq(Book.catalogBookId, catalogBookId));
+
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const tag of row.moodTags ?? []) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([tag]) => tag);
+}
+
 async function loadReferenceLinks(subject: {
   author: string;
   genres: string[];
@@ -569,37 +347,33 @@ async function loadReferenceLinks(subject: {
   images: BookReferenceImages;
   genres: Array<{ name: string; slug: string | null }>;
 }> {
-  const pairs: {
-    key: keyof BookReferenceLinks;
-    type: ReferenceTypeValue;
-    name: string;
-  }[] = [
+  const pairs: { key: keyof BookReferenceLinks; type: ReferenceTypeValue; name: string }[] = [
     { key: "author", type: "AUTHOR", name: subject.author },
   ];
-  if (subject.translator)
-    pairs.push({ key: "translator", type: "TRANSLATOR", name: subject.translator });
-  if (subject.publisher)
-    pairs.push({ key: "publisher", type: "PUBLISHER", name: subject.publisher });
-  if (subject.country)
-    pairs.push({ key: "country", type: "COUNTRY", name: subject.country });
 
-  const conds = pairs.map((p) =>
-    and(
-      eq(ReferenceItem.type, p.type),
-      sql`lower(${ReferenceItem.name}) = lower(${p.name})`
-    )
+  if (subject.translator) {
+    pairs.push({ key: "translator", type: "TRANSLATOR", name: subject.translator });
+  }
+  if (subject.publisher) {
+    pairs.push({ key: "publisher", type: "PUBLISHER", name: subject.publisher });
+  }
+  if (subject.country) {
+    pairs.push({ key: "country", type: "COUNTRY", name: subject.country });
+  }
+
+  const conds = pairs.map((pair) =>
+    and(eq(ReferenceItem.type, pair.type), sql`lower(${ReferenceItem.name}) = lower(${pair.name})`),
   );
   for (const genre of subject.genres) {
     conds.push(
-      and(
-        eq(ReferenceItem.type, "GENRE"),
-        sql`lower(${ReferenceItem.name}) = lower(${genre})`
-      )
+      and(eq(ReferenceItem.type, "GENRE"), sql`lower(${ReferenceItem.name}) = lower(${genre})`),
     );
   }
+
   if (conds.length === 0) {
     return { links: {}, images: {}, genres: [] };
   }
+
   const rows = await db
     .select({
       type: ReferenceItem.type,
@@ -612,186 +386,183 @@ async function loadReferenceLinks(subject: {
 
   const links: BookReferenceLinks = {};
   const images: BookReferenceImages = {};
-  const genres = subject.genres.map((genre) => {
+
+  for (const pair of pairs) {
     const match = rows.find(
-      (r) =>
-        r.type === "GENRE" &&
-        r.name.toLowerCase() === genre.toLowerCase()
+      (row) => row.type === pair.type && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
     );
-    return {
-      name: genre,
-      slug: match?.slug ?? null,
-    };
-  });
-  for (const p of pairs) {
-    const match = rows.find(
-      (r) =>
-        r.type === p.type &&
-        !!r.slug &&
-        r.name.toLowerCase() === p.name.toLowerCase()
-    );
-    if (match?.slug) links[p.key] = match.slug;
-    if (match) images[p.key] = match.coverImage ?? null;
+    if (match?.slug) links[pair.key] = match.slug;
+    if (match) images[pair.key] = match.coverImage ?? null;
   }
-  return { links, images, genres };
+
+  return {
+    links,
+    images,
+    genres: subject.genres.map((genre) => {
+      const match = rows.find(
+        (row) => row.type === "GENRE" && row.name.toLowerCase() === genre.toLowerCase(),
+      );
+      return { name: genre, slug: match?.slug ?? null };
+    }),
+  };
 }
 
-/** Top 10 quotes are shown on the book detail page; the rest live at /book/[id]/quotes. */
+async function loadPublicQuotes(
+  siblingIds: string[],
+  subject: {
+    title: string;
+    author: string;
+    coverImage: string | null;
+    slug: string;
+  },
+  viewerId?: string,
+  limit?: number,
+): Promise<PublicQuote[]> {
+  if (siblingIds.length === 0) return [];
+
+  const query = db
+    .select({
+      id: Quote.id,
+      content: Quote.content,
+      page: Quote.page,
+      bookId: Quote.bookId,
+      authorUsername: User.username,
+      authorName: User.name,
+      authorImage: User.image,
+      likeCount: sql<number>`count(${QuoteLike.id})::int`,
+      likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${viewerId ?? null}), false)`,
+    })
+    .from(Quote)
+    .innerJoin(Book, eq(Quote.bookId, Book.id))
+    .innerJoin(User, eq(Book.userId, User.id))
+    .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
+    .where(inArray(Quote.bookId, siblingIds))
+    .groupBy(Quote.id, User.id)
+    .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.id));
+
+  const rows = await (limit ? query.limit(limit) : query);
+
+  return rows.map((row) => ({
+    id: row.id,
+    content: row.content,
+    page: row.page,
+    bookId: row.bookId,
+    bookSlug: subject.slug,
+    bookTitle: subject.title,
+    bookAuthor: subject.author,
+    bookCover: subject.coverImage,
+    likeCount: row.likeCount,
+    likedByViewer: Boolean(row.likedByViewer),
+    authorUsername: row.authorUsername,
+    authorName: row.authorName,
+    authorImage: row.authorImage,
+  }));
+}
+
 const DETAIL_QUOTE_LIMIT = 10;
 
 export async function getBookDetail(
   ref: string,
-  viewerId?: string
+  viewerId?: string,
+  preferredEditionId?: string | null,
 ): Promise<BookDetailResult> {
   const subject = await loadSubjectRow(ref);
-
   if (!subject) return { found: false };
 
-  const slug = subject.catalogBookId
-    ? await ensureCatalogBookSlug({
-        id: subject.catalogBookId,
-        title: subject.title,
-        slug: subject.slug,
-      })
-    : await ensureBookSlug({
-        id: subject.id,
-        title: subject.title,
-        slug: subject.slug,
-      });
+  const slug = await ensureCatalogBookSlug({
+    id: subject.catalogBookId,
+    title: subject.title,
+    slug: subject.slug,
+  });
 
-  const siblingIds = await resolveSiblingBookIds(
-    subject.sourceBookId,
-    subject.catalogBookId
-  );
+  const editions = await loadApprovedEditions(subject.catalogBookId);
+  const selectedEdition =
+    editions.find((edition) => edition.id === preferredEditionId) ??
+    editions[0] ??
+    null;
+
   const genreNames = subject.genre ? splitStoredGenres(subject.genre) : [];
+  const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
 
-  const [viewer, stats, topMoods, refData, externalLinks] = await Promise.all([
-    loadViewerEntry(siblingIds, viewerId),
-    loadBookStats(siblingIds),
-    loadTopMoods(siblingIds),
+  const [viewer, stats, topMoods, refData, externalLinks, notes] = await Promise.all([
+    loadViewerEntry(viewerId, subject.catalogBookId, selectedEdition?.id ?? null),
+    loadBookStats(subject.catalogBookId),
+    loadTopMoods(subject.catalogBookId),
     loadReferenceLinks({
       author: subject.author,
       genres: genreNames,
-      translator: subject.translator,
-      publisher: subject.publisher,
+      translator: selectedEdition?.translator ?? null,
+      publisher: selectedEdition?.publisher ?? null,
       country: subject.country,
     }),
-    subject.catalogBookId
-      ? getPublicBookExternalLinks(subject.catalogBookId)
-      : Promise.resolve([] as PublicBookExternalLink[]),
+    getPublicBookExternalLinks(subject.catalogBookId),
+    listPublishedNotesForBook({
+      catalogBookId: subject.catalogBookId,
+      viewerId,
+      editionId: selectedEdition?.id ?? null,
+    }),
   ]);
 
-  const refLinks = refData.links;
   const authorChip: ReferenceChipData = {
     name: subject.author,
-    href: refLinks.author
-      ? `/authors/${encodeURIComponent(refLinks.author)}`
-      : null,
+    href: refData.links.author ? `/authors/${encodeURIComponent(refData.links.author)}` : null,
     image: refData.images.author ?? null,
   };
-  const translatorChip: ReferenceChipData | null = subject.translator
+
+  const translatorChip: ReferenceChipData | null = selectedEdition?.translator
     ? {
-        name: subject.translator,
-        href: refLinks.translator
-          ? `/translators/${encodeURIComponent(refLinks.translator)}`
+        name: selectedEdition.translator,
+        href: refData.links.translator
+          ? `/translators/${encodeURIComponent(refData.links.translator)}`
           : null,
         image: refData.images.translator ?? null,
       }
     : null;
 
   const book: BookDetailMeta = {
-    id: subject.publicBookId,
+    id: subject.catalogBookId,
     slug,
     title: subject.title,
+    subtitle: subject.subtitle,
     originalTitle: subject.originalTitle,
     description: subject.description,
-    coverImage: coalesceCoverImage(subject.coverImage),
     author: subject.author,
-    authorSlug: refLinks.author ?? null,
-    translator: subject.translator,
-    translatorSlug: refLinks.translator ?? null,
-    publisher: subject.publisher,
-    publisherSlug: refLinks.publisher ?? null,
+    authorSlug: refData.links.author ?? null,
     genres: refData.genres,
     country: subject.country,
-    countrySlug: refLinks.country ?? null,
-    pageCount: subject.pageCount,
-    format: subject.format,
-    language: subject.editionLanguage ?? subject.catalogLanguage,
-    publishedYear: subject.publishedYear,
-    editionLabel: subject.editionLabel,
-    isbn: subject.isbn,
+    countrySlug: refData.links.country ?? null,
+    language: subject.language ?? selectedEdition?.language ?? "fa",
+    firstPublishedYear: subject.firstPublishedYear,
+    coverImage: getEditionCoverSrc(selectedEdition, subject.coverImage),
   };
 
-  // top quotes for the detail page slider
   const quotes = await loadPublicQuotes(
     siblingIds,
     {
       title: subject.title,
       author: subject.author,
-      coverImage: coalesceCoverImage(subject.coverImage),
+      coverImage: book.coverImage,
       slug,
     },
     viewerId,
-    DETAIL_QUOTE_LIMIT
+    DETAIL_QUOTE_LIMIT,
   );
-
-  const noteRows =
-    siblingIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: PublishedBookNote.id,
-            content: PublishedBookNote.content,
-            bookId: PublishedBookNote.bookId,
-            createdAt: PublishedBookNote.createdAt,
-            authorUsername: User.username,
-            authorName: User.name,
-            authorImage: User.image,
-            likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
-            likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
-              viewerId ?? null
-            }), false)`,
-          })
-          .from(PublishedBookNote)
-          .innerJoin(User, eq(PublishedBookNote.userId, User.id))
-          .leftJoin(
-            PublishedBookNoteLike,
-            eq(PublishedBookNoteLike.noteId, PublishedBookNote.id)
-          )
-          .where(inArray(PublishedBookNote.bookId, siblingIds))
-          .groupBy(PublishedBookNote.id, User.id)
-          .orderBy(desc(PublishedBookNote.createdAt))
-          .limit(50);
-
-  const notes: PublicNote[] = noteRows.map((n) => ({
-    id: n.id,
-    content: n.content,
-    bookId: n.bookId,
-    bookSlug: slug,
-    bookTitle: subject.title,
-    bookAuthor: subject.author,
-    bookCover: coalesceCoverImage(subject.coverImage),
-    createdAt: n.createdAt,
-    likeCount: n.likeCount,
-    likedByViewer: Boolean(n.likedByViewer),
-    authorUsername: n.authorUsername,
-    authorName: n.authorName,
-    authorImage: n.authorImage,
-  }));
 
   return {
     found: true,
     book,
+    selectedEdition,
+    editions,
     viewer,
     stats,
     topMoods,
-    refLinks,
+    refLinks: refData.links,
     refImages: refData.images,
     authorChip,
     translatorChip,
     quotes,
-    notes,
+    bookNotes: notes.bookNotes,
+    editionNotes: notes.editionNotes,
     externalLinks,
   };
 }
@@ -813,34 +584,22 @@ export type BookQuotesPageResult =
       viewerEntryId: string | null;
     };
 
-/**
- * All public quotes for a book (sorted by likes), plus the viewer's own entry id
- * so the all-quotes page can show owner edit/delete. Reuses the same loaders as
- * the detail page — no duplicated query logic.
- */
 export async function getBookQuotesPage(
   ref: string,
-  viewerId?: string
+  viewerId?: string,
 ): Promise<BookQuotesPageResult> {
   const subject = await loadSubjectRow(ref);
   if (!subject) return { found: false };
 
-  const slug = subject.catalogBookId
-    ? await ensureCatalogBookSlug({
-        id: subject.catalogBookId,
-        title: subject.title,
-        slug: subject.slug,
-      })
-    : await ensureBookSlug({
-        id: subject.id,
-        title: subject.title,
-        slug: subject.slug,
-      });
+  const slug = await ensureCatalogBookSlug({
+    id: subject.catalogBookId,
+    title: subject.title,
+    slug: subject.slug,
+  });
 
-  const siblingIds = await resolveSiblingBookIds(
-    subject.sourceBookId,
-    subject.catalogBookId
-  );
+  const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
+  const editions = await loadApprovedEditions(subject.catalogBookId);
+  const coverImage = getEditionCoverSrc(editions[0], subject.coverImage);
 
   const [quotes, viewer] = await Promise.all([
     loadPublicQuotes(
@@ -848,22 +607,22 @@ export async function getBookQuotesPage(
       {
         title: subject.title,
         author: subject.author,
-        coverImage: coalesceCoverImage(subject.coverImage),
+        coverImage,
         slug,
       },
-      viewerId
+      viewerId,
     ),
-    loadViewerEntry(siblingIds, viewerId),
+    loadViewerEntry(viewerId, subject.catalogBookId, null),
   ]);
 
   return {
     found: true,
     book: {
-      id: subject.publicBookId,
+      id: subject.catalogBookId,
       slug,
       title: subject.title,
       author: subject.author,
-      coverImage: coalesceCoverImage(subject.coverImage),
+      coverImage,
     },
     quotes,
     viewerEntryId: viewer?.id ?? null,
@@ -871,23 +630,96 @@ export async function getBookQuotesPage(
 }
 
 export type AddToLibraryResult =
-  | { ok: false; reason: "NOT_FOUND" }
+  | { ok: false; reason: "NOT_FOUND" | "EDITION_NOT_FOUND" }
   | { ok: true; bookId: string; already: boolean };
 
-/**
- * Adds the book at `sourceBookId` to the viewer's library by copying its public
- * fields (and catalog/edition links) into a fresh Book row. Idempotent per
- * viewer for catalog-linked books; returns the existing copy if present.
- */
 export async function addBookToLibrary(
   viewerId: string,
   sourceBookId: string,
-  status: BookStatus
+  status: BookStatus,
+  editionId?: string,
 ): Promise<AddToLibraryResult> {
-  const [src] = await db
+  if (editionId) {
+    const [edition] = await db
+      .select({
+        editionId: BookEdition.id,
+        catalogBookId: CatalogBook.id,
+        title: CatalogBook.title,
+        author: CatalogBook.author,
+        description: CatalogBook.description,
+        genre: CatalogBook.genre,
+        country: CatalogBook.country,
+        translator: BookEdition.translator,
+        publisher: BookEdition.publisher,
+        pageCount: BookEdition.pageCount,
+        format: BookEdition.format,
+        coverImage: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage})`,
+      })
+      .from(BookEdition)
+      .innerJoin(CatalogBook, eq(BookEdition.catalogBookId, CatalogBook.id))
+      .where(
+        and(
+          eq(BookEdition.id, editionId),
+          eq(CatalogBook.id, sourceBookId),
+        ),
+      )
+      .limit(1);
+
+    if (!edition) return { ok: false, reason: "EDITION_NOT_FOUND" };
+
+    const [existing] = await db
+      .select({ id: Book.id })
+      .from(Book)
+      .where(
+        and(eq(Book.userId, viewerId), eq(Book.catalogBookId, edition.catalogBookId), eq(Book.editionId, edition.editionId)),
+      )
+      .limit(1);
+
+    if (existing) return { ok: true, bookId: existing.id, already: true };
+
+    const [created] = await db
+      .insert(Book)
+      .values({
+        title: edition.title,
+        author: edition.author,
+        description: edition.description,
+        genre: edition.genre ?? "نامشخص",
+        country: edition.country,
+        translator: edition.translator,
+        publisher: edition.publisher,
+        pageCount: edition.pageCount,
+        format: edition.format,
+        coverImage: edition.coverImage,
+        userId: viewerId,
+        status,
+        catalogBookId: edition.catalogBookId,
+        editionId: edition.editionId,
+      })
+      .returning({ id: Book.id });
+
+    return { ok: true, bookId: created.id, already: false };
+  }
+
+  const [catalog] = await db
+    .select({ id: CatalogBook.id })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, sourceBookId))
+    .limit(1);
+
+  if (catalog) {
+    const [bestEdition] = await db
+      .select({ id: BookEdition.id })
+      .from(BookEdition)
+      .where(and(eq(BookEdition.catalogBookId, sourceBookId), eq(BookEdition.status, "APPROVED")))
+      .orderBy(desc(BookEdition.publishedYear), desc(BookEdition.createdAt))
+      .limit(1);
+
+    return addBookToLibrary(viewerId, sourceBookId, status, bestEdition?.id);
+  }
+
+  const [legacy] = await db
     .select({
       id: Book.id,
-      userId: Book.userId,
       title: Book.title,
       author: Book.author,
       translator: Book.translator,
@@ -900,111 +732,55 @@ export async function addBookToLibrary(
       format: Book.format,
       catalogBookId: Book.catalogBookId,
       editionId: Book.editionId,
+      userId: Book.userId,
     })
     .from(Book)
     .where(eq(Book.id, sourceBookId))
     .limit(1);
 
-  if (!src) {
-    const [catalogSrc] = await db
-      .select({
-        id: CatalogBook.id,
-        title: CatalogBook.title,
-        author: CatalogBook.author,
-        description: CatalogBook.description,
-        genre: CatalogBook.genre,
-        country: CatalogBook.country,
-        coverImage: sql<string | null>`(
-          coalesce(
-            ${bestEditionField<string | null>(CatalogBook.id, "cover_image")},
-            ${CatalogBook.coverImage}
-          )
-        )`,
-        translator: bestEditionField<string | null>(CatalogBook.id, "translator"),
-        publisher: bestEditionField<string | null>(CatalogBook.id, "publisher"),
-        pageCount: bestEditionField<number | null>(CatalogBook.id, "page_count"),
-        format: sql<"PHYSICAL" | "ELECTRONIC">`coalesce((
-          ${bestEditionField<"PHYSICAL" | "ELECTRONIC" | null>(CatalogBook.id, "format")}
-        ), 'PHYSICAL')`,
-        editionId: bestEditionField<string | null>(CatalogBook.id, "id"),
-      })
-      .from(CatalogBook)
-      .where(eq(CatalogBook.id, sourceBookId))
-      .limit(1);
+  if (!legacy) return { ok: false, reason: "NOT_FOUND" };
+  if (legacy.userId === viewerId) return { ok: true, bookId: legacy.id, already: true };
 
-    if (!catalogSrc) return { ok: false, reason: "NOT_FOUND" };
+  const existingWhere = legacy.editionId
+    ? and(eq(Book.userId, viewerId), eq(Book.editionId, legacy.editionId))
+    : legacy.catalogBookId
+      ? and(eq(Book.userId, viewerId), eq(Book.catalogBookId, legacy.catalogBookId))
+      : null;
 
-    const [existing] = await db
-      .select({ id: Book.id })
-      .from(Book)
-      .where(and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogSrc.id)))
-      .limit(1);
-    if (existing) return { ok: true, bookId: existing.id, already: true };
-
-    const [createdFromCatalog] = await db
-      .insert(Book)
-      .values({
-        title: catalogSrc.title,
-        author: catalogSrc.author,
-        translator: catalogSrc.translator,
-        publisher: catalogSrc.publisher,
-        genre: catalogSrc.genre ?? "نامشخص",
-        country: catalogSrc.country,
-        description: catalogSrc.description,
-        coverImage: catalogSrc.coverImage,
-        pageCount: catalogSrc.pageCount,
-        format: catalogSrc.format,
-        userId: viewerId,
-        status,
-        catalogBookId: catalogSrc.id,
-        editionId: catalogSrc.editionId,
-      })
-      .returning({ id: Book.id });
-
-    return { ok: true, bookId: createdFromCatalog.id, already: false };
-  }
-
-  // already the viewer's own row
-  if (src.userId === viewerId) return { ok: true, bookId: src.id, already: true };
-
-  // existing viewer copy by canonical identity (or edition)
-  if (src.catalogBookId) {
-    const [existing] = await db
-      .select({ id: Book.id })
-      .from(Book)
-      .where(
-        and(eq(Book.userId, viewerId), eq(Book.catalogBookId, src.catalogBookId))
-      )
-      .limit(1);
-    if (existing) return { ok: true, bookId: existing.id, already: true };
-  } else if (src.editionId) {
-    const [existing] = await db
-      .select({ id: Book.id })
-      .from(Book)
-      .where(and(eq(Book.userId, viewerId), eq(Book.editionId, src.editionId)))
-      .limit(1);
+  if (existingWhere) {
+    const [existing] = await db.select({ id: Book.id }).from(Book).where(existingWhere).limit(1);
     if (existing) return { ok: true, bookId: existing.id, already: true };
   }
 
   const [created] = await db
     .insert(Book)
     .values({
-      title: src.title,
-      author: src.author,
-      translator: src.translator,
-      publisher: src.publisher,
-      genre: src.genre,
-      country: src.country,
-      description: src.description,
-      coverImage: src.coverImage,
-      pageCount: src.pageCount,
-      format: src.format,
+      title: legacy.title,
+      author: legacy.author,
+      translator: legacy.translator,
+      publisher: legacy.publisher,
+      genre: legacy.genre,
+      country: legacy.country,
+      description: legacy.description,
+      coverImage: legacy.coverImage,
+      pageCount: legacy.pageCount,
+      format: legacy.format,
       userId: viewerId,
       status,
-      catalogBookId: src.catalogBookId,
-      editionId: src.editionId,
+      catalogBookId: legacy.catalogBookId,
+      editionId: legacy.editionId,
     })
     .returning({ id: Book.id });
 
   return { ok: true, bookId: created.id, already: false };
+}
+
+export async function ensurePublicBookSlug(ref: string): Promise<string | null> {
+  const subject = await loadSubjectRow(ref);
+  if (!subject) return null;
+  return ensureCatalogBookSlug({
+    id: subject.catalogBookId,
+    title: subject.title,
+    slug: subject.slug,
+  });
 }

@@ -1,15 +1,15 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   Book,
+  BookEdition,
   CatalogBook,
   PublishedBookNote,
   PublishedBookNoteLike,
   User,
 } from "@/db/schema";
 
-/** خطای کنترل‌شده‌ی یادداشت که route handler آن را به پاسخ HTTP تبدیل می‌کند. */
 export class NoteError extends Error {
   constructor(message: string, public status = 400, public code?: string) {
     super(message);
@@ -21,6 +21,9 @@ export interface PublicNote {
   id: string;
   content: string;
   bookId: string;
+  catalogBookId: string | null;
+  bookEditionId: string | null;
+  scope: "book" | "edition";
   bookSlug?: string | null;
   bookTitle: string;
   bookAuthor: string;
@@ -28,6 +31,7 @@ export interface PublicNote {
   createdAt: Date;
   likeCount: number;
   likedByViewer: boolean;
+  authorUserId: string;
   authorUsername: string | null;
   authorName: string | null;
   authorImage: string | null;
@@ -38,15 +42,45 @@ export type PublicNotesResult =
   | { found: true; isPrivate: true }
   | { found: true; isPrivate: false; isOwner: boolean; notes: PublicNote[] };
 
-/**
- * Published notes for a profile. Only rows in PublishedBookNote (notes the user
- * explicitly published) are returned — never the private `Book.review`. Like
- * quotes, they inherit the profile's privacy: a private profile exposes nothing
- * to a non-owner.
- */
+async function resolveOwnedLibraryRow(
+  userId: string,
+  catalogBookId: string,
+  bookEditionId: string | null,
+): Promise<{ id: string; catalogBookId: string | null; editionId: string | null } | null> {
+  const filters = [
+    and(eq(Book.userId, userId), eq(Book.catalogBookId, catalogBookId)),
+  ];
+
+  if (bookEditionId) {
+    filters.unshift(
+      and(
+        eq(Book.userId, userId),
+        eq(Book.catalogBookId, catalogBookId),
+        eq(Book.editionId, bookEditionId),
+      ),
+    );
+  }
+
+  for (const where of filters) {
+    const [book] = await db
+      .select({
+        id: Book.id,
+        catalogBookId: Book.catalogBookId,
+        editionId: Book.editionId,
+      })
+      .from(Book)
+      .where(where)
+      .limit(1);
+
+    if (book) return book;
+  }
+
+  return null;
+}
+
 export async function getPublishedNotesByUsername(
   username: string,
-  viewerId?: string
+  viewerId?: string,
 ): Promise<PublicNotesResult> {
   const [user] = await db
     .select({
@@ -71,11 +105,18 @@ export async function getPublishedNotesByUsername(
     .select({
       id: PublishedBookNote.id,
       content: PublishedBookNote.content,
-      bookId: PublishedBookNote.bookId,
+      bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
+      catalogBookId: PublishedBookNote.catalogBookId,
+      bookEditionId: PublishedBookNote.bookEditionId,
+      scope: PublishedBookNote.scope,
       bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
-      bookTitle: Book.title,
-      bookAuthor: Book.author,
-      bookCover: Book.coverImage,
+      bookTitle: sql<string>`coalesce(${CatalogBook.title}, ${Book.title})`,
+      bookAuthor: sql<string>`coalesce(${CatalogBook.author}, ${Book.author})`,
+      bookCover: sql<string | null>`coalesce(
+        ${BookEdition.coverImage},
+        ${CatalogBook.coverImage},
+        ${Book.coverImage}
+      )`,
       createdAt: PublishedBookNote.createdAt,
       likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
       likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
@@ -83,20 +124,28 @@ export async function getPublishedNotesByUsername(
       }), false)`,
     })
     .from(PublishedBookNote)
-    .innerJoin(Book, eq(PublishedBookNote.bookId, Book.id))
-    .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
+    .leftJoin(Book, eq(PublishedBookNote.bookId, Book.id))
+    .leftJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
+    .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
     .leftJoin(
       PublishedBookNoteLike,
-      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id)
+      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
     )
     .where(eq(PublishedBookNote.userId, user.id))
-    .groupBy(PublishedBookNote.id, Book.id, CatalogBook.id)
+    .groupBy(
+      PublishedBookNote.id,
+      CatalogBook.id,
+      Book.id,
+      BookEdition.id,
+    )
     .orderBy(desc(PublishedBookNote.createdAt))
     .limit(30);
 
   const notes: PublicNote[] = rows.map((r) => ({
     ...r,
+    scope: (r.scope ?? "book") as "book" | "edition",
     likedByViewer: Boolean(r.likedByViewer),
+    authorUserId: user.id,
     authorUsername: user.username,
     authorName: user.name,
     authorImage: user.image,
@@ -105,10 +154,78 @@ export async function getPublishedNotesByUsername(
   return { found: true, isPrivate: false, isOwner, notes };
 }
 
-/** Toggles the current user's like on a published note. */
+export async function listPublishedNotesForBook(opts: {
+  catalogBookId: string;
+  viewerId?: string;
+  editionId?: string | null;
+}): Promise<{ bookNotes: PublicNote[]; editionNotes: PublicNote[] }> {
+  const filters = [
+    and(
+      eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
+      eq(PublishedBookNote.scope, "book"),
+    ),
+  ];
+
+  if (opts.editionId) {
+    filters.push(
+      and(
+        eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
+        eq(PublishedBookNote.scope, "edition"),
+        eq(PublishedBookNote.bookEditionId, opts.editionId),
+      ),
+    );
+  }
+
+  const rows = await db
+    .select({
+      id: PublishedBookNote.id,
+      content: PublishedBookNote.content,
+      bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
+      catalogBookId: PublishedBookNote.catalogBookId,
+      bookEditionId: PublishedBookNote.bookEditionId,
+      scope: PublishedBookNote.scope,
+      bookSlug: CatalogBook.slug,
+      bookTitle: CatalogBook.title,
+      bookAuthor: CatalogBook.author,
+      bookCover: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage})`,
+      createdAt: PublishedBookNote.createdAt,
+      likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
+      likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
+        opts.viewerId ?? null
+      }), false)`,
+      authorUserId: User.id,
+      authorUsername: User.username,
+      authorName: User.name,
+      authorImage: User.image,
+    })
+    .from(PublishedBookNote)
+    .innerJoin(User, eq(PublishedBookNote.userId, User.id))
+    .innerJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
+    .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
+    .leftJoin(
+      PublishedBookNoteLike,
+      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
+    )
+    .where(or(...filters))
+    .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
+    .orderBy(desc(PublishedBookNote.createdAt))
+    .limit(100);
+
+  const notes = rows.map((row) => ({
+    ...row,
+    scope: (row.scope ?? "book") as "book" | "edition",
+    likedByViewer: Boolean(row.likedByViewer),
+  }));
+
+  return {
+    bookNotes: notes.filter((note) => note.scope === "book"),
+    editionNotes: notes.filter((note) => note.scope === "edition"),
+  };
+}
+
 export async function togglePublishedNoteLike(
   noteId: string,
-  userId: string
+  userId: string,
 ): Promise<{ liked: boolean; likeCount: number } | null> {
   const [note] = await db
     .select({ id: PublishedBookNote.id })
@@ -123,8 +240,8 @@ export async function togglePublishedNoteLike(
     .where(
       and(
         eq(PublishedBookNoteLike.noteId, noteId),
-        eq(PublishedBookNoteLike.userId, userId)
-      )
+        eq(PublishedBookNoteLike.userId, userId),
+      ),
     )
     .returning({ id: PublishedBookNoteLike.id });
 
@@ -147,33 +264,59 @@ export async function togglePublishedNoteLike(
   return { liked, likeCount: row?.count ?? 0 };
 }
 
-/**
- * Publishes a public note for a book the user owns in their library. The book
- * must be one of the user's own Book rows (so the note is tied to their copy and
- * shows on their profile + the book page).
- */
 export async function createPublishedNote(
   userId: string,
-  bookId: string,
-  content: string
+  input: {
+    catalogBookId: string;
+    bookEditionId?: string | null;
+    scope: "book" | "edition";
+    content: string;
+  },
 ): Promise<{ id: string }> {
-  const [book] = await db
-    .select({ id: Book.id })
-    .from(Book)
-    .where(and(eq(Book.id, bookId), eq(Book.userId, userId)))
-    .limit(1);
+  if (input.scope === "edition" && !input.bookEditionId) {
+    throw new NoteError("برای این نوع یادداشت باید نسخه انتخاب شود", 422, "EDITION_REQUIRED");
+  }
 
-  if (!book) {
+  if (input.scope === "book" && input.bookEditionId) {
+    throw new NoteError("یادداشت درباره کتاب نباید نسخه داشته باشد", 422, "BOOK_SCOPE_INVALID");
+  }
+
+  if (input.bookEditionId) {
+    const [edition] = await db
+      .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+      .from(BookEdition)
+      .where(eq(BookEdition.id, input.bookEditionId))
+      .limit(1);
+
+    if (!edition || edition.catalogBookId !== input.catalogBookId) {
+      throw new NoteError("نسخه‌ی انتخاب‌شده به این کتاب تعلق ندارد", 422, "EDITION_MISMATCH");
+    }
+  }
+
+  const ownedBook = await resolveOwnedLibraryRow(
+    userId,
+    input.catalogBookId,
+    input.bookEditionId ?? null,
+  );
+
+  if (!ownedBook) {
     throw new NoteError(
-      "ابتدا کتاب را به کتابخانه‌ات اضافه کن",
+      "ابتدا این کتاب یا نسخه را به کتابخانه‌ات اضافه کن",
       403,
-      "BOOK_NOT_OWNED"
+      "BOOK_NOT_OWNED",
     );
   }
 
   const [created] = await db
     .insert(PublishedBookNote)
-    .values({ userId, bookId, content })
+    .values({
+      userId,
+      bookId: ownedBook.id,
+      catalogBookId: input.catalogBookId,
+      bookEditionId: input.scope === "edition" ? input.bookEditionId ?? null : null,
+      scope: input.scope,
+      content: input.content,
+    })
     .returning({ id: PublishedBookNote.id });
 
   return created;
@@ -182,7 +325,7 @@ export async function createPublishedNote(
 export async function updatePublishedNote(
   userId: string,
   noteId: string,
-  content: string
+  content: string,
 ): Promise<{ id: string }> {
   const [updated] = await db
     .update(PublishedBookNote)
@@ -198,7 +341,7 @@ export async function updatePublishedNote(
 
 export async function deletePublishedNote(
   userId: string,
-  noteId: string
+  noteId: string,
 ): Promise<void> {
   const [deleted] = await db
     .delete(PublishedBookNote)

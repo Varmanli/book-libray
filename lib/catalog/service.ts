@@ -5,6 +5,7 @@ import {
   ensureCatalogBookSlug,
   generateUniqueCatalogBookSlug,
 } from "@/lib/book/public-slug";
+import { splitStoredGenres } from "@/lib/book/genres";
 import type { AddToLibraryInput, ManualBookInput } from "@/lib/validations/catalog";
 import { ensureReferenceItem } from "@/lib/reference/service";
 
@@ -316,7 +317,9 @@ export async function createManualBook(userId: string, input: ManualBookInput) {
   try {
     await Promise.all([
       ensureReferenceItem("AUTHOR", input.author, userId),
-      ensureReferenceItem("GENRE", input.genre, userId),
+      ...splitStoredGenres(input.genre).map((genre) =>
+        ensureReferenceItem("GENRE", genre, userId),
+      ),
       input.translator
         ? ensureReferenceItem("TRANSLATOR", input.translator, userId)
         : Promise.resolve(),

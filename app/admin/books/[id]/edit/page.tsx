@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import AdminBookForm from "@/components/admin/AdminBookForm";
+import AdminBookEditionsManager from "@/components/admin/AdminBookEditionsManager";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { requireAdmin } from "@/lib/admin/permissions";
 import { getAdminCatalogBookForEdit } from "@/lib/admin/service";
@@ -52,6 +53,14 @@ export default async function AdminEditBookPage({
             isActive: l.isActive,
           })),
         }}
+      />
+      <AdminBookEditionsManager
+        catalogBookId={book.id}
+        bookTitle={book.title}
+        originalTitle={book.originalTitle}
+        author={book.author}
+        genres={book.genres}
+        editions={book.editions}
       />
     </div>
   );

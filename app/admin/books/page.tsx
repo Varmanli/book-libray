@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  FileUp,
+  Images,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +36,7 @@ import {
   AdminDataTableToolbar,
 } from "@/components/admin/AdminDataTable";
 import { useConfirm } from "@/components/common/ConfirmDialog";
+import { cn } from "@/lib/utils";
 
 interface AdminBookRow {
   id: string;
@@ -51,20 +61,32 @@ const COLUMNS: AdminColumn[] = [
   { key: "actions", label: "عملیات", align: "center" },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-  APPROVED: "bg-primary/15 text-primary",
-  PENDING: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  REJECTED: "bg-destructive/15 text-destructive",
+const STATUS_BADGE: Record<AdminBookRow["status"], string> = {
+  APPROVED: "border-primary/20 bg-primary/12 text-primary",
+  PENDING:
+    "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-400",
+  REJECTED: "border-destructive/20 bg-destructive/12 text-destructive",
 };
-const STATUS_LABEL: Record<string, string> = {
+
+const STATUS_LABEL: Record<AdminBookRow["status"], string> = {
   APPROVED: "تأییدشده",
   PENDING: "در انتظار",
   REJECTED: "ردشده",
 };
 
+function splitGenres(value: string | null) {
+  if (!value) return [];
+
+  return value
+    .split(/[،,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function AdminBooksPage() {
   const confirm = useConfirm();
   const router = useRouter();
+
   const [rows, setRows] = useState<AdminBookRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -73,20 +95,30 @@ export default function AdminBooksPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page) });
+
+    if (q.trim()) params.set("q", q.trim());
+    if (status !== "ALL") params.set("status", status);
+
+    return params;
+  }, [page, q, status]);
+
   const load = useCallback(async () => {
     setLoading(true);
+
     try {
-      const params = new URLSearchParams({ page: String(page) });
-      if (q.trim()) params.set("q", q.trim());
-      if (status !== "ALL") params.set("status", status);
-      const res = await fetch(`/api/admin/books?${params}`, {
+      const res = await fetch(`/api/admin/books?${queryParams}`, {
         credentials: "include",
       });
+
       const data = await res.json();
+
       if (!res.ok) {
-        toast.error(data.error || "خطا در بارگذاری");
+        toast.error(data.error || "خطا در بارگذاری کتاب‌ها");
         return;
       }
+
       setRows(data.books || []);
       setTotalPages(data.totalPages || 1);
     } catch {
@@ -94,11 +126,11 @@ export default function AdminBooksPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, q, status]);
+  }, [queryParams]);
 
   useEffect(() => {
-    const t = setTimeout(load, 250);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(load, 250);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   useEffect(() => {
@@ -107,6 +139,7 @@ export default function AdminBooksPage() {
 
   const setBookStatus = async (id: string, next: "APPROVED" | "REJECTED") => {
     setBusyId(id);
+
     try {
       const res = await fetch(`/api/admin/books/${id}`, {
         method: "PUT",
@@ -114,15 +147,21 @@ export default function AdminBooksPage() {
         credentials: "include",
         body: JSON.stringify({ status: next }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         toast.error(data.error || "عملیات ناموفق بود");
         return;
       }
+
       toast.success(data.message || "انجام شد");
+
       setRows((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: next } : r))
+        prev.map((row) => (row.id === id ? { ...row, status: next } : row)),
       );
+    } catch {
+      toast.error("عملیات ناموفق بود");
     } finally {
       setBusyId(null);
     }
@@ -134,17 +173,22 @@ export default function AdminBooksPage() {
       description: "این کتاب کاتالوگ حذف شود؟ نسخه‌ها هم حذف می‌شوند.",
       onConfirm: async () => {
         setBusyId(id);
+
         try {
           const res = await fetch(`/api/admin/books/${id}`, {
             method: "DELETE",
             credentials: "include",
           });
+
           if (!res.ok) {
             toast.error("حذف کتاب ناموفق بود.");
             return;
           }
+
           toast.success("کتاب حذف شد.");
-          setRows((prev) => prev.filter((r) => r.id !== id));
+          setRows((prev) => prev.filter((row) => row.id !== id));
+        } catch {
+          toast.error("حذف کتاب ناموفق بود.");
         } finally {
           setBusyId(null);
         }
@@ -160,10 +204,12 @@ export default function AdminBooksPage() {
           onChange={setQ}
           placeholder="عنوان یا نویسنده..."
         />
+
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="h-11 w-full rounded-2xl sm:w-48">
+          <SelectTrigger className="h-11 w-full rounded-2xl border-border/80 bg-background/70 sm:w-48">
             <SelectValue placeholder="وضعیت" />
           </SelectTrigger>
+
           <SelectContent>
             <SelectItem value="ALL">همه‌ی وضعیت‌ها</SelectItem>
             <SelectItem value="PENDING">در انتظار</SelectItem>
@@ -171,10 +217,36 @@ export default function AdminBooksPage() {
             <SelectItem value="REJECTED">ردشده</SelectItem>
           </SelectContent>
         </Select>
-        <Button asChild className="h-11 w-full gap-2 rounded-2xl sm:w-auto sm:px-5">
+
+        <Button
+          asChild
+          className="h-11 w-full gap-2 rounded-2xl font-bold sm:w-auto sm:px-5"
+        >
           <Link href="/admin/books/new">
             <Plus className="h-4 w-4" />
             افزودن کتاب
+          </Link>
+        </Button>
+
+        <Button
+          asChild
+          variant="outline"
+          className="h-11 w-full gap-2 rounded-2xl border-border/80 bg-background/60 font-bold sm:w-auto sm:px-5"
+        >
+          <Link href="/admin/books/import">
+            <FileUp className="h-4 w-4" />
+            ورود گروهی کتاب‌ها
+          </Link>
+        </Button>
+
+        <Button
+          asChild
+          variant="outline"
+          className="h-11 w-full gap-2 rounded-2xl border-border/80 bg-background/60 font-bold sm:w-auto sm:px-5"
+        >
+          <Link href="/admin/books/covers">
+            <Images className="h-4 w-4" />
+            مدیریت کاورها
           </Link>
         </Button>
       </AdminDataTableToolbar>
@@ -191,88 +263,88 @@ export default function AdminBooksPage() {
           />
         }
       >
-        {rows.map((b) => (
-          <AdminDataTableRow key={b.id}>
+        {rows.map((book) => (
+          <AdminDataTableRow key={book.id}>
             <AdminDataTableCell>
-              <div className="flex items-center gap-3">
-                <div className="relative h-12 w-9 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
-                  {b.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={b.coverImage}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-foreground">
-                    {b.title}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {b.author}
-                  </p>
-                </div>
-              </div>
+              <BookCell book={book} />
             </AdminDataTableCell>
-            <AdminDataTableCell className="text-muted-foreground">
-              {b.genre || "—"}
-            </AdminDataTableCell>
-            <AdminDataTableCell className="tabular-nums text-muted-foreground">
-              {b.editionCount.toLocaleString("fa-IR")}
-              {b.linkCount > 0 ? (
-                <span className="mr-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                  {b.linkCount.toLocaleString("fa-IR")} لینک
-                </span>
-              ) : null}
-            </AdminDataTableCell>
+
             <AdminDataTableCell>
-              <AdminBadge className={STATUS_BADGE[b.status]}>
-                {STATUS_LABEL[b.status]}
+              <GenreCell value={book.genre} />
+            </AdminDataTableCell>
+
+            <AdminDataTableCell>
+              <EditionCell
+                editionCount={book.editionCount}
+                linkCount={book.linkCount}
+              />
+            </AdminDataTableCell>
+
+            <AdminDataTableCell>
+              <AdminBadge
+                className={cn("border font-black", STATUS_BADGE[book.status])}
+              >
+                {STATUS_LABEL[book.status]}
               </AdminBadge>
             </AdminDataTableCell>
-            <AdminDataTableCell className="text-xs text-muted-foreground">
-              {b.createdByName || "—"}
+
+            <AdminDataTableCell>
+              <span className="line-clamp-1 text-xs font-medium text-muted-foreground">
+                {book.createdByName || "—"}
+              </span>
             </AdminDataTableCell>
-            <AdminDataTableCell className="text-xs tabular-nums text-muted-foreground">
-              {new Date(b.createdAt).toLocaleDateString("fa-IR")}
+
+            <AdminDataTableCell>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {new Date(book.createdAt).toLocaleDateString("fa-IR")}
+              </span>
             </AdminDataTableCell>
+
             <AdminDataTableCell align="center">
               <AdminDataTableActions>
                 <AdminActionButton
                   icon={<Pencil className="h-4 w-4" />}
-                  onClick={() => router.push(`/admin/books/${b.id}/edit`)}
-                  disabled={busyId === b.id}
+                  onClick={() => router.push(`/admin/books/${book.id}/edit`)}
+                  disabled={busyId === book.id}
                   title="ویرایش"
                 />
-                {b.status !== "APPROVED" ? (
+
+                {book.status !== "APPROVED" ? (
                   <AdminActionButton
-                    icon={<Check className="h-4 w-4" />}
+                    icon={
+                      busyId === book.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )
+                    }
                     tone="primary"
-                    onClick={() => setBookStatus(b.id, "APPROVED")}
-                    disabled={busyId === b.id}
+                    onClick={() => setBookStatus(book.id, "APPROVED")}
+                    disabled={busyId === book.id}
                     title="تأیید"
                   />
                 ) : null}
-                {b.status !== "REJECTED" ? (
+
+                {book.status !== "REJECTED" ? (
                   <AdminActionButton
                     icon={
-                      busyId === b.id ? (
+                      busyId === book.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <X className="h-4 w-4" />
                       )
                     }
-                    onClick={() => setBookStatus(b.id, "REJECTED")}
-                    disabled={busyId === b.id}
+                    onClick={() => setBookStatus(book.id, "REJECTED")}
+                    disabled={busyId === book.id}
                     title="رد"
                   />
                 ) : null}
+
                 <AdminActionButton
                   icon={<Trash2 className="h-4 w-4" />}
                   tone="danger"
-                  onClick={() => remove(b.id)}
-                  disabled={busyId === b.id}
+                  onClick={() => remove(book.id)}
+                  disabled={busyId === book.id}
                   title="حذف"
                 />
               </AdminDataTableActions>
@@ -280,6 +352,110 @@ export default function AdminBooksPage() {
           </AdminDataTableRow>
         ))}
       </AdminDataTable>
+    </div>
+  );
+}
+
+function BookCell({ book }: { book: AdminBookRow }) {
+  return (
+    <div className="flex min-w-[220px] items-center gap-3">
+      <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted shadow-sm">
+        {book.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={book.coverImage}
+            alt={book.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-primary/5 text-[10px] font-black text-muted-foreground">
+            کتاب
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <p className="line-clamp-1 text-sm font-black text-foreground">
+          {book.title}
+        </p>
+
+        <p className="mt-1 line-clamp-1 text-xs font-medium text-muted-foreground">
+          {book.author || "نویسنده نامشخص"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function GenreCell({ value }: { value: string | null }) {
+  const genres = splitGenres(value);
+  const visibleGenres = genres.slice(0, 2);
+  const hiddenGenres = genres.slice(2);
+
+  if (genres.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex max-w-[280px] flex-wrap items-center gap-1.5">
+      {visibleGenres.map((genre) => (
+        <span
+          key={genre}
+          title={genre}
+          className="inline-flex max-w-[112px] items-center truncate rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary"
+        >
+          {genre}
+        </span>
+      ))}
+
+      {hiddenGenres.length > 0 ? (
+        <span className="group relative inline-flex">
+          <span className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-black text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary">
+            +{hiddenGenres.length.toLocaleString("fa-IR")} مورد
+          </span>
+
+          <span className="pointer-events-none absolute right-0 top-[calc(100%+0.45rem)] z-50 hidden w-[240px] rounded-2xl border border-border/80 bg-card/95 p-2.5 text-right shadow-2xl backdrop-blur-xl group-hover:block">
+            <span className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-r border-t border-border/80 bg-card/95" />
+
+            <span className="relative z-10 mb-2 block text-[10px] font-black text-muted-foreground">
+              ژانرهای بیشتر
+            </span>
+
+            <span className="relative z-10 flex flex-wrap gap-1.5">
+              {hiddenGenres.map((genre) => (
+                <span
+                  key={genre}
+                  className="inline-flex max-w-full rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[10px] font-bold leading-5 text-primary"
+                >
+                  <span className="max-w-[190px] truncate">{genre}</span>
+                </span>
+              ))}
+            </span>
+          </span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function EditionCell({
+  editionCount,
+  linkCount,
+}: {
+  editionCount: number;
+  linkCount: number;
+}) {
+  return (
+    <div className="flex min-w-[110px] flex-wrap items-center gap-1.5">
+      <span className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-black tabular-nums text-foreground">
+        {editionCount.toLocaleString("fa-IR")} نسخه
+      </span>
+
+      {linkCount > 0 ? (
+        <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] font-black tabular-nums text-primary">
+          {linkCount.toLocaleString("fa-IR")} لینک
+        </span>
+      ) : null}
     </div>
   );
 }

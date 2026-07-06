@@ -25,8 +25,12 @@ export async function POST(req: NextRequest) {
   try {
     const note = await createPublishedNote(
       user.id,
-      parsed.data.bookId,
-      parsed.data.content
+      {
+        catalogBookId: parsed.data.catalogBookId,
+        bookEditionId: parsed.data.bookEditionId ?? null,
+        scope: parsed.data.scope,
+        content: parsed.data.content,
+      }
     );
     return apiSuccess({ note, message: "یادداشت منتشر شد" }, { status: 201 });
   } catch (err) {

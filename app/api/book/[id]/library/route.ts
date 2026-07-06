@@ -26,9 +26,18 @@ export async function POST(
     return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
   }
 
-  const result = await addBookToLibrary(user.id, id, parsed.data.status);
+  const result = await addBookToLibrary(
+    user.id,
+    id,
+    parsed.data.status,
+    parsed.data.editionId,
+  );
   if (!result.ok) {
-    return apiError("کتاب پیدا نشد", 404, "BOOK_NOT_FOUND");
+    return apiError(
+      result.reason === "EDITION_NOT_FOUND" ? "نسخه پیدا نشد" : "کتاب پیدا نشد",
+      404,
+      result.reason === "EDITION_NOT_FOUND" ? "EDITION_NOT_FOUND" : "BOOK_NOT_FOUND",
+    );
   }
 
   return apiSuccess({

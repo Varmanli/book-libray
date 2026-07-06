@@ -12,6 +12,11 @@ export function sanitizeFilename(filename: string): string {
   return cleaned || "image";
 }
 
+export function getFilenameExtension(filename: string): string {
+  const match = filename.toLowerCase().match(/(\.[a-z0-9]+)$/i);
+  return match?.[1] ?? "";
+}
+
 export function buildUploadKey(folder: string, filename: string): string {
   return `${folder}/${Date.now()}-${crypto.randomUUID()}-${sanitizeFilename(
     filename,
