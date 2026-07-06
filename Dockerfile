@@ -1,11 +1,8 @@
-# Production Dockerfile for ghafaseh (Next.js + next-pwa, standalone output).
-# Designed for Coolify's Dockerfile build pack.
-# Secrets must be provided by Coolify environment variables, not hardcoded here.
-
-# Use public ECR mirror instead of Docker Hub to avoid Docker Hub 403/rate-limit issues.
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
 
-# ---- deps: install dependencies reproducibly -------------------------------
+# -----------------------------------------------------------------------------
+# deps: install dependencies reproducibly
+# -----------------------------------------------------------------------------
 FROM ${NODE_IMAGE} AS deps
 
 WORKDIR /app
@@ -17,7 +14,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 
-# ---- builder: typecheck + build --------------------------------------------
+# -----------------------------------------------------------------------------
+# builder: typecheck + build
+# -----------------------------------------------------------------------------
 FROM ${NODE_IMAGE} AS builder
 
 WORKDIR /app
@@ -28,23 +27,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# NEXT_PUBLIC_* values are inlined at build time.
-# DATABASE_URL is only needed at build time because this project runs db:push
-# and some Next files may import DB code during build.
+# NEXT_PUBLIC_* values are public and can be safely inlined at build time.
+# DATABASE_URL must NOT be passed here.
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BASE_URL
-ARG DATABASE_URL
 
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
-ENV DATABASE_URL=${DATABASE_URL}
 
 RUN npx tsc --noEmit
-RUN npm run db:push
 RUN npm run build
 
 
-# ---- runner: minimal production image --------------------------------------
+# -----------------------------------------------------------------------------
+# runner: production runtime image
+# -----------------------------------------------------------------------------
 FROM ${NODE_IMAGE} AS runner
 
 WORKDIR /app
@@ -57,6 +54,24 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs \
   && adduser -S nextjs -u 1001
 
+# Install dependencies needed at runtime.
+# IMPORTANT:
+# We intentionally install devDependencies too because db:push often depends on
+# drizzle-kit, which is usually in devDependencies.
+#
+# Later, after production is stable, you can optimize this by moving the exact
+# migration/sync tool to dependencies and changing this to:
+# RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json package-lock.json ./
+RUN npm ci && npm cache clean --force
+
+# Copy files needed by db:push / Drizzle / database schema sync.
+COPY --from=builder /app/drizzle.config.* ./
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/db ./db
+COPY --from=builder /app/scripts ./scripts
+
 # next-pwa writes generated service worker files into public/ during build.
 COPY --from=builder /app/public ./public
 
@@ -64,10 +79,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Entrypoint runs database schema sync before starting the Next.js server.
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
 USER nextjs
 
 EXPOSE 3005
 
-# Runtime secrets must be configured in Coolify:
-# DATABASE_URL, JWT_SECRET, S3_*, GOOGLE_CLIENT_SECRET, etc.
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
