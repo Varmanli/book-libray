@@ -22,6 +22,12 @@ import type {
   ReferencePreviewSummary,
 } from "@/lib/books/import/types";
 
+type ImportTransactionError = {
+  rowNumbers: number[];
+  title: string;
+  message: string;
+};
+
 async function findReusableCatalogBook(book: NormalizedImportBook) {
   const title = book.title.trim();
   const firstAuthor = (book.authors[0]?.name ?? "").trim();
@@ -75,16 +81,26 @@ export async function importNormalizedBooks(
   books: NormalizedImportBook[],
   adminId: string,
   previewInput?: ImportPreviewResponse,
-): Promise<ImportResultResponse> {
+): Promise<ImportResultResponse & { transactionErrors: ImportTransactionError[] }> {
   const preview = previewInput ?? await buildImportPreview(books);
   const errors: string[] = [];
+  const transactionErrors: ImportTransactionError[] = [];
   const result: ImportResultResponse = {
+    receivedBooks: preview.summary.totalBooks,
+    receivedEditions: preview.summary.totalEditions,
+    validBooks: preview.validCount,
+    validEditions: preview.summary.readyEditions,
     importedCount: 0,
     skippedCount: 0,
+    skippedBooks: 0,
+    skippedEditions: 0,
     invalidCount: preview.invalidCount,
+    invalidBooks: preview.invalidCount,
     createdBooks: 0,
+    updatedBooks: 0,
     reusedBooks: 0,
     createdEditions: 0,
+    updatedEditions: 0,
     skippedDuplicateEditions: 0,
     failedBooks: 0,
     failedEditions: 0,
@@ -102,6 +118,8 @@ export async function importNormalizedBooks(
     if (previewBook.errors.length > 0 || importableEditions.length === 0) {
       result.failedBooks += 1;
       result.failedEditions += previewBook.editions.length;
+      result.skippedBooks += 1;
+      result.skippedEditions += previewBook.editions.length;
       errors.push(
         `ردیف ${previewBook.rowNumbers.join("، ")}: کتاب «${previewBook.title || "بدون عنوان"}» آماده‌ی واردسازی نیست.`,
       );
@@ -109,6 +127,12 @@ export async function importNormalizedBooks(
     }
 
     try {
+      let createdCatalogBook = false;
+      let reusedCatalogBook = false;
+      let createdEditionCount = 0;
+      let skippedDuplicateEditionCount = 0;
+      const referenceSummaryDelta = emptyReferenceSummary();
+
       await db.transaction(async (tx) => {
         const reusableBook = previewBook.duplicateState === "existing_book"
           ? await findReusableCatalogBook(previewBook)
@@ -145,11 +169,10 @@ export async function importNormalizedBooks(
             })();
 
         if (reusableBook) {
-          result.reusedBooks += 1;
+          reusedCatalogBook = true;
         } else {
-          result.createdBooks += 1;
+          createdCatalogBook = true;
         }
-        result.importedCount += 1;
 
         for (const author of previewBook.authors) {
           const resolved = await resolveReferenceItem(tx, {
@@ -159,7 +182,7 @@ export async function importNormalizedBooks(
             createdById: adminId,
             defaultStatus: "APPROVED",
           });
-          if (resolved) addReferenceSummary(result.referenceItems, resolved.resolution);
+          if (resolved) addReferenceSummary(referenceSummaryDelta, resolved.resolution);
         }
 
         for (const genre of previewBook.genres) {
@@ -170,7 +193,7 @@ export async function importNormalizedBooks(
             createdById: adminId,
             defaultStatus: "APPROVED",
           });
-          if (resolved) addReferenceSummary(result.referenceItems, resolved.resolution);
+          if (resolved) addReferenceSummary(referenceSummaryDelta, resolved.resolution);
         }
 
         if (previewBook.country) {
@@ -181,16 +204,18 @@ export async function importNormalizedBooks(
             createdById: adminId,
             defaultStatus: "APPROVED",
           });
-          if (resolved) addReferenceSummary(result.referenceItems, resolved.resolution);
+          if (resolved) addReferenceSummary(referenceSummaryDelta, resolved.resolution);
         }
 
         for (const edition of previewBook.editions) {
           if (!edition.isValid) {
             result.failedEditions += 1;
+            result.skippedEditions += 1;
             continue;
           }
           if (edition.duplicateState === "existing_edition") {
-            result.skippedDuplicateEditions += 1;
+            skippedDuplicateEditionCount += 1;
+            result.skippedEditions += 1;
             continue;
           }
 
@@ -209,7 +234,8 @@ export async function importNormalizedBooks(
               .limit(1);
 
             if (existingEdition) {
-              result.skippedDuplicateEditions += 1;
+              skippedDuplicateEditionCount += 1;
+              result.skippedEditions += 1;
               continue;
             }
           }
@@ -222,7 +248,7 @@ export async function importNormalizedBooks(
               createdById: adminId,
               defaultStatus: "APPROVED",
             });
-            if (resolved) addReferenceSummary(result.referenceItems, resolved.resolution);
+            if (resolved) addReferenceSummary(referenceSummaryDelta, resolved.resolution);
           }
 
           if (edition.publisher) {
@@ -233,7 +259,7 @@ export async function importNormalizedBooks(
               createdById: adminId,
               defaultStatus: "APPROVED",
             });
-            if (resolved) addReferenceSummary(result.referenceItems, resolved.resolution);
+            if (resolved) addReferenceSummary(referenceSummaryDelta, resolved.resolution);
           }
 
           const editionCover = resolveEditionCover(
@@ -265,19 +291,54 @@ export async function importNormalizedBooks(
             updatedAt: new Date(),
           });
 
-          result.createdEditions += 1;
+          createdEditionCount += 1;
         }
       });
+
+      if (createdCatalogBook) {
+        result.createdBooks += 1;
+      }
+      if (reusedCatalogBook) {
+        result.reusedBooks += 1;
+      }
+      result.importedCount += 1;
+      result.createdEditions += createdEditionCount;
+      result.skippedDuplicateEditions += skippedDuplicateEditionCount;
+      result.referenceItems.created += referenceSummaryDelta.created;
+      result.referenceItems.reused += referenceSummaryDelta.reused;
+      result.referenceItems.updated += referenceSummaryDelta.updated;
     } catch (error) {
       result.failedBooks += 1;
       result.failedEditions += importableEditions.length;
+      result.skippedBooks += 1;
+      result.skippedEditions += importableEditions.length;
+      const message =
+        error instanceof Error ? error.message : "خطای ناشناخته در تراکنش واردسازی.";
+      transactionErrors.push({
+        rowNumbers: previewBook.rowNumbers,
+        title: previewBook.title,
+        message,
+      });
+      console.error("admin import transaction failed", {
+        rowNumbers: previewBook.rowNumbers,
+        title: previewBook.title,
+        importableEditions: importableEditions.length,
+        error: message,
+      });
       errors.push(
         `کتاب «${previewBook.title}» وارد نشد${error instanceof Error ? `: ${error.message}` : "."}`,
       );
     }
   }
 
-  result.skippedCount = preview.summary.totalBooks - result.importedCount;
+  result.skippedCount = result.skippedBooks;
 
-  return result;
+  return {
+    ...result,
+    transactionErrors,
+  };
+}
+
+function emptyReferenceSummary(): ReferencePreviewSummary {
+  return { created: 0, reused: 0, updated: 0 };
 }

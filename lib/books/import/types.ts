@@ -101,12 +101,21 @@ export type ImportPreviewResponse = {
 };
 
 export type ImportResultResponse = {
+  receivedBooks: number;
+  receivedEditions: number;
+  validBooks: number;
+  validEditions: number;
   importedCount: number;
   skippedCount: number;
+  skippedBooks: number;
+  skippedEditions: number;
   invalidCount: number;
+  invalidBooks: number;
   createdBooks: number;
+  updatedBooks: number;
   reusedBooks: number;
   createdEditions: number;
+  updatedEditions: number;
   skippedDuplicateEditions: number;
   failedBooks: number;
   failedEditions: number;

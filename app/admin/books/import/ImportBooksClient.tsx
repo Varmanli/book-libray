@@ -312,6 +312,9 @@ export default function ImportBooksClient() {
     const data = await res.json();
 
     if (!res.ok) {
+      if (endpoint === "/api/admin/books/import" && data.details) {
+        setResult(data.details as ImportResultResponse);
+      }
       toast.error(data.error || "عملیات ناموفق بود");
       return null;
     }
@@ -352,7 +355,10 @@ export default function ImportBooksClient() {
       if (!data) return;
 
       setResult(data);
-      toast.success(data.message || `${validCount.toLocaleString("fa-IR")} کتاب با موفقیت وارد شد.`);
+      toast.success(
+        data.message ||
+          `${(data.importedCount ?? validCount).toLocaleString("fa-IR")} کتاب و ${(data.createdEditions ?? 0).toLocaleString("fa-IR")} نسخه با موفقیت وارد شد.`,
+      );
     } catch {
       toast.error("ارتباط با سرور برقرار نشد");
     } finally {
@@ -993,6 +999,26 @@ export default function ImportBooksClient() {
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
+                label="کتاب دریافت‌شده"
+                value={result.receivedBooks}
+                tone="default"
+              />
+              <SummaryCard
+                label="نسخه دریافت‌شده"
+                value={result.receivedEditions}
+                tone="default"
+              />
+              <SummaryCard
+                label="کتاب معتبر"
+                value={result.validBooks}
+                tone="success"
+              />
+              <SummaryCard
+                label="نسخه معتبر"
+                value={result.validEditions}
+                tone="success"
+              />
+              <SummaryCard
                 label="کتاب جدید"
                 value={result.createdBooks}
                 tone="success"
@@ -1008,14 +1034,14 @@ export default function ImportBooksClient() {
                 tone="success"
               />
               <SummaryCard
-                label="نسخه تکراری ردشده"
-                value={result.skippedDuplicateEditions}
+                label="نسخه ردشده"
+                value={result.skippedEditions}
                 tone="warning"
               />
               <SummaryCard
-                label="کتاب ناموفق"
-                value={result.failedBooks}
-                tone={result.failedBooks > 0 ? "danger" : "default"}
+                label="کتاب ردشده"
+                value={result.skippedBooks}
+                tone={result.skippedBooks > 0 ? "warning" : "default"}
               />
               <SummaryCard
                 label="نسخه ناموفق"
@@ -1038,6 +1064,13 @@ export default function ImportBooksClient() {
               <Notice
                 tone="warning"
                 message={`آیتم مرجع تکمیل‌شده: ${result.referenceItems.updated.toLocaleString("fa-IR")}`}
+              />
+            ) : null}
+
+            {result.skippedDuplicateEditions > 0 ? (
+              <Notice
+                tone="warning"
+                message={`نسخه‌های تکراری ردشده: ${result.skippedDuplicateEditions.toLocaleString("fa-IR")}`}
               />
             ) : null}
 
