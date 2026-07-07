@@ -20,6 +20,11 @@ const enumStatements = [
    EXCEPTION
      WHEN duplicate_object THEN NULL;
    END $$;`,
+  `DO $$ BEGIN
+     CREATE TYPE "NoteScope" AS ENUM ('book', 'edition');
+   EXCEPTION
+     WHEN duplicate_object THEN NULL;
+   END $$;`,
 ];
 
 const bookEditionStatements = [
@@ -65,6 +70,19 @@ const catalogBookStatements = [
   'ALTER TABLE "CatalogBook" ADD COLUMN IF NOT EXISTS "updated_at" timestamp',
 ];
 
+const publishedBookNoteStatements = [
+  'ALTER TABLE "PublishedBookNote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar',
+  'ALTER TABLE "PublishedBookNote" ADD COLUMN IF NOT EXISTS "book_edition_id" varchar',
+  'ALTER TABLE "PublishedBookNote" ADD COLUMN IF NOT EXISTS "scope" "NoteScope"',
+];
+
+const publishedBookNoteLikeStatements = [
+  'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "id" varchar',
+  'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "note_id" varchar',
+  'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "user_id" varchar',
+  'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "created_at" timestamp',
+];
+
 try {
   await pool.query("select 1");
 
@@ -99,6 +117,36 @@ try {
 
   console.log('Repairing "CatalogBook" columns...');
   for (const statement of catalogBookStatements) {
+    console.log(statement);
+    await pool.query(statement);
+  }
+
+  const publishedBookNoteTableCheck = await pool.query(
+    "select to_regclass($1) as table_name",
+    ['"PublishedBookNote"']
+  );
+
+  if (!publishedBookNoteTableCheck.rows[0]?.table_name) {
+    throw new Error('Required table "PublishedBookNote" does not exist.');
+  }
+
+  console.log('Repairing "PublishedBookNote" columns...');
+  for (const statement of publishedBookNoteStatements) {
+    console.log(statement);
+    await pool.query(statement);
+  }
+
+  const publishedBookNoteLikeTableCheck = await pool.query(
+    "select to_regclass($1) as table_name",
+    ['"PublishedBookNoteLike"']
+  );
+
+  if (!publishedBookNoteLikeTableCheck.rows[0]?.table_name) {
+    throw new Error('Required table "PublishedBookNoteLike" does not exist.');
+  }
+
+  console.log('Repairing "PublishedBookNoteLike" columns...');
+  for (const statement of publishedBookNoteLikeStatements) {
     console.log(statement);
     await pool.query(statement);
   }
