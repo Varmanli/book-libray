@@ -24,6 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  compareEditionSets,
+  findDuplicateEditionIds,
+} from "@/lib/admin/edition-set-invariants";
 import type { AdminBookEditionRow } from "@/lib/admin/service";
 import { getEditionCoverSrc } from "@/lib/book/cover";
 
@@ -44,6 +48,18 @@ type EditionFormState = {
   sourceName: string;
   sourceUrl: string;
   sourceEditionCode: string;
+};
+
+type PrimaryEditionResponse = {
+  success?: boolean;
+  catalogBookId?: string;
+  previousPrimaryEditionId?: string | null;
+  primaryEditionId?: string | null;
+  editionIdsBefore?: string[];
+  editionIdsAfter?: string[];
+  editions?: AdminBookEditionRow[];
+  message?: string;
+  error?: string;
 };
 
 const EMPTY_FORM: EditionFormState = {
@@ -92,13 +108,21 @@ function sortedEditionIds(editions: AdminBookEditionRow[]) {
   return editions.map((edition) => edition.id).sort();
 }
 
-function hasSameEditionIds(a: AdminBookEditionRow[], b: AdminBookEditionRow[]) {
-  const left = sortedEditionIds(a);
-  const right = sortedEditionIds(b);
-  return (
-    left.length === right.length &&
-    left.every((id, index) => id === right[index])
-  );
+function getPrimaryEditionId(editions: AdminBookEditionRow[]) {
+  return editions.find((edition) => edition.isPrimary)?.id ?? null;
+}
+
+function snapshotEdition(edition: AdminBookEditionRow) {
+  return {
+    id: edition.id,
+    titleOverride: edition.titleOverride,
+    publisher: edition.publisher,
+    translator: edition.translator,
+    coverFilename: edition.coverFilename,
+    coverImage: edition.coverImage,
+    isbn10: edition.isbn10,
+    isbn13: edition.isbn13,
+  };
 }
 
 export default function AdminBookEditionsManager({
@@ -117,6 +141,9 @@ export default function AdminBookEditionsManager({
   editions: AdminBookEditionRow[];
 }) {
   const [items, setItems] = useState(editions);
+  const [primaryEditionId, setPrimaryEditionId] = useState(
+    getPrimaryEditionId(editions),
+  );
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminBookEditionRow | null>(null);
   const [form, setForm] = useState<EditionFormState>(EMPTY_FORM);
@@ -125,7 +152,21 @@ export default function AdminBookEditionsManager({
 
   useEffect(() => {
     setItems(editions);
+    setPrimaryEditionId(getPrimaryEditionId(editions));
   }, [editions]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+
+    const duplicateIds = findDuplicateEditionIds(items);
+    if (duplicateIds.length > 0) {
+      console.error("AdminBookEditionsManager rendered duplicate edition ids.", {
+        catalogBookId,
+        duplicateIds,
+        ids: sortedEditionIds(items),
+      });
+    }
+  }, [catalogBookId, items]);
 
   const contextLine = useMemo(
     () =>
@@ -165,12 +206,15 @@ export default function AdminBookEditionsManager({
 
     const nextItems = data.editions ?? [];
     setItems(nextItems);
+    setPrimaryEditionId(getPrimaryEditionId(nextItems));
     return nextItems as AdminBookEditionRow[];
   }
 
   async function setPrimaryEdition(editionId: string) {
     setSettingPrimaryId(editionId);
-    const beforeItems = items;
+    const beforeItems = [...items];
+    const beforeSnapshots = beforeItems.map(snapshotEdition);
+    const previousPrimaryEditionId = primaryEditionId;
     try {
       const res = await fetch(
         `/api/admin/catalog-books/${catalogBookId}/primary-edition`,
@@ -181,34 +225,54 @@ export default function AdminBookEditionsManager({
           body: JSON.stringify({ editionId }),
         },
       );
-      const data = await res.json();
+      const data = (await res.json()) as PrimaryEditionResponse;
       if (!res.ok) {
         toast.error(data.error || "بروزرسانی نسخه اصلی ناموفق بود");
         return;
       }
 
-      const nextItems = Array.isArray(data.editions)
-        ? (data.editions as AdminBookEditionRow[])
-        : await refreshEditions();
+      const nextItems = Array.isArray(data.editions) ? data.editions : [];
+      const invariant = compareEditionSets(beforeItems, nextItems);
+      const selectedExistsInResponse = nextItems.some(
+        (edition) => edition.id === editionId,
+      );
+      const previousPrimaryWasValid =
+        previousPrimaryEditionId !== null &&
+        beforeItems.some((edition) => edition.id === previousPrimaryEditionId);
+      const previousPrimaryExistsInResponse =
+        previousPrimaryEditionId === null ||
+        !previousPrimaryWasValid ||
+        nextItems.some((edition) => edition.id === previousPrimaryEditionId);
 
-      if (process.env.NODE_ENV !== "production") {
-        if (!hasSameEditionIds(beforeItems, nextItems)) {
-          console.error(
-            "Primary edition selection changed edition list unexpectedly.",
-            {
-              catalogBookId,
-              beforeCount: beforeItems.length,
-              afterCount: nextItems.length,
-              beforeIds: sortedEditionIds(beforeItems),
-              afterIds: sortedEditionIds(nextItems),
-              requestedPrimaryEditionId: editionId,
-              nextPrimaryEditionId:
-                nextItems.find((edition) => edition.isPrimary)?.id ?? null,
-            },
-          );
-        }
+      if (
+        !invariant.ok ||
+        !selectedExistsInResponse ||
+        !previousPrimaryExistsInResponse
+      ) {
+        console.error("Primary edition response failed edition-list invariants.", {
+          catalogBookId,
+          beforeIds: invariant.beforeIds,
+          afterIds: invariant.afterIds,
+          beforeCount: invariant.beforeCount,
+          afterCount: invariant.afterCount,
+          missingIds: invariant.missingIds,
+          addedIds: invariant.addedIds,
+          duplicateIds: invariant.duplicateIds,
+          selectedEditionId: editionId,
+          previousPrimaryEditionId,
+          selectedExistsInResponse,
+          previousPrimaryExistsInResponse,
+          beforeSnapshots,
+          apiResponse: data,
+        });
+
+        setPrimaryEditionId(data.primaryEditionId ?? editionId);
+        toast.error("خطا در به‌روزرسانی نسخه اصلی؛ لیست نسخه‌ها نامعتبر برگشت.");
+        return;
       }
 
+      setPrimaryEditionId(data.primaryEditionId ?? editionId);
+      setItems(nextItems);
       toast.success(data.message || "نسخه اصلی کتاب انتخاب شد");
     } catch {
       toast.error("ارتباط با سرور برقرار نشد");
@@ -342,9 +406,12 @@ export default function AdminBookEditionsManager({
               نسخه پیش‌فرض نمایش
             </p>
             <p className="mt-1 text-sm font-bold text-foreground">
-              {items.find((edition) => edition.isPrimary)?.editionLabel ||
-                items.find((edition) => edition.isPrimary)?.titleOverride ||
-                items.find((edition) => edition.isPrimary)?.publisher ||
+              {items.find((edition) => edition.id === primaryEditionId)
+                ?.editionLabel ||
+                items.find((edition) => edition.id === primaryEditionId)
+                  ?.titleOverride ||
+                items.find((edition) => edition.id === primaryEditionId)
+                  ?.publisher ||
                 "هنوز نسخه اصلی انتخاب نشده است"}
             </p>
           </div>
@@ -374,6 +441,7 @@ export default function AdminBookEditionsManager({
             <div className="grid gap-4">
               {items.map((edition) => {
                 const coverSrc = getEditionCoverSrc(edition);
+                const isCurrentPrimary = edition.id === primaryEditionId;
 
                 const primaryMeta = [
                   edition.translator ? `مترجم: ${edition.translator}` : null,
@@ -431,7 +499,7 @@ export default function AdminBookEditionsManager({
 
                             <StatusBadge status={edition.status} />
 
-                            {edition.isPrimary ? (
+                            {isCurrentPrimary ? (
                               <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary">
                                 نسخه اصلی
                               </span>
@@ -475,15 +543,17 @@ export default function AdminBookEditionsManager({
                       <div className="flex shrink-0 flex-row gap-2 lg:flex-col">
                         <Button
                           type="button"
-                          variant={edition.isPrimary ? "secondary" : "outline"}
+                          variant={isCurrentPrimary ? "secondary" : "outline"}
                           onClick={() => setPrimaryEdition(edition.id)}
-                          disabled={edition.isPrimary || settingPrimaryId === edition.id}
+                          disabled={
+                            isCurrentPrimary || settingPrimaryId === edition.id
+                          }
                           className="h-10 flex-1 rounded-xl border-border/80 bg-background/50 font-bold lg:flex-none"
                         >
                           {settingPrimaryId === edition.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : null}
-                          {edition.isPrimary
+                          {isCurrentPrimary
                             ? "نسخه اصلی"
                             : "انتخاب به عنوان نسخه اصلی"}
                         </Button>

@@ -20,7 +20,6 @@ import {
 } from "@/lib/book/external-links";
 import {
   preferredEditionFieldSql,
-  primaryEditionOrderBy,
   resolveDisplayEdition,
 } from "@/lib/book/primary-edition";
 import { adminCreateReference } from "@/lib/reference/service";
@@ -32,6 +31,7 @@ import type {
   ManualBookInput,
 } from "@/lib/validations/catalog";
 import type { ExternalLinkInput } from "@/lib/validations/external-links";
+import { compareEditionSets, findDuplicateEditionIds } from "@/lib/admin/edition-set-invariants";
 
 export interface PendingEditionDTO {
   id: string;
@@ -764,7 +764,7 @@ export async function listAdminBookEditions(
     .from(BookEdition)
     .innerJoin(CatalogBook, eq(CatalogBook.id, BookEdition.catalogBookId))
     .where(eq(BookEdition.catalogBookId, catalogBookId))
-    .orderBy(...primaryEditionOrderBy(CatalogBook.primaryEditionId));
+    .orderBy(asc(BookEdition.createdAt), asc(BookEdition.id));
 }
 
 /** شناسه‌ی بهترین نسخه‌ی یک کتاب کانونی (همان معیار نماینده)، یا null. */
@@ -1119,41 +1119,117 @@ export async function deleteAdminBookEdition(
 export async function setAdminCatalogBookPrimaryEdition(
   bookId: string,
   input: AdminPrimaryEditionInput,
-): Promise<{ primaryEditionId: string | null }> {
-  const [book] = await db
-    .select({ id: CatalogBook.id })
-    .from(CatalogBook)
-    .where(eq(CatalogBook.id, bookId))
-    .limit(1);
+): Promise<{
+  previousPrimaryEditionId: string | null;
+  primaryEditionId: string | null;
+  editionIdsBefore: string[];
+  editionIdsAfter: string[];
+}> {
+  return db.transaction(async (tx) => {
+    const [book] = await tx
+      .select({ id: CatalogBook.id, primaryEditionId: CatalogBook.primaryEditionId })
+      .from(CatalogBook)
+      .where(eq(CatalogBook.id, bookId))
+      .limit(1);
 
-  if (!book) throw new Error("CATALOG_BOOK_NOT_FOUND");
+    if (!book) throw new Error("CATALOG_BOOK_NOT_FOUND");
 
-  if (input.editionId === null) {
-    await db
+    const editionsBefore = await tx
+      .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+      .from(BookEdition)
+      .where(eq(BookEdition.catalogBookId, bookId))
+      .orderBy(asc(BookEdition.id));
+
+    if (input.editionId !== null) {
+      const edition = editionsBefore.find((row) => row.id === input.editionId);
+      if (!edition) {
+        const [foreignEdition] = await tx
+          .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+          .from(BookEdition)
+          .where(eq(BookEdition.id, input.editionId))
+          .limit(1);
+
+        if (!foreignEdition) throw new Error("EDITION_NOT_FOUND");
+        throw new Error("EDITION_BOOK_MISMATCH");
+      }
+    }
+
+    await tx
       .update(CatalogBook)
-      .set({ primaryEditionId: null, updatedAt: new Date() })
+      .set({ primaryEditionId: input.editionId, updatedAt: new Date() })
       .where(eq(CatalogBook.id, bookId));
 
-    return { primaryEditionId: null };
-  }
+    const editionsAfter = await tx
+      .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+      .from(BookEdition)
+      .where(eq(BookEdition.catalogBookId, bookId))
+      .orderBy(asc(BookEdition.id));
 
-  const [edition] = await db
-    .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
-    .from(BookEdition)
-    .where(eq(BookEdition.id, input.editionId))
-    .limit(1);
+    const invariant = compareEditionSets(editionsBefore, editionsAfter);
+    if (!invariant.ok) {
+      console.error("CRITICAL: primary edition update mutated BookEdition rows", {
+        catalogBookId: bookId,
+        selectedEditionId: input.editionId,
+        previousPrimaryEditionId: book.primaryEditionId,
+        ...invariant,
+      });
+      throw new Error("PRIMARY_EDITION_MUTATED_EDITIONS");
+    }
 
-  if (!edition) throw new Error("EDITION_NOT_FOUND");
-  if (edition.catalogBookId !== bookId) {
-    throw new Error("EDITION_BOOK_MISMATCH");
-  }
+    return {
+      previousPrimaryEditionId: book.primaryEditionId,
+      primaryEditionId: input.editionId,
+      editionIdsBefore: invariant.beforeIds,
+      editionIdsAfter: invariant.afterIds,
+    };
+  });
+}
 
-  await db
-    .update(CatalogBook)
-    .set({ primaryEditionId: edition.id, updatedAt: new Date() })
-    .where(eq(CatalogBook.id, bookId));
+export async function getAdminBookEditionsDebug(catalogBookId: string) {
+  const [[catalogBook], editions] = await Promise.all([
+    db
+      .select({
+        id: CatalogBook.id,
+        primaryEditionId: CatalogBook.primaryEditionId,
+      })
+      .from(CatalogBook)
+      .where(eq(CatalogBook.id, catalogBookId))
+      .limit(1),
+    listAdminBookEditions(catalogBookId),
+  ]);
 
-  return { primaryEditionId: edition.id };
+  if (!catalogBook) return null;
+
+  const ids = editions.map((edition) => edition.id);
+  const duplicateIds = findDuplicateEditionIds(editions);
+
+  return {
+    catalogBookId,
+    primaryEditionId: catalogBook.primaryEditionId,
+    editions: editions.map((edition) => ({
+      id: edition.id,
+      catalogBookId: edition.catalogBookId,
+      titleOverride: edition.titleOverride,
+      translator: edition.translator,
+      publisher: edition.publisher,
+      isbn: edition.isbn13 ?? edition.isbn10,
+      isbn10: edition.isbn10,
+      isbn13: edition.isbn13,
+      sourceEditionCode: edition.sourceEditionCode,
+      coverFilename: edition.coverFilename,
+      coverImage: edition.coverImage,
+      isPrimary: edition.id === catalogBook.primaryEditionId,
+    })),
+    diagnostics: {
+      count: editions.length,
+      duplicateIds,
+      ids,
+      primaryExistsInEditions:
+        catalogBook.primaryEditionId === null
+          ? false
+          : ids.includes(catalogBook.primaryEditionId),
+    },
+  };
 }
 
 export interface AdminBookCoverResolution {
