@@ -3,7 +3,11 @@ import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
-import { getAdminCatalogBookForEdit, setAdminCatalogBookPrimaryEdition } from "@/lib/admin/service";
+import {
+  getAdminCatalogBookForEdit,
+  listAdminBookEditions,
+  setAdminCatalogBookPrimaryEdition,
+} from "@/lib/admin/service";
 import { adminPrimaryEditionSchema } from "@/lib/validations/catalog";
 
 export async function PATCH(
@@ -29,7 +33,10 @@ export async function PATCH(
 
   try {
     const result = await setAdminCatalogBookPrimaryEdition(bookId, parsed.data);
-    const book = await getAdminCatalogBookForEdit(bookId);
+    const [book, editions] = await Promise.all([
+      getAdminCatalogBookForEdit(bookId),
+      listAdminBookEditions(bookId),
+    ]);
 
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/edit`);
@@ -41,7 +48,9 @@ export async function PATCH(
 
     return apiSuccess({
       success: true,
+      catalogBookId: bookId,
       primaryEditionId: result.primaryEditionId,
+      editions,
       message: result.primaryEditionId ? "نسخه اصلی کتاب بروزرسانی شد" : "نسخه اصلی کتاب پاک شد",
     });
   } catch (err) {

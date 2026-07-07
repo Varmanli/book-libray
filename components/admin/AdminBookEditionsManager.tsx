@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -88,6 +88,19 @@ function toFormState(edition?: AdminBookEditionRow | null): EditionFormState {
   };
 }
 
+function sortedEditionIds(editions: AdminBookEditionRow[]) {
+  return editions.map((edition) => edition.id).sort();
+}
+
+function hasSameEditionIds(a: AdminBookEditionRow[], b: AdminBookEditionRow[]) {
+  const left = sortedEditionIds(a);
+  const right = sortedEditionIds(b);
+  return (
+    left.length === right.length &&
+    left.every((id, index) => id === right[index])
+  );
+}
+
 export default function AdminBookEditionsManager({
   catalogBookId,
   bookTitle,
@@ -109,6 +122,10 @@ export default function AdminBookEditionsManager({
   const [form, setForm] = useState<EditionFormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItems(editions);
+  }, [editions]);
 
   const contextLine = useMemo(
     () =>
@@ -142,11 +159,18 @@ export default function AdminBookEditionsManager({
       credentials: "include",
     });
     const data = await res.json();
-    if (res.ok) setItems(data.editions ?? []);
+    if (!res.ok) {
+      throw new Error(data.error || "بارگیری نسخه‌ها ناموفق بود");
+    }
+
+    const nextItems = data.editions ?? [];
+    setItems(nextItems);
+    return nextItems as AdminBookEditionRow[];
   }
 
   async function setPrimaryEdition(editionId: string) {
     setSettingPrimaryId(editionId);
+    const beforeItems = items;
     try {
       const res = await fetch(
         `/api/admin/catalog-books/${catalogBookId}/primary-edition`,
@@ -163,12 +187,28 @@ export default function AdminBookEditionsManager({
         return;
       }
 
-      setItems((current) =>
-        current.map((edition) => ({
-          ...edition,
-          isPrimary: edition.id === editionId,
-        })),
-      );
+      const nextItems = Array.isArray(data.editions)
+        ? (data.editions as AdminBookEditionRow[])
+        : await refreshEditions();
+
+      if (process.env.NODE_ENV !== "production") {
+        if (!hasSameEditionIds(beforeItems, nextItems)) {
+          console.error(
+            "Primary edition selection changed edition list unexpectedly.",
+            {
+              catalogBookId,
+              beforeCount: beforeItems.length,
+              afterCount: nextItems.length,
+              beforeIds: sortedEditionIds(beforeItems),
+              afterIds: sortedEditionIds(nextItems),
+              requestedPrimaryEditionId: editionId,
+              nextPrimaryEditionId:
+                nextItems.find((edition) => edition.isPrimary)?.id ?? null,
+            },
+          );
+        }
+      }
+
       toast.success(data.message || "نسخه اصلی کتاب انتخاب شد");
     } catch {
       toast.error("ارتباط با سرور برقرار نشد");
