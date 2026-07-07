@@ -34,7 +34,7 @@ export async function generateMetadata({
     title: `یادداشت‌های کتاب ${book.title}`,
     description: `یادداشت‌ها و برداشت‌های عمومی کاربران درباره کتاب ${book.title} در قفسه.`,
     path: `/book/${encodeURIComponent(book.slug)}/notes`,
-    image: book.coverImage,
+    image: book.displayCoverImage,
     type: "book",
     keywords: [book.title, book.author, "یادداشت کتاب", "نقد و نظر کاربران"],
   });
@@ -66,7 +66,11 @@ export default async function BookNotesPage({
   } = result;
 
   if (ref !== book.slug) {
-    permanentRedirect(`/book/${encodeURIComponent(book.slug)}/notes`);
+    permanentRedirect(
+      `/book/${encodeURIComponent(book.slug)}/notes${
+        selectedEdition?.id ? `?edition=${encodeURIComponent(selectedEdition.id)}` : ""
+      }`,
+    );
   }
 
   const isLoggedIn = !!viewer;
@@ -88,7 +92,7 @@ export default async function BookNotesPage({
             <div className="flex min-w-0 items-center gap-4">
               <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-background/40 sm:w-20">
                 <Image
-                  src={book.coverImage || PLACEHOLDER}
+                  src={book.displayCoverImage || PLACEHOLDER}
                   alt={book.title}
                   fill
                   sizes="80px"

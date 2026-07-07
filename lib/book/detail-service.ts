@@ -85,6 +85,7 @@ export interface BookDetailMeta {
   countrySlug?: string | null;
   language: string | null;
   firstPublishedYear: number | null;
+  displayCoverImage: string | null;
   coverImage: string | null;
 }
 
@@ -498,6 +499,21 @@ export async function getBookDetail(
     legacyBookCover: subject.legacyBookCoverImage,
   });
   const selectedEdition = display.displayEdition;
+  const displayCoverImage = display.displayCoverImage;
+
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[book-cover-resolution]", {
+      catalogBookId: subject.catalogBookId,
+      primaryEditionId: subject.primaryEditionId,
+      selectedEditionId: selectedEdition?.id ?? null,
+      selectedEditionCover: selectedEdition?.coverImage ?? null,
+      primaryEditionCover: display.primaryEdition?.coverImage ?? null,
+      fallbackEditionCover: display.fallbackEdition?.coverImage ?? null,
+      catalogCover: subject.catalogCoverImage,
+      legacyBookCover: subject.legacyBookCoverImage,
+      finalDisplayCover: displayCoverImage,
+    });
+  }
 
   const genreNames = subject.genre ? splitStoredGenres(subject.genre) : [];
   const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
@@ -551,7 +567,8 @@ export async function getBookDetail(
     countrySlug: refData.links.country ?? null,
     language: subject.language ?? selectedEdition?.language ?? "fa",
     firstPublishedYear: subject.firstPublishedYear,
-    coverImage: display.coverImage,
+    displayCoverImage,
+    coverImage: displayCoverImage,
   };
 
   const quotes = await loadPublicQuotes(

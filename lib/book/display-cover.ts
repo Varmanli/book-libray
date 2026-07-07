@@ -76,18 +76,21 @@ export function resolveBookDisplayData<T extends DisplayBookEdition>({
     editions.find((edition) => edition.id !== selectedEdition?.id) ??
     primaryEdition;
 
+  const displayCoverImage = resolveEditionCover({
+    selectedEdition,
+    primaryEdition,
+    fallbackEdition,
+    catalogBookCover,
+    legacyBookCover,
+  });
+
   return {
     displayEdition: selectedEdition ?? null,
     displayEditionId: selectedEdition?.id ?? null,
     primaryEdition,
     fallbackEdition,
-    coverImage: resolveEditionCover({
-      selectedEdition,
-      primaryEdition,
-      fallbackEdition,
-      catalogBookCover,
-      legacyBookCover,
-    }),
+    displayCoverImage,
+    coverImage: displayCoverImage,
     title: selectedEdition?.titleOverride?.trim() || title,
     subtitle: selectedEdition?.subtitle?.trim() || subtitle,
     author: selectedEdition?.author?.trim() || author,
@@ -144,7 +147,7 @@ export function displayCoverFieldSql({
   });
 
   return sql<string | null>`coalesce(
-    ${preferredEditionCover},
+    nullif(trim(${preferredEditionCover}), ''),
     ${catalogBookCover},
     ${legacyBookCover ?? sampleLegacyBookFieldSql<string | null>("cover_image", { catalogBookId })}
   )`;

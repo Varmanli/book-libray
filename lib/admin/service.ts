@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { generateUniqueCatalogBookSlug } from "@/lib/book/public-slug";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { resolveBookDisplayData } from "@/lib/book/display-cover";
 import { splitStoredGenres } from "@/lib/book/genres";
 import {
   listBookExternalLinks,
@@ -1153,4 +1154,102 @@ export async function setAdminCatalogBookPrimaryEdition(
     .where(eq(CatalogBook.id, bookId));
 
   return { primaryEditionId: edition.id };
+}
+
+export interface AdminBookCoverResolution {
+  catalogBook: {
+    id: string;
+    title: string;
+    primaryEditionId: string | null;
+    coverImage: string | null;
+  };
+  editions: Array<{
+    id: string;
+    titleOverride: string | null;
+    publisher: string | null;
+    translator: string | null;
+    coverFilename: string | null;
+    coverImage: string | null;
+    isPrimary: boolean;
+  }>;
+  resolved: {
+    displayEditionId: string | null;
+    displayCoverImage: string | null;
+    source:
+      | "selectedEdition"
+      | "primaryEdition"
+      | "fallbackEdition"
+      | "catalogBook"
+      | "legacyBook"
+      | "none";
+  };
+}
+
+export async function getAdminBookCoverResolution(
+  catalogBookId: string,
+): Promise<AdminBookCoverResolution | null> {
+  const [book, editions] = await Promise.all([
+    db
+      .select({
+        id: CatalogBook.id,
+        title: CatalogBook.title,
+        primaryEditionId: CatalogBook.primaryEditionId,
+        coverImage: CatalogBook.coverImage,
+      })
+      .from(CatalogBook)
+      .where(eq(CatalogBook.id, catalogBookId))
+      .limit(1),
+    listAdminBookEditions(catalogBookId),
+  ]);
+
+  const catalogBook = book[0];
+  if (!catalogBook) return null;
+
+  const normalizedEditions = editions.map((edition) => ({
+    ...edition,
+    coverImage: coalesceCoverImage(edition.coverImage),
+  }));
+
+  const display = resolveBookDisplayData({
+    title: catalogBook.title,
+    author: "",
+    editions: normalizedEditions,
+    primaryEditionId: catalogBook.primaryEditionId,
+    catalogBookCover: catalogBook.coverImage,
+  });
+
+  const source = display.displayEdition?.coverImage
+    ? display.displayEditionId === catalogBook.primaryEditionId
+      ? "primaryEdition"
+      : "selectedEdition"
+    : display.primaryEdition?.coverImage
+      ? "primaryEdition"
+      : display.fallbackEdition?.coverImage
+        ? "fallbackEdition"
+        : coalesceCoverImage(catalogBook.coverImage)
+          ? "catalogBook"
+          : "none";
+
+  return {
+    catalogBook: {
+      id: catalogBook.id,
+      title: catalogBook.title,
+      primaryEditionId: catalogBook.primaryEditionId,
+      coverImage: coalesceCoverImage(catalogBook.coverImage),
+    },
+    editions: normalizedEditions.map((edition) => ({
+      id: edition.id,
+      titleOverride: edition.titleOverride,
+      publisher: edition.publisher,
+      translator: edition.translator,
+      coverFilename: edition.coverFilename,
+      coverImage: edition.coverImage,
+      isPrimary: edition.isPrimary,
+    })),
+    resolved: {
+      displayEditionId: display.displayEditionId,
+      displayCoverImage: display.displayCoverImage,
+      source,
+    },
+  };
 }

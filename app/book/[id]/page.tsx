@@ -64,7 +64,7 @@ export async function generateMetadata({
     title: `${book.title} اثر ${book.author}`,
     description,
     path: `/book/${encodeURIComponent(book.slug)}`,
-    image: book.coverImage,
+    image: book.displayCoverImage,
     type: "book",
     keywords: [
       book.title,
@@ -108,7 +108,11 @@ export default async function BookPage({
   } = result;
 
   if (ref !== book.slug) {
-    permanentRedirect(`/book/${encodeURIComponent(book.slug)}`);
+    permanentRedirect(
+      `/book/${encodeURIComponent(book.slug)}${
+        selectedEdition?.id ? `?edition=${encodeURIComponent(selectedEdition.id)}` : ""
+      }`,
+    );
   }
 
   const isLoggedIn = !!viewer;
@@ -137,7 +141,7 @@ export default async function BookPage({
         ?.replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim() || undefined,
-    image: book.coverImage ? [toAbsoluteUrl(book.coverImage)] : undefined,
+    image: book.displayCoverImage ? [toAbsoluteUrl(book.displayCoverImage)] : undefined,
     inLanguage: book.language || "fa",
     numberOfPages: selectedEdition?.pageCount ?? undefined,
     datePublished:
@@ -462,7 +466,7 @@ export default async function BookPage({
 
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[1.45rem] bg-secondary/40 shadow-[0_30px_75px_-46px_rgba(0,0,0,0.65)] ring-1 ring-border/80 dark:shadow-[0_34px_86px_-42px_rgba(0,0,0,0.92)] dark:ring-white/10">
                   <Image
-                    src={book.coverImage || PLACEHOLDER}
+                    src={book.displayCoverImage || PLACEHOLDER}
                     alt={book.title}
                     fill
                     sizes="(min-width: 1280px) 280px, (min-width: 1024px) 260px, (min-width: 640px) 250px, 230px"
