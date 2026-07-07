@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 
@@ -42,10 +43,7 @@ export async function GET(req: NextRequest) {
           genre: CatalogBook.genre,
           translator: preferredEditionFieldSql<string | null>("translator"),
           publisher: preferredEditionFieldSql<string | null>("publisher"),
-          coverImage: sql<string | null>`coalesce(
-            ${preferredEditionFieldSql<string | null>("cover_image")},
-            ${CatalogBook.coverImage}
-          )`,
+          coverImage: displayCoverFieldSql(),
           createdAt: CatalogBook.createdAt,
         })
         .from(CatalogBook)

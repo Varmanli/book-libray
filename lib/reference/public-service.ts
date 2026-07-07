@@ -2,6 +2,8 @@ import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { Book, CatalogBook, ReferenceItem } from "@/db/schema";
+import { coalesceCoverImage } from "@/lib/book/cover";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
@@ -153,7 +155,7 @@ export async function getReferenceBooks(
       author: row.author,
       translator: row.translator,
       publisher: row.publisher,
-      coverImage: row.coverImage,
+      coverImage: coalesceCoverImage(row.coverImage),
       rating: row.rating,
       createdAt: row.createdAt,
     });
@@ -173,10 +175,7 @@ export async function getReferenceBooks(
       author: CatalogBook.author,
       translator: preferredEditionFieldSql<string | null>("translator"),
       publisher: preferredEditionFieldSql<string | null>("publisher"),
-      coverImage: sql<string | null>`coalesce(
-        ${preferredEditionFieldSql<string | null>("cover_image")},
-        ${CatalogBook.coverImage}
-      )`,
+      coverImage: displayCoverFieldSql(),
     })
     .from(CatalogBook)
     .where(inArray(CatalogBook.id, catalogBookIds));
@@ -199,7 +198,7 @@ export async function getReferenceBooks(
       author: catalogRow.author,
       translator: catalogRow.translator,
       publisher: catalogRow.publisher,
-      coverImage: catalogRow.coverImage,
+      coverImage: coalesceCoverImage(catalogRow.coverImage),
     };
   });
 }

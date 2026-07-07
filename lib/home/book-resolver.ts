@@ -3,7 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { Book, CatalogBook } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
-import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 
 /**
  * هر آیتمِ محتوای صفحه‌ی اصلی (پیشنهادی/اسلاید) ممکن است به دو شکل ذخیره شده باشد:
@@ -38,14 +38,6 @@ function canonicalCatalogId(j: HomeBookJoins): SQL<string | null> {
   return sql<string | null>`coalesce(${j.directCatalog.id}, ${j.linkedCatalog.id})`;
 }
 
-/** بهترین جلدِ نسخه‌ی تأییدشده برای هویت کانونی (همان منطق آرشیو عمومی). */
-function bestEditionCover(j: HomeBookJoins): SQL<string | null> {
-  return preferredEditionFieldSql<string | null>("cover_image", {
-    catalogBookId: sql`coalesce(${j.directCatalog.id}, ${j.linkedCatalog.id})`,
-    primaryEditionId: sql`coalesce(${j.directCatalog.primaryEditionId}, ${j.linkedCatalog.primaryEditionId})`,
-  });
-}
-
 /** ستون‌های یکدستِ resolved برای استفاده در select (هویت کانونی + fallback جلد). */
 export function homeBookColumns(j: HomeBookJoins) {
   return {
@@ -59,12 +51,12 @@ export function homeBookColumns(j: HomeBookJoins) {
     author: sql<string | null>`coalesce(${j.directCatalog.author}, ${j.linkedBook.author})`,
     genre: sql<string | null>`coalesce(${j.directCatalog.genre}, ${j.linkedBook.genre})`,
     // ترتیب fallback جلد: بهترین نسخه ← جلد کاتالوگ ← جلد ردیف کتابخانه.
-    coverImage: sql<string | null>`coalesce(
-      ${bestEditionCover(j)},
-      ${j.directCatalog.coverImage},
-      ${j.linkedCatalog.coverImage},
-      ${j.linkedBook.coverImage}
-    )`,
+    coverImage: displayCoverFieldSql({
+      catalogBookId: sql`coalesce(${j.directCatalog.id}, ${j.linkedCatalog.id})`,
+      primaryEditionId: sql`coalesce(${j.directCatalog.primaryEditionId}, ${j.linkedCatalog.primaryEditionId})`,
+      catalogBookCover: sql`coalesce(${j.directCatalog.coverImage}, ${j.linkedCatalog.coverImage})`,
+      legacyBookCover: j.linkedBook.coverImage,
+    }),
   };
 }
 

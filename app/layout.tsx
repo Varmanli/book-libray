@@ -1,10 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Toaster } from "react-hot-toast";
-import PerformanceMonitor from "@/components/PerformanceMonitor";
-import ThemeProvider from "@/components/ThemeProvider";
-import { ConfirmProvider } from "@/components/common/ConfirmDialog";
-import DisablePwa from "@/components/pwa/DisablePwa";
+import AppProviders from "@/components/AppProviders";
 import { getSiteMetadataBase } from "@/lib/seo/site";
 import { getSiteSettings } from "@/lib/settings/service";
 
@@ -125,14 +121,7 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ThemeProvider>
-          <ConfirmProvider>
-            {children}
-            <Toaster position="top-center" />
-            <PerformanceMonitor />
-            <DisablePwa />
-          </ConfirmProvider>
-        </ThemeProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

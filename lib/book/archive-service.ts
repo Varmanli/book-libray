@@ -3,6 +3,10 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook, ReferenceItem } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import {
+  displayCoverFieldSql,
+  sampleLegacyBookFieldSql,
+} from "@/lib/book/display-cover";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
@@ -74,23 +78,11 @@ function bestEditionField<T>(fieldName: string) {
 }
 
 function sampleBookField<T>(fieldName: string) {
-  return sql<T>`(
-    select b.${sql.raw(fieldName)}
-    from "Book" b
-    where b.catalog_book_id = ${CatalogBook.id}
-    order by
-      (b.slug is not null) desc,
-      b.created_at desc
-    limit 1
-  )`;
+  return sampleLegacyBookFieldSql<T>(fieldName);
 }
 
 function archiveCoverField() {
-  return sql<string | null>`coalesce(
-    ${bestEditionField<string | null>("cover_image")},
-    ${CatalogBook.coverImage},
-    ${sampleBookField<string | null>("cover_image")}
-  )`;
+  return displayCoverFieldSql();
 }
 
 function buildEditionExists(

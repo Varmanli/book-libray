@@ -3,6 +3,7 @@ import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook, ReferenceItem } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 
@@ -101,10 +102,7 @@ async function searchBooks(query: string, limit: number): Promise<GlobalSearchBo
       author: CatalogBook.author,
       translator: preferredEditionFieldSql<string | null>("translator"),
       publisher: preferredEditionFieldSql<string | null>("publisher"),
-      coverImage: sql<string | null>`coalesce(
-        ${preferredEditionFieldSql<string | null>("cover_image")},
-        ${CatalogBook.coverImage}
-      )`,
+      coverImage: displayCoverFieldSql(),
       createdAt: CatalogBook.createdAt,
     })
     .from(CatalogBook)

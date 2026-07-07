@@ -10,7 +10,11 @@ import {
   ReferenceItem,
   User,
 } from "@/db/schema";
-import { coalesceCoverImage, getEditionCoverSrc } from "@/lib/book/cover";
+import { coalesceCoverImage } from "@/lib/book/cover";
+import {
+  resolveBookDisplayData,
+  sampleLegacyBookFieldSql,
+} from "@/lib/book/display-cover";
 import {
   ensureCatalogBookSlug,
   ensureBookSlug,
@@ -125,6 +129,7 @@ export type BookDetailResult =
 
 type SubjectRow = {
   catalogBookId: string;
+  primaryEditionId: string | null;
   slug: string | null;
   title: string;
   subtitle: string | null;
@@ -135,13 +140,15 @@ type SubjectRow = {
   country: string | null;
   language: string | null;
   firstPublishedYear: number | null;
-  coverImage: string | null;
+  catalogCoverImage: string | null;
+  legacyBookCoverImage: string | null;
 };
 
 async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> {
   const [book] = await db
     .select({
       catalogBookId: CatalogBook.id,
+      primaryEditionId: CatalogBook.primaryEditionId,
       slug: CatalogBook.slug,
       title: CatalogBook.title,
       subtitle: CatalogBook.subtitle,
@@ -152,7 +159,8 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
       country: CatalogBook.country,
       language: CatalogBook.language,
       firstPublishedYear: CatalogBook.firstPublishedYear,
-      coverImage: CatalogBook.coverImage,
+      catalogCoverImage: CatalogBook.coverImage,
+      legacyBookCoverImage: sampleLegacyBookFieldSql<string | null>("cover_image"),
     })
     .from(CatalogBook)
     .where(
@@ -168,6 +176,7 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
   const [legacy] = await db
     .select({
       catalogBookId: CatalogBook.id,
+      primaryEditionId: CatalogBook.primaryEditionId,
       slug: CatalogBook.slug,
       title: CatalogBook.title,
       subtitle: CatalogBook.subtitle,
@@ -178,7 +187,8 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
       country: CatalogBook.country,
       language: CatalogBook.language,
       firstPublishedYear: CatalogBook.firstPublishedYear,
-      coverImage: CatalogBook.coverImage,
+      catalogCoverImage: CatalogBook.coverImage,
+      legacyBookCoverImage: Book.coverImage,
     })
     .from(Book)
     .innerJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
@@ -234,7 +244,7 @@ async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionS
 
   return rows.map((row) => ({
     ...row,
-    coverImage: getEditionCoverSrc(row),
+    coverImage: coalesceCoverImage(row.coverImage),
   }));
 }
 
@@ -477,10 +487,17 @@ export async function getBookDetail(
   });
 
   const editions = await loadApprovedEditions(subject.catalogBookId);
-  const selectedEdition =
-    editions.find((edition) => edition.id === preferredEditionId) ??
-    editions[0] ??
-    null;
+  const display = resolveBookDisplayData({
+    title: subject.title,
+    subtitle: subject.subtitle,
+    author: subject.author,
+    editions,
+    primaryEditionId: subject.primaryEditionId,
+    selectedEditionId: preferredEditionId ?? null,
+    catalogBookCover: subject.catalogCoverImage,
+    legacyBookCover: subject.legacyBookCoverImage,
+  });
+  const selectedEdition = display.displayEdition;
 
   const genreNames = subject.genre ? splitStoredGenres(subject.genre) : [];
   const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
@@ -534,7 +551,7 @@ export async function getBookDetail(
     countrySlug: refData.links.country ?? null,
     language: subject.language ?? selectedEdition?.language ?? "fa",
     firstPublishedYear: subject.firstPublishedYear,
-    coverImage: getEditionCoverSrc(selectedEdition, subject.coverImage),
+    coverImage: display.coverImage,
   };
 
   const quotes = await loadPublicQuotes(
@@ -600,7 +617,15 @@ export async function getBookQuotesPage(
 
   const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
   const editions = await loadApprovedEditions(subject.catalogBookId);
-  const coverImage = getEditionCoverSrc(editions[0], subject.coverImage);
+  const display = resolveBookDisplayData({
+    title: subject.title,
+    author: subject.author,
+    editions,
+    primaryEditionId: subject.primaryEditionId,
+    catalogBookCover: subject.catalogCoverImage,
+    legacyBookCover: subject.legacyBookCoverImage,
+  });
+  const coverImage = display.coverImage;
 
   const [quotes, viewer] = await Promise.all([
     loadPublicQuotes(

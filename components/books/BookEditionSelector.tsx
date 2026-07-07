@@ -42,6 +42,7 @@ export default function BookEditionSelector({
   const selectedEdition = useMemo(
     () =>
       editions.find((edition) => edition.id === selectedEditionId) ??
+      editions.find((edition) => edition.isPrimary) ??
       editions[0] ??
       null,
     [editions, selectedEditionId],

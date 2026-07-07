@@ -10,6 +10,7 @@ import {
   User,
 } from "@/db/schema";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import {
   homeBookColumns,
   homeBookJoins,
@@ -333,7 +334,7 @@ async function loadLegacyBookMap(bookIds: string[]) {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
-async function loadCatalogFeaturedDisplayMap(catalogIds: string[]) {
+async function loadCatalogDisplayMap(catalogIds: string[]) {
   if (catalogIds.length === 0) return new Map<string, CatalogFeaturedDisplay>();
 
   const rows = await db
@@ -346,10 +347,7 @@ async function loadCatalogFeaturedDisplayMap(catalogIds: string[]) {
       status: CatalogBook.status,
       primaryEditionId: CatalogBook.primaryEditionId,
       displayEditionId: preferredEditionFieldSql<string | null>("id"),
-      coverImage: sql<string | null>`coalesce(
-        ${preferredEditionFieldSql<string | null>("cover_image")},
-        ${CatalogBook.coverImage}
-      )`,
+      coverImage: displayCoverFieldSql(),
     })
     .from(CatalogBook)
     .where(inArray(CatalogBook.id, catalogIds));
@@ -375,7 +373,7 @@ async function resolveFeaturedRows(rows: FeaturedBaseRow[]) {
     }
   }
 
-  const catalogMap = await loadCatalogFeaturedDisplayMap([...catalogIds]);
+  const catalogMap = await loadCatalogDisplayMap([...catalogIds]);
 
   return rows.map((row) => {
     if (row.catalogBookId) {
@@ -437,6 +435,10 @@ export async function getPopularBooks(limit = 12): Promise<HomeBookCard[]> {
     .orderBy(desc(Book.createdAt))
     .limit(limit * 5);
 
+  const catalogIds = rows
+    .map((row) => row.catalogBookId)
+    .filter((value): value is string => Boolean(value));
+  const catalogMap = await loadCatalogDisplayMap([...new Set(catalogIds)]);
   const seen = new Set<string>();
   const out: HomeBookCard[] = [];
 
@@ -444,13 +446,14 @@ export async function getPopularBooks(limit = 12): Promise<HomeBookCard[]> {
     const key = row.catalogBookId ?? row.title.trim().toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
+    const catalog = row.catalogBookId ? catalogMap.get(row.catalogBookId) : null;
     out.push({
-      id: row.id,
-      slug: row.slug,
-      title: row.title,
-      author: row.author,
-      coverImage: coalesceCoverImage(row.coverImage),
-      genre: row.genre,
+      id: catalog?.id ?? row.id,
+      slug: catalog?.slug ?? row.slug,
+      title: catalog?.title ?? row.title,
+      author: catalog?.author ?? row.author,
+      coverImage: coalesceCoverImage(catalog?.coverImage, row.coverImage),
+      genre: catalog?.genre ?? row.genre,
       status: row.status,
     });
     if (out.length >= limit) break;
