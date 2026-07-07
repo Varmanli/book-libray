@@ -38,6 +38,7 @@ export async function saveImageUpload(params: {
   contentType: string;
   filename: string;
   folder: ImageUploadFolder;
+  objectKey?: string;
 }): Promise<SaveUploadResult> {
   const driver = configuredDriver();
 

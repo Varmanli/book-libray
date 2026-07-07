@@ -3,6 +3,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook, ReferenceItem } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import {
@@ -69,17 +70,7 @@ function genreContains(column: unknown, value: string) {
 }
 
 function bestEditionField<T>(fieldName: string) {
-  return sql<T>`(
-    select be.${sql.raw(fieldName)}
-    from "BookEdition" be
-    where be.catalog_book_id = ${CatalogBook.id}
-      and be.status = 'APPROVED'
-    order by
-      (be.cover_image is not null) desc,
-      be.published_year desc nulls last,
-      be.created_at desc
-    limit 1
-  )`;
+  return preferredEditionFieldSql<T>(fieldName);
 }
 
 function sampleBookField<T>(fieldName: string) {

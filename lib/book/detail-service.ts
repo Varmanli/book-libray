@@ -16,6 +16,7 @@ import {
   ensureBookSlug,
   extractCatalogBookIdFromSlug,
 } from "@/lib/book/public-slug";
+import { primaryEditionOrderBy } from "@/lib/book/primary-edition";
 import {
   getPublicBookExternalLinks,
   type PublicBookExternalLink,
@@ -63,6 +64,7 @@ export interface BookEditionSummary {
   coverImage: string | null;
   language: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  isPrimary: boolean;
 }
 
 export interface BookDetailMeta {
@@ -216,6 +218,7 @@ async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionS
       coverImage: BookEdition.coverImage,
       language: BookEdition.language,
       status: BookEdition.status,
+      isPrimary: sql<boolean>`${CatalogBook.primaryEditionId} = ${BookEdition.id}`,
     })
     .from(BookEdition)
     .innerJoin(CatalogBook, eq(BookEdition.catalogBookId, CatalogBook.id))
@@ -226,9 +229,7 @@ async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionS
       ),
     )
     .orderBy(
-      desc(sql`${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> ''`),
-      desc(BookEdition.publishedYear),
-      desc(BookEdition.createdAt),
+      ...primaryEditionOrderBy(CatalogBook.primaryEditionId),
     );
 
   return rows.map((row) => ({

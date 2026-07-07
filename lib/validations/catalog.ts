@@ -149,6 +149,10 @@ export const adminEditionUpdateSchema = adminEditionBaseSchema.superRefine(
   },
 );
 
+export const adminPrimaryEditionSchema = z.object({
+  editionId: z.string().min(1, "شناسه نسخه نامعتبر است").nullable(),
+});
+
 export type AddToLibraryInput = z.infer<typeof addToLibrarySchema>;
 export type ManualBookInput = z.infer<typeof manualBookSchema>;
 export type AdminBookUpdateInput = z.infer<typeof adminBookUpdateSchema>;
@@ -158,3 +162,4 @@ export type AdminBookUpdateWithLinksInput = z.infer<
 >;
 export type AdminEditionCreateInput = z.infer<typeof adminEditionCreateSchema>;
 export type AdminEditionUpdateInput = z.infer<typeof adminEditionUpdateSchema>;
+export type AdminPrimaryEditionInput = z.infer<typeof adminPrimaryEditionSchema>;

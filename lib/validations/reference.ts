@@ -1,5 +1,40 @@
 import { z } from "zod";
 
+const nullableTrimmedString = (max: number) =>
+  z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((value) => {
+      if (value == null) return null;
+      const trimmed = value.trim();
+      return trimmed ? trimmed : null;
+    })
+    .refine((value) => value == null || value.length <= max, {
+      message: `حداکثر ${max} کاراکتر مجاز است`,
+    });
+
+const nullableUrl = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  })
+  .refine((value) => value == null || /^https?:\/\//i.test(value), {
+    message: "آدرس باید با http:// یا https:// شروع شود",
+  })
+  .refine((value) => value == null || z.url().safeParse(value).success, {
+    message: "آدرس معتبر نیست",
+  });
+
+const nullableYear = z
+  .union([z.number().int(), z.null()])
+  .optional()
+  .refine((value) => value == null || (value >= 0 && value <= 2100), {
+    message: "سال واردشده معتبر نیست",
+  });
+
 export const referenceTypeSchema = z.enum([
   "AUTHOR",
   "GENRE",
@@ -25,7 +60,31 @@ export const updateReferenceSchema = z.object({
   coverImage: z.string().max(2000).nullish(),
   bannerImage: z.string().max(2000).nullish(),
   description: z.string().max(5000).nullish(),
+  originalName: nullableTrimmedString(200),
+  shortDescription: nullableTrimmedString(300),
+  imageFilename: nullableTrimmedString(255),
+  sourceName: nullableTrimmedString(200),
+  sourceUrl: nullableUrl,
+  seoTitle: nullableTrimmedString(255),
+  seoDescription: nullableTrimmedString(180),
+  birthYear: nullableYear,
+  deathYear: nullableYear,
+  countryName: nullableTrimmedString(200),
+  countrySlug: nullableTrimmedString(200),
+  website: nullableUrl,
   status: approvalStatusSchema.optional(),
+}).superRefine((value, ctx) => {
+  if (
+    value.birthYear != null &&
+    value.deathYear != null &&
+    value.deathYear < value.birthYear
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["deathYear"],
+      message: "سال وفات نمی‌تواند قبل از سال تولد باشد",
+    });
+  }
 });
 
 export type ReferenceTypeValue = z.infer<typeof referenceTypeSchema>;

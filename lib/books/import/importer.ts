@@ -1,4 +1,4 @@
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
@@ -46,6 +46,7 @@ async function findReusableCatalogBook(book: NormalizedImportBook) {
       id: CatalogBook.id,
       title: CatalogBook.title,
       originalTitle: CatalogBook.originalTitle,
+      primaryEditionId: CatalogBook.primaryEditionId,
     })
     .from(CatalogBook)
     .where(
@@ -198,6 +199,7 @@ export async function importNormalizedBooks(
                 .returning({ id: CatalogBook.id });
               return created.id;
             })();
+        let firstCreatedEditionId: string | null = null;
 
         if (reusableBook) {
           reusedCatalogBook = true;
@@ -298,7 +300,9 @@ export async function importNormalizedBooks(
             edition.coverUrl,
           );
 
+          const editionId = crypto.randomUUID();
           await tx.insert(BookEdition).values({
+            id: editionId,
             catalogBookId,
             titleOverride: edition.titleOverride ?? null,
             translator: edition.translators.length > 0 ? joinPeople(edition.translators) : null,
@@ -322,7 +326,15 @@ export async function importNormalizedBooks(
             updatedAt: new Date(),
           });
 
+          firstCreatedEditionId ??= editionId;
           createdEditionCount += 1;
+        }
+
+        if (firstCreatedEditionId && !reusableBook?.primaryEditionId) {
+          await tx
+            .update(CatalogBook)
+            .set({ primaryEditionId: firstCreatedEditionId, updatedAt: new Date() })
+            .where(and(eq(CatalogBook.id, catalogBookId), sql`${CatalogBook.primaryEditionId} is null`));
         }
       });
 

@@ -1,0 +1,22 @@
+[
+  {
+    "type": "AUTHOR",
+    "name": "آلبر کامو",
+    "originalName": "Albert Camus",
+    "slug": "albert-camus",
+    "country": {
+      "name": "فرانسه",
+      "slug": "france"
+    },
+    "birthYear": 1913,
+    "deathYear": 1960,
+    "description": "آلبر کامو نویسنده، فیلسوف و روزنامه‌نگار فرانسوی-الجزایری و از چهره‌های مهم ادبیات قرن بیستم بود. آثار او با مفاهیمی مانند پوچی، آزادی، مسئولیت انسانی و مواجهه انسان با جهان مدرن گره خورده‌اند.",
+    "shortDescription": "نویسنده و فیلسوف فرانسوی-الجزایری و خالق رمان «بیگانه».",
+    "imageFilename": "albert-camus.jpg",
+    "imageUrl": null,
+    "sourceName": "manual",
+    "sourceUrl": null,
+    "seoTitle": "آلبر کامو | زندگی‌نامه، آثار و کتاب‌ها",
+    "seoDescription": "معرفی آلبر کامو، زندگی‌نامه کوتاه، آثار و کتاب‌های مرتبط در قفسه."
+  }
+]

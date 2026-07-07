@@ -135,6 +135,11 @@ export const ADMIN_NAV: AdminNavEntry[] = [
           label: "مترجم‌ها",
           icon: Languages,
         },
+        {
+          href: "/admin/references/import",
+          label: "ایمپورت پروفایل‌ها",
+          icon: FileText,
+        },
       ],
     },
   },

@@ -108,6 +108,7 @@ export default function AdminBookEditionsManager({
   const [editing, setEditing] = useState<AdminBookEditionRow | null>(null);
   const [form, setForm] = useState<EditionFormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
 
   const contextLine = useMemo(
     () =>
@@ -142,6 +143,38 @@ export default function AdminBookEditionsManager({
     });
     const data = await res.json();
     if (res.ok) setItems(data.editions ?? []);
+  }
+
+  async function setPrimaryEdition(editionId: string) {
+    setSettingPrimaryId(editionId);
+    try {
+      const res = await fetch(
+        `/api/admin/catalog-books/${catalogBookId}/primary-edition`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ editionId }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "بروزرسانی نسخه اصلی ناموفق بود");
+        return;
+      }
+
+      setItems((current) =>
+        current.map((edition) => ({
+          ...edition,
+          isPrimary: edition.id === editionId,
+        })),
+      );
+      toast.success(data.message || "نسخه اصلی کتاب انتخاب شد");
+    } catch {
+      toast.error("ارتباط با سرور برقرار نشد");
+    } finally {
+      setSettingPrimaryId(null);
+    }
   }
 
   async function submit() {
@@ -256,6 +289,29 @@ export default function AdminBookEditionsManager({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black text-foreground">
+                نسخه اصلی کتاب
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                این نسخه در کارت‌ها و صفحه کتاب به صورت پیش‌فرض نمایش داده می‌شود.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[1.7rem] border border-border/70 bg-background/45 p-4">
+            <p className="text-xs leading-6 text-muted-foreground">
+              نسخه پیش‌فرض نمایش
+            </p>
+            <p className="mt-1 text-sm font-bold text-foreground">
+              {items.find((edition) => edition.isPrimary)?.editionLabel ||
+                items.find((edition) => edition.isPrimary)?.titleOverride ||
+                items.find((edition) => edition.isPrimary)?.publisher ||
+                "هنوز نسخه اصلی انتخاب نشده است"}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-foreground">
                 نسخه‌های ثبت‌شده
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -334,6 +390,12 @@ export default function AdminBookEditionsManager({
                             </p>
 
                             <StatusBadge status={edition.status} />
+
+                            {edition.isPrimary ? (
+                              <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary">
+                                نسخه اصلی
+                              </span>
+                            ) : null}
                           </div>
 
                           {primaryMeta.length > 0 ? (
@@ -371,6 +433,21 @@ export default function AdminBookEditionsManager({
                       </div>
 
                       <div className="flex shrink-0 flex-row gap-2 lg:flex-col">
+                        <Button
+                          type="button"
+                          variant={edition.isPrimary ? "secondary" : "outline"}
+                          onClick={() => setPrimaryEdition(edition.id)}
+                          disabled={edition.isPrimary || settingPrimaryId === edition.id}
+                          className="h-10 flex-1 rounded-xl border-border/80 bg-background/50 font-bold lg:flex-none"
+                        >
+                          {settingPrimaryId === edition.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : null}
+                          {edition.isPrimary
+                            ? "نسخه اصلی"
+                            : "انتخاب به عنوان نسخه اصلی"}
+                        </Button>
+
                         <Button
                           type="button"
                           variant="outline"

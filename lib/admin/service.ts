@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   Book,
@@ -17,9 +17,15 @@ import {
   upsertBookExternalLinks,
   type AdminExternalLink,
 } from "@/lib/book/external-links";
+import {
+  preferredEditionFieldSql,
+  primaryEditionOrderBy,
+  resolveDisplayEdition,
+} from "@/lib/book/primary-edition";
 import { adminCreateReference } from "@/lib/reference/service";
 import type {
   AdminEditionCreateInput,
+  AdminPrimaryEditionInput,
   AdminEditionUpdateInput,
   AdminBookUpdateInput,
   ManualBookInput,
@@ -339,6 +345,9 @@ export interface AdminBookRow {
   author: string;
   genre: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  primaryEditionId: string | null;
+  primaryEditionLabel: string | null;
+  primaryEditionPublisher: string | null;
   coverImage: string | null;
   editionCount: number;
   linkCount: number;
@@ -371,9 +380,19 @@ export async function adminListCatalogBooks(opts: {
         author: CatalogBook.author,
         genre: CatalogBook.genre,
         status: CatalogBook.status,
+        primaryEditionId: CatalogBook.primaryEditionId,
+        primaryEditionLabel: preferredEditionFieldSql<string | null>("edition_label", {
+          approvedOnly: false,
+        }),
+        primaryEditionPublisher: preferredEditionFieldSql<string | null>("publisher", {
+          approvedOnly: false,
+        }),
         createdByName: User.name,
         createdAt: CatalogBook.createdAt,
-        coverImage: sql<string | null>`coalesce(max(${BookEdition.coverImage}), ${CatalogBook.coverImage})`,
+        coverImage: sql<string | null>`coalesce(
+          ${preferredEditionFieldSql<string | null>("cover_image")},
+          ${CatalogBook.coverImage}
+        )`,
         editionCount: sql<number>`count(${BookEdition.id})::int`,
         linkCount: sql<number>`(
           select count(*) from "BookExternalLink" bel
@@ -421,6 +440,7 @@ export async function adminCreateCatalogBook(
   const slug = await generateUniqueCatalogBookSlug(input.title, catalogId);
 
   const id = await db.transaction(async (tx) => {
+    const editionId = crypto.randomUUID();
     const [book] = await tx
       .insert(CatalogBook)
       .values({
@@ -440,6 +460,7 @@ export async function adminCreateCatalogBook(
       .returning({ id: CatalogBook.id });
 
     await tx.insert(BookEdition).values({
+      id: editionId,
       catalogBookId: book.id,
       translator: input.translator,
       publisher: input.publisher,
@@ -453,6 +474,11 @@ export async function adminCreateCatalogBook(
       status: "APPROVED",
       createdById: adminId,
     });
+
+    await tx
+      .update(CatalogBook)
+      .set({ primaryEditionId: editionId, updatedAt: new Date() })
+      .where(eq(CatalogBook.id, book.id));
 
     // لینک‌های بیرونی به هویت کانونی (catalogBookId) وصل می‌شوند، نه ردیف کاربر.
     if (externalLinks && externalLinks.length > 0) {
@@ -488,17 +514,7 @@ export async function adminCreateCatalogBook(
 
 /** بهترین جلدِ نسخه‌ی تأییدشده برای یک کتاب کانونی (همان منطق آرشیو عمومی). */
 function bestEditionCoverSql() {
-  return sql<string | null>`(
-    select be.cover_image
-    from "BookEdition" be
-    where be.catalog_book_id = ${CatalogBook.id}
-      and be.status = 'APPROVED'
-    order by
-      (be.cover_image is not null and trim(be.cover_image) <> '') desc,
-      be.published_year desc nulls last,
-      be.created_at desc
-    limit 1
-  )`;
+  return preferredEditionFieldSql<string | null>("cover_image");
 }
 
 /** جلدِ یکی از ردیف‌های کتابخانه‌ی همان کتاب کانونی (آخرین لایه‌ی fallback). */
@@ -566,16 +582,8 @@ export async function searchAdminCatalogBooks(
       title: CatalogBook.title,
       originalTitle: CatalogBook.originalTitle,
       author: CatalogBook.author,
-      publisher: sql<string | null>`(
-        select be.publisher from "BookEdition" be
-        where be.catalog_book_id = ${CatalogBook.id} and be.publisher is not null
-        order by be.created_at desc limit 1
-      )`,
-      translator: sql<string | null>`(
-        select be.translator from "BookEdition" be
-        where be.catalog_book_id = ${CatalogBook.id} and be.translator is not null
-        order by be.created_at desc limit 1
-      )`,
+      publisher: preferredEditionFieldSql<string | null>("publisher"),
+      translator: preferredEditionFieldSql<string | null>("translator"),
       coverImage: sql<string | null>`coalesce(
         ${bestEditionCoverSql()},
         ${CatalogBook.coverImage},
@@ -612,6 +620,7 @@ export interface AdminBookEditData {
   country: string | null;
   language: string | null;
   coverImage: string | null;
+  primaryEditionId: string | null;
   // فیلدهای نسخه‌ی نماینده
   editionId: string | null;
   translator: string | null;
@@ -645,6 +654,7 @@ export interface AdminBookEditionRow {
   sourceUrl: string | null;
   sourceEditionCode: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  isPrimary: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -746,35 +756,43 @@ export async function listAdminBookEditions(
       sourceUrl: BookEdition.sourceUrl,
       sourceEditionCode: BookEdition.sourceEditionCode,
       status: BookEdition.status,
+      isPrimary: sql<boolean>`${CatalogBook.primaryEditionId} = ${BookEdition.id}`,
       createdAt: BookEdition.createdAt,
       updatedAt: BookEdition.updatedAt,
     })
     .from(BookEdition)
+    .innerJoin(CatalogBook, eq(CatalogBook.id, BookEdition.catalogBookId))
     .where(eq(BookEdition.catalogBookId, catalogBookId))
-    .orderBy(
-      desc(sql`(${BookEdition.status} = 'APPROVED')`),
-      desc(sql`${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> ''`),
-      desc(BookEdition.publishedYear),
-      desc(BookEdition.createdAt),
-    );
+    .orderBy(...primaryEditionOrderBy(CatalogBook.primaryEditionId));
 }
 
 /** شناسه‌ی بهترین نسخه‌ی یک کتاب کانونی (همان معیار نماینده)، یا null. */
 async function findRepresentativeEditionId(
   catalogBookId: string,
 ): Promise<string | null> {
-  const [edition] = await db
-    .select({ id: BookEdition.id })
+  const [book] = await db
+    .select({ primaryEditionId: CatalogBook.primaryEditionId })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, catalogBookId))
+    .limit(1);
+
+  const editions = await db
+    .select({
+      id: BookEdition.id,
+      status: BookEdition.status,
+      coverImage: BookEdition.coverImage,
+      publisher: BookEdition.publisher,
+      translator: BookEdition.translator,
+      isbn: BookEdition.isbn,
+      isbn10: BookEdition.isbn10,
+      isbn13: BookEdition.isbn13,
+      createdAt: BookEdition.createdAt,
+    })
     .from(BookEdition)
     .where(eq(BookEdition.catalogBookId, catalogBookId))
-    .orderBy(
-      sql`(${BookEdition.status} = 'APPROVED') desc`,
-      sql`(${BookEdition.coverImage} is not null and trim(${BookEdition.coverImage}) <> '') desc`,
-      sql`${BookEdition.publishedYear} desc nulls last`,
-      desc(BookEdition.createdAt),
-    )
-    .limit(1);
-  return edition?.id ?? null;
+    .orderBy(asc(BookEdition.createdAt), asc(BookEdition.id));
+
+  return resolveDisplayEdition(book?.primaryEditionId, editions)?.id ?? null;
 }
 
 /** داده‌ی کاملِ یک کتاب کاتالوگ برای فرم ویرایش ادمین. */
@@ -794,6 +812,7 @@ export async function getAdminCatalogBookForEdit(
       country: CatalogBook.country,
       language: CatalogBook.language,
       coverImage: CatalogBook.coverImage,
+      primaryEditionId: CatalogBook.primaryEditionId,
     })
     .from(CatalogBook)
     .where(eq(CatalogBook.id, id))
@@ -838,6 +857,7 @@ export async function getAdminCatalogBookForEdit(
     country: book.country,
     language: book.language,
     coverImage: coalesceCoverImage(book.coverImage, edition?.coverImage),
+    primaryEditionId: book.primaryEditionId,
     editionId: edition?.id ?? null,
     translator: edition?.translator ?? null,
     publisher: edition?.publisher ?? null,
@@ -922,12 +942,18 @@ export async function updateAdminCatalogBook(
         .set(editionSet)
         .where(eq(BookEdition.id, editionId));
     } else {
+      const newEditionId = crypto.randomUUID();
       await tx.insert(BookEdition).values({
+        id: newEditionId,
         catalogBookId: id,
         format: input.format ?? "ELECTRONIC",
         status: "APPROVED",
         ...editionSet,
       });
+      await tx
+        .update(CatalogBook)
+        .set({ primaryEditionId: newEditionId, updatedAt: new Date() })
+        .where(and(eq(CatalogBook.id, id), sql`${CatalogBook.primaryEditionId} is null`));
     }
 
     // لینک‌های بیرونی فقط در صورت ارسالِ صریح جایگزین می‌شوند (replace-all).
@@ -978,6 +1004,7 @@ export async function createAdminBookEdition(
   const [created] = await db
     .insert(BookEdition)
     .values({
+      id: crypto.randomUUID(),
       catalogBookId,
       titleOverride: cleanNullable(input.titleOverride) ?? null,
       translator: cleanNullable(input.translator) ?? null,
@@ -1012,6 +1039,11 @@ export async function createAdminBookEdition(
   } catch (err) {
     console.error("admin reference promote (edition create) failed:", err);
   }
+
+  await db
+    .update(CatalogBook)
+    .set({ primaryEditionId: created.id, updatedAt: new Date() })
+    .where(and(eq(CatalogBook.id, catalogBookId), sql`${CatalogBook.primaryEditionId} is null`));
 
   return created;
 }
@@ -1081,4 +1113,44 @@ export async function deleteAdminBookEdition(
 
   if (!deleted) throw new Error("EDITION_NOT_FOUND");
   return deleted;
+}
+
+export async function setAdminCatalogBookPrimaryEdition(
+  bookId: string,
+  input: AdminPrimaryEditionInput,
+): Promise<{ primaryEditionId: string | null }> {
+  const [book] = await db
+    .select({ id: CatalogBook.id })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, bookId))
+    .limit(1);
+
+  if (!book) throw new Error("CATALOG_BOOK_NOT_FOUND");
+
+  if (input.editionId === null) {
+    await db
+      .update(CatalogBook)
+      .set({ primaryEditionId: null, updatedAt: new Date() })
+      .where(eq(CatalogBook.id, bookId));
+
+    return { primaryEditionId: null };
+  }
+
+  const [edition] = await db
+    .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+    .from(BookEdition)
+    .where(eq(BookEdition.id, input.editionId))
+    .limit(1);
+
+  if (!edition) throw new Error("EDITION_NOT_FOUND");
+  if (edition.catalogBookId !== bookId) {
+    throw new Error("EDITION_BOOK_MISMATCH");
+  }
+
+  await db
+    .update(CatalogBook)
+    .set({ primaryEditionId: edition.id, updatedAt: new Date() })
+    .where(eq(CatalogBook.id, bookId));
+
+  return { primaryEditionId: edition.id };
 }

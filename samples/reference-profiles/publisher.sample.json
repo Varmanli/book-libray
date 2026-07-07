@@ -1,0 +1,21 @@
+[
+  {
+    "type": "PUBLISHER",
+    "name": "روزنه",
+    "originalName": null,
+    "slug": "roozaneh",
+    "country": {
+      "name": "ایران",
+      "slug": "iran"
+    },
+    "description": "نشر روزنه از ناشران ایرانی فعال در حوزه ادبیات، علوم انسانی و آثار ترجمه است.",
+    "shortDescription": "ناشر ایرانی فعال در حوزه ادبیات و علوم انسانی.",
+    "website": null,
+    "imageFilename": "roozaneh.jpg",
+    "imageUrl": null,
+    "sourceName": "manual",
+    "sourceUrl": null,
+    "seoTitle": "نشر روزنه | کتاب‌ها و آثار منتشرشده",
+    "seoDescription": "معرفی نشر روزنه و کتاب‌های منتشرشده این ناشر در قفسه."
+  }
+]

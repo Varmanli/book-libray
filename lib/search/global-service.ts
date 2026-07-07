@@ -3,6 +3,7 @@ import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook, ReferenceItem } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 
 export interface GlobalSearchBook {
@@ -92,28 +93,16 @@ async function searchReferences(
 async function searchBooks(query: string, limit: number): Promise<GlobalSearchBook[]> {
   const term = `%${query}%`;
   const prefix = `${query}%`;
-  const bestEditionField = <T,>(fieldName: string) => sql<T>`(
-    select be.${sql.raw(fieldName)}
-    from "BookEdition" be
-    where be.catalog_book_id = ${CatalogBook.id}
-      and be.status = 'APPROVED'
-    order by
-      (be.cover_image is not null and trim(be.cover_image) <> '') desc,
-      be.published_year desc nulls last,
-      be.created_at desc
-    limit 1
-  )`;
-
   const rows = await db
     .select({
       id: CatalogBook.id,
       slug: CatalogBook.slug,
       title: CatalogBook.title,
       author: CatalogBook.author,
-      translator: bestEditionField<string | null>("translator"),
-      publisher: bestEditionField<string | null>("publisher"),
+      translator: preferredEditionFieldSql<string | null>("translator"),
+      publisher: preferredEditionFieldSql<string | null>("publisher"),
       coverImage: sql<string | null>`coalesce(
-        ${bestEditionField<string | null>("cover_image")},
+        ${preferredEditionFieldSql<string | null>("cover_image")},
         ${CatalogBook.coverImage}
       )`,
       createdAt: CatalogBook.createdAt,

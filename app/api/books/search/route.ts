@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 
 export async function GET(req: NextRequest) {
@@ -19,18 +20,6 @@ export async function GET(req: NextRequest) {
     }
 
     const searchTerm = `%${query}%`;
-    const bestEditionField = <T,>(fieldName: string) => sql<T>`(
-      select be.${sql.raw(fieldName)}
-      from "BookEdition" be
-      where be.catalog_book_id = ${CatalogBook.id}
-        and be.status = 'APPROVED'
-      order by
-        (be.cover_image is not null and trim(be.cover_image) <> '') desc,
-        be.published_year desc nulls last,
-        be.created_at desc
-      limit 1
-    )`;
-
     const where = and(
       eq(CatalogBook.status, "APPROVED"),
       or(
@@ -51,10 +40,10 @@ export async function GET(req: NextRequest) {
           title: CatalogBook.title,
           author: CatalogBook.author,
           genre: CatalogBook.genre,
-          translator: bestEditionField<string | null>("translator"),
-          publisher: bestEditionField<string | null>("publisher"),
+          translator: preferredEditionFieldSql<string | null>("translator"),
+          publisher: preferredEditionFieldSql<string | null>("publisher"),
           coverImage: sql<string | null>`coalesce(
-            ${bestEditionField<string | null>("cover_image")},
+            ${preferredEditionFieldSql<string | null>("cover_image")},
             ${CatalogBook.coverImage}
           )`,
           createdAt: CatalogBook.createdAt,

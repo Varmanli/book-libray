@@ -9,6 +9,7 @@ import {
   unique,
   index,
   boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -147,7 +148,20 @@ export const ReferenceItem = pgTable(
     slug: text("slug"),
     coverImage: text("cover_image"),
     bannerImage: text("banner_image"),
+    originalName: text("original_name"),
     description: text("description"),
+    shortDescription: text("short_description"),
+    imageFilename: text("image_filename"),
+    sourceName: text("source_name"),
+    sourceUrl: text("source_url"),
+    seoTitle: text("seo_title"),
+    seoDescription: text("seo_description"),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    birthYear: integer("birth_year"),
+    deathYear: integer("death_year"),
+    countryName: text("country_name"),
+    countrySlug: text("country_slug"),
+    website: text("website"),
     status: ApprovalStatus("status").default("PENDING").notNull(),
     createdById: varchar("created_by_id").references(() => User.id, {
       onDelete: "set null",
@@ -266,6 +280,7 @@ export const CatalogBook = pgTable("CatalogBook", {
   sourceUrl: text("source_url"),
   // وضعیت تأیید برای نمایش در کاتالوگ عمومی (پیش‌فرض APPROVED؛ ساخت دستی PENDING)
   status: ApprovalStatus("status").default("APPROVED").notNull(),
+  primaryEditionId: varchar("primary_edition_id"),
   // کاربری که این کتاب کانونی را ساخته (برای حسابرسی؛ با حذف کاربر null می‌شود)
   createdById: varchar("created_by_id").references(() => User.id, {
     onDelete: "set null",

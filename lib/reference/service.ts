@@ -23,7 +23,20 @@ export interface ReferenceItemDTO {
   slug: string | null;
   coverImage: string | null;
   bannerImage: string | null;
+  originalName: string | null;
   description: string | null;
+  shortDescription: string | null;
+  imageFilename: string | null;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  birthYear: number | null;
+  deathYear: number | null;
+  countryName: string | null;
+  countrySlug: string | null;
+  website: string | null;
+  metadata: Record<string, unknown> | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: Date;
 }
@@ -40,19 +53,26 @@ export type ImportReferenceInput =
   | string
   | {
       id?: string;
-      name?: string | null;
-      originalName?: string | null;
-      slug?: string | null;
-      description?: string | null;
-      imageUrl?: string | null;
-      website?: string | null;
-      country?: ImportReferenceInput | null;
-      birthYear?: number | null;
-      deathYear?: number | null;
-      sourceName?: string | null;
-      sourceUrl?: string | null;
-      sourceId?: string | null;
-      status?: "pending" | "approved" | "rejected";
+  name?: string | null;
+  originalName?: string | null;
+  slug?: string | null;
+  description?: string | null;
+  shortDescription?: string | null;
+  imageUrl?: string | null;
+  imageFilename?: string | null;
+  website?: string | null;
+  country?: ImportReferenceInput | null;
+  countryName?: string | null;
+  countrySlug?: string | null;
+  birthYear?: number | null;
+  deathYear?: number | null;
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  sourceId?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  metadata?: Record<string, unknown> | null;
+  status?: "pending" | "approved" | "rejected";
     };
 
 export type NormalizedReferenceInput = {
@@ -63,11 +83,20 @@ export type NormalizedReferenceInput = {
   slug?: string | null;
   normalizedSlug?: string | null;
   description?: string | null;
+  shortDescription?: string | null;
   imageUrl?: string | null;
+  imageFilename?: string | null;
   website?: string | null;
+  countryName?: string | null;
+  countrySlug?: string | null;
   sourceName?: string | null;
   sourceUrl?: string | null;
   sourceId?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  metadata?: Record<string, unknown> | null;
+  birthYear?: number | null;
+  deathYear?: number | null;
   status?: "PENDING" | "APPROVED" | "REJECTED";
 };
 
@@ -97,7 +126,20 @@ const REFERENCE_COLUMNS = {
   slug: ReferenceItem.slug,
   coverImage: ReferenceItem.coverImage,
   bannerImage: ReferenceItem.bannerImage,
+  originalName: ReferenceItem.originalName,
   description: ReferenceItem.description,
+  shortDescription: ReferenceItem.shortDescription,
+  imageFilename: ReferenceItem.imageFilename,
+  sourceName: ReferenceItem.sourceName,
+  sourceUrl: ReferenceItem.sourceUrl,
+  seoTitle: ReferenceItem.seoTitle,
+  seoDescription: ReferenceItem.seoDescription,
+  birthYear: ReferenceItem.birthYear,
+  deathYear: ReferenceItem.deathYear,
+  countryName: ReferenceItem.countryName,
+  countrySlug: ReferenceItem.countrySlug,
+  website: ReferenceItem.website,
+  metadata: ReferenceItem.metadata,
   status: ReferenceItem.status,
   createdAt: ReferenceItem.createdAt,
 };
@@ -202,7 +244,20 @@ function toDto(row: ReferenceRow): ReferenceItemDTO {
     slug: row.slug,
     coverImage: row.coverImage,
     bannerImage: row.bannerImage,
+    originalName: row.originalName,
     description: row.description,
+    shortDescription: row.shortDescription,
+    imageFilename: row.imageFilename,
+    sourceName: row.sourceName,
+    sourceUrl: row.sourceUrl,
+    seoTitle: row.seoTitle,
+    seoDescription: row.seoDescription,
+    birthYear: row.birthYear,
+    deathYear: row.deathYear,
+    countryName: row.countryName,
+    countrySlug: row.countrySlug,
+    website: row.website,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
     status: row.status,
     createdAt: row.createdAt,
   };
@@ -274,11 +329,29 @@ export function normalizeReferenceInput(
     slug,
     normalizedSlug: slug ? slugify(slug) || slug : null,
     description: trimNullable(input.description),
+    shortDescription: trimNullable(input.shortDescription),
     imageUrl: trimNullable(input.imageUrl),
+    imageFilename: trimNullable(input.imageFilename),
     website: trimNullable(input.website),
+    countryName: trimNullable(
+      typeof input.country === "object" && input.country && !Array.isArray(input.country)
+        ? input.country.name
+        : input.countryName,
+    ),
+    countrySlug:
+      trimNullable(
+        typeof input.country === "object" && input.country && !Array.isArray(input.country)
+          ? input.country.slug
+          : input.countrySlug,
+      ) ?? undefined,
     sourceName: trimNullable(input.sourceName),
     sourceUrl: trimNullable(input.sourceUrl),
     sourceId: trimNullable(input.sourceId),
+    seoTitle: trimNullable(input.seoTitle),
+    seoDescription: trimNullable(input.seoDescription),
+    metadata: input.metadata && typeof input.metadata === "object" ? input.metadata : null,
+    birthYear: typeof input.birthYear === "number" ? input.birthYear : null,
+    deathYear: typeof input.deathYear === "number" ? input.deathYear : null,
     status: toApprovalStatus(input.status),
   };
 }
@@ -342,8 +415,27 @@ function buildReferencePatch(
   };
 
   if (!existing.slug && input.slug) patch.slug = input.normalizedSlug ?? input.slug;
+  if (!existing.originalName && input.originalName) patch.originalName = input.originalName;
   if (!existing.description && input.description) patch.description = input.description;
+  if (!existing.shortDescription && input.shortDescription) {
+    patch.shortDescription = input.shortDescription;
+  }
   if (!existing.coverImage && input.imageUrl) patch.coverImage = input.imageUrl;
+  if (!existing.imageFilename && input.imageFilename) {
+    patch.imageFilename = input.imageFilename;
+  }
+  if (!existing.website && input.website) patch.website = input.website;
+  if (!existing.countryName && input.countryName) patch.countryName = input.countryName;
+  if (!existing.countrySlug && input.countrySlug) patch.countrySlug = input.countrySlug;
+  if (!existing.sourceName && input.sourceName) patch.sourceName = input.sourceName;
+  if (!existing.sourceUrl && input.sourceUrl) patch.sourceUrl = input.sourceUrl;
+  if (!existing.seoTitle && input.seoTitle) patch.seoTitle = input.seoTitle;
+  if (!existing.seoDescription && input.seoDescription) {
+    patch.seoDescription = input.seoDescription;
+  }
+  if (!existing.birthYear && input.birthYear != null) patch.birthYear = input.birthYear;
+  if (!existing.deathYear && input.deathYear != null) patch.deathYear = input.deathYear;
+  if (!existing.metadata && input.metadata) patch.metadata = input.metadata;
 
   if (input.status === "APPROVED" && existing.status === "PENDING") {
     patch.status = "APPROVED";
@@ -396,7 +488,20 @@ export async function previewResolveReferenceItem(
       slug: normalized.normalizedSlug ?? null,
       coverImage: normalized.imageUrl ?? null,
       bannerImage: null,
+      originalName: normalized.originalName ?? null,
       description: normalized.description ?? null,
+      shortDescription: normalized.shortDescription ?? null,
+      imageFilename: normalized.imageFilename ?? null,
+      sourceName: normalized.sourceName ?? null,
+      sourceUrl: normalized.sourceUrl ?? null,
+      seoTitle: normalized.seoTitle ?? null,
+      seoDescription: normalized.seoDescription ?? null,
+      birthYear: normalized.birthYear ?? null,
+      deathYear: normalized.deathYear ?? null,
+      countryName: normalized.countryName ?? null,
+      countrySlug: normalized.countrySlug ?? null,
+      website: normalized.website ?? null,
+      metadata: normalized.metadata ?? null,
       status: normalized.status ?? "APPROVED",
       createdAt: new Date(0),
       resolution: "created",
@@ -483,7 +588,20 @@ export async function resolveReferenceItem(
       name: normalized.name,
       slug,
       coverImage: normalized.imageUrl ?? null,
+      originalName: normalized.originalName ?? null,
       description: normalized.description ?? null,
+      shortDescription: normalized.shortDescription ?? null,
+      imageFilename: normalized.imageFilename ?? null,
+      sourceName: normalized.sourceName ?? null,
+      sourceUrl: normalized.sourceUrl ?? null,
+      seoTitle: normalized.seoTitle ?? null,
+      seoDescription: normalized.seoDescription ?? null,
+      birthYear: normalized.birthYear ?? null,
+      deathYear: normalized.deathYear ?? null,
+      countryName: normalized.countryName ?? null,
+      countrySlug: normalized.countrySlug ?? null,
+      website: normalized.website ?? null,
+      metadata: normalized.metadata ?? null,
       status: normalized.status ?? options.defaultStatus ?? "APPROVED",
       createdById: options.createdById ?? null,
       updatedAt: new Date(),
@@ -651,6 +769,22 @@ export async function adminUpdateReference(
   if (input.coverImage !== undefined) set.coverImage = input.coverImage || null;
   if (input.bannerImage !== undefined) set.bannerImage = input.bannerImage || null;
   if (input.description !== undefined) set.description = input.description || null;
+  if (input.originalName !== undefined) set.originalName = input.originalName || null;
+  if (input.shortDescription !== undefined) {
+    set.shortDescription = input.shortDescription || null;
+  }
+  if (input.imageFilename !== undefined) set.imageFilename = input.imageFilename || null;
+  if (input.sourceName !== undefined) set.sourceName = input.sourceName || null;
+  if (input.sourceUrl !== undefined) set.sourceUrl = input.sourceUrl || null;
+  if (input.seoTitle !== undefined) set.seoTitle = input.seoTitle || null;
+  if (input.seoDescription !== undefined) {
+    set.seoDescription = input.seoDescription || null;
+  }
+  if (input.birthYear !== undefined) set.birthYear = input.birthYear ?? null;
+  if (input.deathYear !== undefined) set.deathYear = input.deathYear ?? null;
+  if (input.countryName !== undefined) set.countryName = input.countryName || null;
+  if (input.countrySlug !== undefined) set.countrySlug = input.countrySlug || null;
+  if (input.website !== undefined) set.website = input.website || null;
   if (input.status !== undefined) set.status = input.status;
 
   if (input.slug !== undefined && input.slug.trim()) {

@@ -16,8 +16,12 @@ export async function uploadImageToLocal(params: {
   contentType: string;
   filename: string;
   folder: ImageUploadFolder;
+  objectKey?: string;
 }): Promise<{ key: string; url: string }> {
-  const key = buildUploadKey(params.folder, params.filename);
+  const key =
+    params.objectKey && params.objectKey.trim()
+      ? params.objectKey.trim().replace(/^\/+/, "")
+      : buildUploadKey(params.folder, params.filename);
   const target = resolve(UPLOAD_ROOT, key);
 
   // محافظتِ پیمایش مسیر: مقصد باید داخل UPLOAD_ROOT باشد.

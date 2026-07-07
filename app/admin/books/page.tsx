@@ -44,6 +44,9 @@ interface AdminBookRow {
   author: string;
   genre: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  primaryEditionId: string | null;
+  primaryEditionLabel: string | null;
+  primaryEditionPublisher: string | null;
   coverImage: string | null;
   editionCount: number;
   linkCount: number;
@@ -275,6 +278,8 @@ export default function AdminBooksPage() {
 
             <AdminDataTableCell>
               <EditionCell
+                primaryEditionLabel={book.primaryEditionLabel}
+                primaryEditionPublisher={book.primaryEditionPublisher}
                 editionCount={book.editionCount}
                 linkCount={book.linkCount}
               />
@@ -439,9 +444,13 @@ function GenreCell({ value }: { value: string | null }) {
 }
 
 function EditionCell({
+  primaryEditionLabel,
+  primaryEditionPublisher,
   editionCount,
   linkCount,
 }: {
+  primaryEditionLabel: string | null;
+  primaryEditionPublisher: string | null;
   editionCount: number;
   linkCount: number;
 }) {
@@ -454,6 +463,12 @@ function EditionCell({
       {linkCount > 0 ? (
         <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] font-black tabular-nums text-primary">
           {linkCount.toLocaleString("fa-IR")} لینک
+        </span>
+      ) : null}
+
+      {primaryEditionLabel || primaryEditionPublisher ? (
+        <span className="inline-flex items-center rounded-full border border-emerald-500/15 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-400">
+          نسخه اصلی: {primaryEditionLabel || primaryEditionPublisher}
         </span>
       ) : null}
     </div>

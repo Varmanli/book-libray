@@ -143,6 +143,41 @@ export default async function ReferencePublicView({
                   <h1 className="line-clamp-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-[2.2rem]">
                     {entity.name}
                   </h1>
+                  {entity.originalName ? (
+                    <p
+                      dir="ltr"
+                      className="mt-2 text-sm font-medium text-muted-foreground"
+                    >
+                      {entity.originalName}
+                    </p>
+                  ) : null}
+                  {(entity.birthYear ||
+                    entity.deathYear ||
+                    entity.countryName ||
+                    entity.website) ? (
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {entity.birthYear || entity.deathYear ? (
+                        <span className="rounded-full border border-border/60 bg-background/60 px-3 py-1">
+                          {`${entity.birthYear ?? "?"} - ${entity.deathYear ?? "اکنون"}`}
+                        </span>
+                      ) : null}
+                      {entity.countryName ? (
+                        <span className="rounded-full border border-border/60 bg-background/60 px-3 py-1">
+                          {entity.countryName}
+                        </span>
+                      ) : null}
+                      {entity.website ? (
+                        <a
+                          href={entity.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border border-border/60 bg-background/60 px-3 py-1 transition hover:border-primary/40 hover:text-primary"
+                        >
+                          وب‌سایت
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -193,8 +228,10 @@ export async function buildReferenceMetadata(
   }
   const image = entity.bannerImage || entity.coverImage;
   return buildPageMetadata({
-    title: `کتاب‌های ${entity.name}`,
+    title: entity.seoTitle || `کتاب‌های ${entity.name}`,
     description:
+      entity.seoDescription ||
+      entity.shortDescription ||
       entity.description?.slice(0, 160) ||
       `صفحه‌ی ${label} ${entity.name} و کتاب‌های مرتبط در قفسه.`,
     path: `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}`,

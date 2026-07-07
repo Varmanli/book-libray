@@ -319,9 +319,17 @@ export default function BookEditionSelector({
                       >
                         <OptionContent edition={edition} title={title} />
 
-                        {active ? (
-                          <Check className="h-4 w-4 shrink-0 text-primary" />
-                        ) : null}
+                        <span className="flex shrink-0 items-center gap-2">
+                          {edition.isPrimary ? (
+                            <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">
+                              نسخه اصلی
+                            </span>
+                          ) : null}
+
+                          {active ? (
+                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                          ) : null}
+                        </span>
                       </button>
                     );
                   })

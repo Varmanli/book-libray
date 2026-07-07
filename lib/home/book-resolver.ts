@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { Book, CatalogBook } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 
 /**
  * هر آیتمِ محتوای صفحه‌ی اصلی (پیشنهادی/اسلاید) ممکن است به دو شکل ذخیره شده باشد:
@@ -39,17 +40,10 @@ function canonicalCatalogId(j: HomeBookJoins): SQL<string | null> {
 
 /** بهترین جلدِ نسخه‌ی تأییدشده برای هویت کانونی (همان منطق آرشیو عمومی). */
 function bestEditionCover(j: HomeBookJoins): SQL<string | null> {
-  return sql<string | null>`(
-    select be.cover_image
-    from "BookEdition" be
-    where be.catalog_book_id = coalesce(${j.directCatalog.id}, ${j.linkedCatalog.id})
-      and be.status = 'APPROVED'
-    order by
-      (be.cover_image is not null and trim(be.cover_image) <> '') desc,
-      be.published_year desc nulls last,
-      be.created_at desc
-    limit 1
-  )`;
+  return preferredEditionFieldSql<string | null>("cover_image", {
+    catalogBookId: sql`coalesce(${j.directCatalog.id}, ${j.linkedCatalog.id})`,
+    primaryEditionId: sql`coalesce(${j.directCatalog.primaryEditionId}, ${j.linkedCatalog.primaryEditionId})`,
+  });
 }
 
 /** ستون‌های یکدستِ resolved برای استفاده در select (هویت کانونی + fallback جلد). */

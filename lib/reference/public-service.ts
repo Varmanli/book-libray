@@ -1,8 +1,9 @@
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { Book, ReferenceItem } from "@/db/schema";
+import { Book, CatalogBook, ReferenceItem } from "@/db/schema";
 import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 
 export interface ReferenceEntity {
@@ -12,7 +13,19 @@ export interface ReferenceEntity {
   slug: string;
   coverImage: string | null;
   bannerImage: string | null;
+  originalName: string | null;
   description: string | null;
+  shortDescription: string | null;
+  imageFilename: string | null;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  birthYear: number | null;
+  deathYear: number | null;
+  countryName: string | null;
+  countrySlug: string | null;
+  website: string | null;
 }
 
 export interface ReferenceBookCard {
@@ -61,7 +74,19 @@ export async function getReferenceEntity(
       slug: ReferenceItem.slug,
       coverImage: ReferenceItem.coverImage,
       bannerImage: ReferenceItem.bannerImage,
+      originalName: ReferenceItem.originalName,
       description: ReferenceItem.description,
+      shortDescription: ReferenceItem.shortDescription,
+      imageFilename: ReferenceItem.imageFilename,
+      sourceName: ReferenceItem.sourceName,
+      sourceUrl: ReferenceItem.sourceUrl,
+      seoTitle: ReferenceItem.seoTitle,
+      seoDescription: ReferenceItem.seoDescription,
+      birthYear: ReferenceItem.birthYear,
+      deathYear: ReferenceItem.deathYear,
+      countryName: ReferenceItem.countryName,
+      countrySlug: ReferenceItem.countrySlug,
+      website: ReferenceItem.website,
     })
     .from(ReferenceItem)
     .where(
@@ -133,5 +158,48 @@ export async function getReferenceBooks(
       createdAt: row.createdAt,
     });
   }
-  return out;
+
+  const catalogBookIds = out
+    .map((row) => rows.find((item) => item.id === row.id)?.catalogBookId ?? null)
+    .filter((value): value is string => Boolean(value));
+
+  if (catalogBookIds.length === 0) return out;
+
+  const catalogRows = await db
+    .select({
+      id: CatalogBook.id,
+      slug: CatalogBook.slug,
+      title: CatalogBook.title,
+      author: CatalogBook.author,
+      translator: preferredEditionFieldSql<string | null>("translator"),
+      publisher: preferredEditionFieldSql<string | null>("publisher"),
+      coverImage: sql<string | null>`coalesce(
+        ${preferredEditionFieldSql<string | null>("cover_image")},
+        ${CatalogBook.coverImage}
+      )`,
+    })
+    .from(CatalogBook)
+    .where(inArray(CatalogBook.id, catalogBookIds));
+
+  const catalogMap = new Map(catalogRows.map((row) => [row.id, row]));
+
+  return out.map((row) => {
+    const source = rows.find((item) => item.id === row.id);
+    const catalogRow = source?.catalogBookId
+      ? catalogMap.get(source.catalogBookId)
+      : null;
+
+    if (!catalogRow) return row;
+
+    return {
+      ...row,
+      id: catalogRow.id,
+      slug: catalogRow.slug,
+      title: catalogRow.title,
+      author: catalogRow.author,
+      translator: catalogRow.translator,
+      publisher: catalogRow.publisher,
+      coverImage: catalogRow.coverImage,
+    };
+  });
 }

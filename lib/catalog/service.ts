@@ -5,6 +5,7 @@ import {
   ensureCatalogBookSlug,
   generateUniqueCatalogBookSlug,
 } from "@/lib/book/public-slug";
+import { resolveDisplayEdition } from "@/lib/book/primary-edition";
 import { splitStoredGenres } from "@/lib/book/genres";
 import type { AddToLibraryInput, ManualBookInput } from "@/lib/validations/catalog";
 import { ensureReferenceItem } from "@/lib/reference/service";
@@ -57,6 +58,7 @@ export async function searchCatalog(
   const rows = await db
     .select({
       bookId: CatalogBook.id,
+      primaryEditionId: CatalogBook.primaryEditionId,
       title: CatalogBook.title,
       author: CatalogBook.author,
       description: CatalogBook.description,
@@ -75,6 +77,7 @@ export async function searchCatalog(
       editionLabel: BookEdition.editionLabel,
       pageCount: BookEdition.pageCount,
       editionLanguage: BookEdition.language,
+      editionCreatedAt: BookEdition.createdAt,
     })
     .from(CatalogBook)
     .leftJoin(BookEdition, eq(BookEdition.catalogBookId, CatalogBook.id))
@@ -97,7 +100,9 @@ export async function searchCatalog(
 
   // گروه‌بندی ردیف‌ها بر اساس کتاب کانونی
   const map = new Map<string, CatalogBookDTO>();
+  const primaryEditionMap = new Map<string, string | null>();
   for (const r of rows) {
+    primaryEditionMap.set(r.bookId, r.primaryEditionId);
     let book = map.get(r.bookId);
     if (!book) {
       if (map.size >= limit) continue;
@@ -126,6 +131,26 @@ export async function searchCatalog(
         editionLabel: r.editionLabel,
         pageCount: r.pageCount,
         language: r.editionLanguage,
+      });
+    }
+  }
+
+  for (const book of map.values()) {
+    const primaryEdition = resolveDisplayEdition(
+      primaryEditionMap.get(book.id),
+      book.editions.map((edition, index) => ({
+        ...edition,
+        createdAt: rows.find((row) => row.bookId === book.id && row.editionId === edition.id)?.editionCreatedAt ?? null,
+        status: "APPROVED" as const,
+        index,
+      })),
+    );
+
+    if (primaryEdition) {
+      book.editions.sort((a, b) => {
+        if (a.id === primaryEdition.id) return -1;
+        if (b.id === primaryEdition.id) return 1;
+        return 0;
       });
     }
   }

@@ -47,7 +47,19 @@ interface Item {
   slug: string | null;
   coverImage: string | null;
   bannerImage: string | null;
+  originalName: string | null;
   description: string | null;
+  shortDescription: string | null;
+  imageFilename: string | null;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  birthYear: number | null;
+  deathYear: number | null;
+  countryName: string | null;
+  countrySlug: string | null;
+  website: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
 }
 
@@ -90,9 +102,21 @@ export default function ReferenceManager({
   const [form, setForm] = useState({
     name: "",
     slug: "",
+    originalName: "",
     description: "",
+    shortDescription: "",
     coverImage: "",
     bannerImage: "",
+    imageFilename: "",
+    sourceName: "",
+    sourceUrl: "",
+    seoTitle: "",
+    seoDescription: "",
+    birthYear: "",
+    deathYear: "",
+    countryName: "",
+    countrySlug: "",
+    website: "",
     status: "APPROVED" as Item["status"],
   });
   const [savingEdit, setSavingEdit] = useState(false);
@@ -166,9 +190,21 @@ export default function ReferenceManager({
     setForm({
       name: item.name,
       slug: item.slug ?? "",
+      originalName: item.originalName ?? "",
       description: item.description ?? "",
+      shortDescription: item.shortDescription ?? "",
       coverImage: item.coverImage ?? "",
       bannerImage: item.bannerImage ?? "",
+      imageFilename: item.imageFilename ?? "",
+      sourceName: item.sourceName ?? "",
+      sourceUrl: item.sourceUrl ?? "",
+      seoTitle: item.seoTitle ?? "",
+      seoDescription: item.seoDescription ?? "",
+      birthYear: item.birthYear?.toString() ?? "",
+      deathYear: item.deathYear?.toString() ?? "",
+      countryName: item.countryName ?? "",
+      countrySlug: item.countrySlug ?? "",
+      website: item.website ?? "",
       status: item.status,
     });
   };
@@ -184,9 +220,21 @@ export default function ReferenceManager({
         body: JSON.stringify({
           name: form.name.trim(),
           slug: form.slug.trim() || undefined,
+          originalName: form.originalName.trim() || null,
           description: form.description.trim() || null,
+          shortDescription: form.shortDescription.trim() || null,
           coverImage: form.coverImage || null,
           bannerImage: form.bannerImage || null,
+          imageFilename: form.imageFilename.trim() || null,
+          sourceName: form.sourceName.trim() || null,
+          sourceUrl: form.sourceUrl.trim() || null,
+          seoTitle: form.seoTitle.trim() || null,
+          seoDescription: form.seoDescription.trim() || null,
+          birthYear: form.birthYear.trim() ? Number(form.birthYear) : null,
+          deathYear: form.deathYear.trim() ? Number(form.deathYear) : null,
+          countryName: form.countryName.trim() || null,
+          countrySlug: form.countrySlug.trim() || null,
+          website: form.website.trim() || null,
           status: form.status,
         }),
       });
@@ -342,6 +390,19 @@ export default function ReferenceManager({
               />
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="ref-original-name">نام اصلی</Label>
+              <Input
+                id="ref-original-name"
+                dir="ltr"
+                value={form.originalName}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, originalName: e.target.value }))
+                }
+                placeholder="Albert Camus"
+              />
+            </div>
+
             <ImageUploader
               value={form.bannerImage}
               onChange={(url) => setForm((f) => ({ ...f, bannerImage: url }))}
@@ -359,6 +420,19 @@ export default function ReferenceManager({
             />
 
             <div className="space-y-1.5">
+              <Label htmlFor="ref-image-filename">نام فایل تصویر</Label>
+              <Input
+                id="ref-image-filename"
+                dir="ltr"
+                value={form.imageFilename}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, imageFilename: e.target.value }))
+                }
+                placeholder="avatar.jpg یا logo.jpg"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="ref-desc">توضیحات</Label>
               <Textarea
                 id="ref-desc"
@@ -368,6 +442,134 @@ export default function ReferenceManager({
                 }
                 className="min-h-28"
                 placeholder="بیوگرافی/توضیح کوتاه..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ref-short-desc">توضیح کوتاه</Label>
+              <Textarea
+                id="ref-short-desc"
+                value={form.shortDescription}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, shortDescription: e.target.value }))
+                }
+                className="min-h-20"
+                placeholder="خلاصه‌ی کوتاه برای کارت‌ها و سئو"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-birth-year">سال تولد</Label>
+                <Input
+                  id="ref-birth-year"
+                  dir="ltr"
+                  value={form.birthYear}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, birthYear: e.target.value }))
+                  }
+                  placeholder="1913"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-death-year">سال وفات</Label>
+                <Input
+                  id="ref-death-year"
+                  dir="ltr"
+                  value={form.deathYear}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, deathYear: e.target.value }))
+                  }
+                  placeholder="1960"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-country-name">کشور</Label>
+                <Input
+                  id="ref-country-name"
+                  value={form.countryName}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, countryName: e.target.value }))
+                  }
+                  placeholder="فرانسه"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-country-slug">اسلاگ کشور</Label>
+                <Input
+                  id="ref-country-slug"
+                  dir="ltr"
+                  value={form.countrySlug}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, countrySlug: e.target.value }))
+                  }
+                  placeholder="france"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ref-website">وب‌سایت</Label>
+              <Input
+                id="ref-website"
+                dir="ltr"
+                value={form.website}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, website: e.target.value }))
+                }
+                placeholder="https://example.com"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-source-name">نام منبع</Label>
+                <Input
+                  id="ref-source-name"
+                  value={form.sourceName}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, sourceName: e.target.value }))
+                  }
+                  placeholder="manual"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ref-source-url">لینک منبع</Label>
+                <Input
+                  id="ref-source-url"
+                  dir="ltr"
+                  value={form.sourceUrl}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, sourceUrl: e.target.value }))
+                  }
+                  placeholder="https://example.com/source"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ref-seo-title">عنوان SEO</Label>
+              <Input
+                id="ref-seo-title"
+                value={form.seoTitle}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, seoTitle: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ref-seo-description">توضیح SEO</Label>
+              <Textarea
+                id="ref-seo-description"
+                value={form.seoDescription}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, seoDescription: e.target.value }))
+                }
+                className="min-h-20"
               />
             </div>
 
