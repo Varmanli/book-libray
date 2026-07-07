@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
   FiArchive,
@@ -28,6 +27,7 @@ import BookQuotesSection from "@/components/books/BookQuotesSection";
 import BookNotesTabsSection from "@/components/books/BookNotesTabsSection";
 import BookEditionSelector from "@/components/books/BookEditionSelector";
 import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import RichTextContent from "@/components/content/RichTextContent";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
@@ -465,7 +465,7 @@ export default async function BookPage({
                 <div className="pointer-events-none absolute -inset-2 rounded-[1.7rem] bg-gradient-to-b from-white/40 via-transparent to-black/10 dark:from-white/10 dark:to-black/20" />
 
                 <div className="relative aspect-[2/3] overflow-hidden rounded-[1.45rem] bg-secondary/40 shadow-[0_30px_75px_-46px_rgba(0,0,0,0.65)] ring-1 ring-border/80 dark:shadow-[0_34px_86px_-42px_rgba(0,0,0,0.92)] dark:ring-white/10">
-                  <Image
+                  <BookCoverImage
                     src={book.displayCoverImage || PLACEHOLDER}
                     alt={book.title}
                     fill

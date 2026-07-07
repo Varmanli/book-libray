@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { BookMarked } from "lucide-react";
 
+import BookCoverImage from "@/components/books/BookCoverImage";
 import HomeSectionHeader from "@/components/home/HomeSectionHeader";
 import { Carousel } from "@/components/ui/Carousel";
 import { getPublicBookHref } from "@/lib/book/public-href";
@@ -27,7 +27,7 @@ function BookCard({ book }: { book: HomeBookCard }) {
       className="group block rounded-[1.55rem] border border-border/75 bg-card/90 p-3 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:border-primary/25"
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-secondary">
-        <Image
+        <BookCoverImage
           src={book.coverImage || PLACEHOLDER_COVER}
           alt={book.title}
           fill

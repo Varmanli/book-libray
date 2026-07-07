@@ -8,7 +8,6 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,6 +20,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import BookCoverImage from "@/components/books/BookCoverImage";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -459,7 +459,7 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
     <>
       <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted/60">
         {book.coverImage ? (
-          <Image
+          <BookCoverImage
             src={book.coverImage}
             alt={book.title}
             width={56}

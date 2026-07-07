@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -16,6 +15,7 @@ import { FiStar } from "react-icons/fi";
 
 import BookArchiveFilterDrawer from "@/components/books/BookArchiveFilterDrawer";
 import BookArchiveFiltersPanel from "@/components/books/BookArchiveFiltersPanel";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_BOOK_ARCHIVE_FILTERS,
@@ -145,10 +145,7 @@ function ActiveFilters({
 
 function BookArchiveCard({ book }: { book: BookArchiveItem }) {
   const href = bookHref(book);
-  const [imgError, setImgError] = useState(false);
-
-  const coverSrc =
-    book.coverImage && !imgError ? book.coverImage : "/placeholder-cover.svg";
+  const coverSrc = book.coverImage || "/placeholder-cover.svg";
 
   const ratingLabel =
     book.averageRating != null
@@ -163,13 +160,12 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-background/30" />
 
         <div className="relative aspect-[2/3]">
-          <Image
+          <BookCoverImage
             src={coverSrc}
             alt={book.title}
             fill
             sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, (max-width: 1400px) 19vw, 15vw"
             className="object-cover transition duration-500 group-hover/card:scale-[1.035]"
-            onError={() => setImgError(true)}
           />
         </div>
       </div>

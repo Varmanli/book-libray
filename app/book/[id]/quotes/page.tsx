@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getBookQuotesPage } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import BookQuotesSection from "@/components/books/BookQuotesSection";
 
 export const dynamic = "force-dynamic";
@@ -43,11 +44,12 @@ export default async function BookQuotesPage({
 
         <div className="mt-4 flex items-center gap-4">
           <div className="relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-white/5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <BookCoverImage
               src={book.coverImage || PLACEHOLDER}
               alt={book.title}
-              className="h-full w-full object-cover"
+              fill
+              sizes="56px"
+              className="object-cover"
             />
           </div>
 

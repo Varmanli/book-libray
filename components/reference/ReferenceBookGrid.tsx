@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { BookOpen, Search } from "lucide-react";
 
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
 import { getPublicBookHref } from "@/lib/book/public-href";
 import { cn } from "@/lib/utils";
@@ -132,10 +132,8 @@ function ReferenceCard({
   book: ReferenceBookCard;
   subduedAuthor: boolean;
 }) {
-  const [imgError, setImgError] = useState(false);
   const href = getPublicBookHref(book);
-  const coverSrc =
-    book.coverImage && !imgError ? book.coverImage : "/placeholder-cover.svg";
+  const coverSrc = book.coverImage || "/placeholder-cover.svg";
 
   if (!href) return null;
 
@@ -145,13 +143,12 @@ function ReferenceCard({
       className="group block rounded-[1.55rem] border border-border/70 bg-card/55 p-3 shadow-[0_20px_70px_-58px_rgba(0,0,0,0.75)] transition hover:border-primary/20 hover:bg-card/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-emerald-950/35 via-background to-muted">
-        <Image
+        <BookCoverImage
           src={coverSrc}
           alt={book.title}
           fill
           className="object-cover transition duration-500 group-hover:scale-[1.025]"
           sizes="(max-width: 640px) 45vw, (max-width: 1024px) 29vw, (max-width: 1400px) 18vw, 14vw"
-          onError={() => setImgError(true)}
         />
       </div>
 

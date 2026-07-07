@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowRight, NotebookPen } from "lucide-react";
 
@@ -8,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getBookDetail } from "@/lib/book/detail-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import PublicShell from "@/components/PublicShell";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import BookEditionSelector from "@/components/books/BookEditionSelector";
 import BookNotesTabsSection from "@/components/books/BookNotesTabsSection";
 import ReferenceChip from "@/components/books/ReferenceChip";
@@ -91,7 +91,7 @@ export default async function BookNotesPage({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-background/40 sm:w-20">
-                <Image
+                <BookCoverImage
                   src={book.displayCoverImage || PLACEHOLDER}
                   alt={book.title}
                   fill
