@@ -1,24 +1,34 @@
 import type { NextConfig } from "next";
 
 /**
- * هاست‌های مجاز برای next/image. هاست مربوط به باکت آبجکت‌استوریج را از روی
- * S3_PUBLIC_BASE_URL استخراج می‌کنیم تا با تغییر باکت/دامنه نیازی به ویرایش
- * دستی نباشد. هاست فعلی هم به‌عنوان fallback نگه داشته می‌شود.
+ * هاست‌های مجاز برای next/image. هاست‌های رایجِ ذخیره‌سازی را به‌صورت صریح
+ * نگه می‌داریم و علاوه‌برآن از envهای مختلفِ سازگار با استقرار هم hostname
+ * استخراج می‌کنیم تا تغییر دامنه‌ی عمومیِ storage باعث 400 از image optimizer
+ * نشود.
  */
 function resolveImageHosts(): string[] {
   const hosts = new Set<string>([
     "qafaseh-prod.s3.ir-thr-at1.arvanstorage.ir",
+    "qafaseh-prod.s3.ir-thr-at1.liara.space",
     "www.iranketab.ir",
     "iranketab.ir",
   ]);
 
-  const base = process.env.S3_PUBLIC_BASE_URL;
+  const candidates = [
+    process.env.S3_PUBLIC_BASE_URL,
+    process.env.S3_PUBLIC_URL,
+    process.env.STORAGE_PUBLIC_URL,
+    process.env.ARVAN_PUBLIC_URL,
+    process.env.ARVAN_ENDPOINT,
+    process.env.S3_ENDPOINT,
+  ];
 
-  if (base) {
+  for (const value of candidates) {
+    if (!value) continue;
     try {
-      hosts.add(new URL(base).hostname);
+      hosts.add(new URL(value).hostname);
     } catch {
-      // اگر مقدار نامعتبر بود، فقط fallback استفاده می‌شود.
+      // اگر مقدار نامعتبر بود، فقط fallbackها استفاده می‌شوند.
     }
   }
 
