@@ -28,6 +28,15 @@ type ImportTransactionError = {
   message: string;
 };
 
+type DbErrorCause = {
+  code?: string;
+  detail?: string;
+  constraint?: string;
+  column?: string;
+  table?: string;
+  schema?: string;
+};
+
 async function findReusableCatalogBook(book: NormalizedImportBook) {
   const title = book.title.trim();
   const firstAuthor = (book.authors[0]?.name ?? "").trim();
@@ -75,6 +84,28 @@ function addReferenceSummary(
   key: keyof ReferencePreviewSummary,
 ) {
   target[key] += 1;
+}
+
+function extractDbErrorCause(error: unknown): DbErrorCause & { cause?: unknown } {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  const maybeError = error as { cause?: unknown };
+  const cause =
+    maybeError.cause && typeof maybeError.cause === "object"
+      ? (maybeError.cause as Record<string, unknown>)
+      : undefined;
+
+  return {
+    cause: maybeError.cause,
+    code: typeof cause?.code === "string" ? cause.code : undefined,
+    detail: typeof cause?.detail === "string" ? cause.detail : undefined,
+    constraint: typeof cause?.constraint === "string" ? cause.constraint : undefined,
+    column: typeof cause?.column === "string" ? cause.column : undefined,
+    table: typeof cause?.table === "string" ? cause.table : undefined,
+    schema: typeof cause?.schema === "string" ? cause.schema : undefined,
+  };
 }
 
 export async function importNormalizedBooks(
@@ -314,6 +345,7 @@ export async function importNormalizedBooks(
       result.skippedEditions += importableEditions.length;
       const message =
         error instanceof Error ? error.message : "خطای ناشناخته در تراکنش واردسازی.";
+      const dbCause = extractDbErrorCause(error);
       transactionErrors.push({
         rowNumbers: previewBook.rowNumbers,
         title: previewBook.title,
@@ -324,6 +356,13 @@ export async function importNormalizedBooks(
         title: previewBook.title,
         importableEditions: importableEditions.length,
         error: message,
+        cause: dbCause.cause,
+        causeCode: dbCause.code,
+        causeDetail: dbCause.detail,
+        causeConstraint: dbCause.constraint,
+        causeColumn: dbCause.column,
+        causeTable: dbCause.table,
+        causeSchema: dbCause.schema,
       });
       errors.push(
         `کتاب «${previewBook.title}» وارد نشد${error instanceof Error ? `: ${error.message}` : "."}`,
