@@ -2,9 +2,9 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 import PerformanceMonitor from "@/components/PerformanceMonitor";
-import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import ThemeProvider from "@/components/ThemeProvider";
 import { ConfirmProvider } from "@/components/common/ConfirmDialog";
+import DisablePwa from "@/components/pwa/DisablePwa";
 import { getSiteMetadataBase } from "@/lib/seo/site";
 import { getSiteSettings } from "@/lib/settings/service";
 
@@ -104,11 +104,7 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     },
     icons,
-    manifest: "/manifest.json",
-    appleWebApp: { capable: true, statusBarStyle: "default", title: siteName },
     other: {
-      "mobile-web-app-capable": "yes",
-      "apple-mobile-web-app-capable": "yes",
       "application-name": siteName,
       "msapplication-TileColor": "#2B6252",
       "msapplication-config": "/browserconfig.xml",
@@ -134,7 +130,7 @@ export default function RootLayout({
             {children}
             <Toaster position="top-center" />
             <PerformanceMonitor />
-            <PWAInstallPrompt />
+            <DisablePwa />
           </ConfirmProvider>
         </ThemeProvider>
       </body>

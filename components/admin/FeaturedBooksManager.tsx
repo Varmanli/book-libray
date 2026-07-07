@@ -99,16 +99,20 @@ export default function FeaturedBooksManager() {
     };
   }, [q]);
 
-  const featuredBookIds = new Set(items.map((i) => i.bookId));
+  const featuredCatalogBookIds = new Set(
+    items
+      .map((item) => item.resolvedCatalogBookId ?? item.catalogBookId)
+      .filter((value): value is string => Boolean(value)),
+  );
 
-  const add = async (bookId: string) => {
-    setBusyId(bookId);
+  const add = async (catalogBookId: string) => {
+    setBusyId(catalogBookId);
     try {
       const res = await fetch("/api/admin/home/featured", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ bookId }),
+        body: JSON.stringify({ catalogBookId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -118,7 +122,7 @@ export default function FeaturedBooksManager() {
       toast.success("به پیشنهادها افزوده شد");
       setQ("");
       setResults([]);
-      void load();
+      await load();
     } finally {
       setBusyId(null);
     }
@@ -211,7 +215,7 @@ export default function FeaturedBooksManager() {
               </p>
             ) : (
               results.map((b) => {
-                const already = featuredBookIds.has(b.id);
+                const already = featuredCatalogBookIds.has(b.id);
                 return (
                   <div
                     key={b.id}
@@ -314,6 +318,15 @@ export default function FeaturedBooksManager() {
                   <p className="truncate text-xs text-muted-foreground">
                     {item.author}
                   </p>
+                  {item.catalogBookId ? (
+                    <p className="truncate text-[11px] text-muted-foreground/80">
+                      کاتالوگ: {item.catalogBookId}
+                    </p>
+                  ) : item.bookId ? (
+                    <p className="truncate text-[11px] text-muted-foreground/80">
+                      ارجاع قدیمی کتابخانه
+                    </p>
+                  ) : null}
                 </div>
 
                 <button

@@ -9,5 +9,8 @@ fi
 echo "Running production database repair..."
 npm run db:prod:repair
 
+echo "Running prestart production tasks..."
+npm run prestart:prod
+
 echo "Starting Next.js server..."
 exec "$@"

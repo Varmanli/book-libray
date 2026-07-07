@@ -9,7 +9,9 @@ import {
   adminListFeaturedBooks,
 } from "@/lib/home/service";
 
-const addSchema = z.object({ bookId: z.string().min(1, "کتاب نامعتبر است") });
+const addSchema = z.object({
+  catalogBookId: z.string().min(1, "کتاب نامعتبر است"),
+});
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -38,9 +40,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await adminAddFeaturedBook(parsed.data.bookId);
-  } catch {
+    const item = await adminAddFeaturedBook(parsed.data.catalogBookId);
+    return apiSuccess(
+      { item, message: "به پیشنهادها افزوده شد" },
+      { status: 201 },
+    );
+  } catch (err) {
+    if (err instanceof Error && err.message === "CATALOG_BOOK_NOT_FOUND") {
+      return apiError("کتاب پیدا نشد", 404, "CATALOG_BOOK_NOT_FOUND");
+    }
     return apiError("افزودن کتاب ناموفق بود", 400);
   }
-  return apiSuccess({ message: "به پیشنهادها افزوده شد" }, { status: 201 });
 }

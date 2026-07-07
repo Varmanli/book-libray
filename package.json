@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "prestart:prod": "tsx scripts/prestart-production.ts",
+    "start:prod": "npm run prestart:prod && next start",
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:prod:repair": "node scripts/prod-db-repair.mjs",
@@ -17,6 +19,9 @@
     "db:apply:external-links": "tsx --env-file=.env scripts/apply-book-external-links.ts",
     "db:apply:site-settings": "tsx --env-file=.env scripts/apply-site-settings.ts",
     "db:apply:static-pages": "tsx --env-file=.env scripts/apply-static-pages.ts",
+    "featured:inspect": "tsx scripts/inspect-featured-book-integrity.ts",
+    "featured:repair": "tsx scripts/repair-featured-book-integrity.ts",
+    "featured:repair:dry": "tsx scripts/repair-featured-book-integrity.ts --dry-run",
     "repair:joined-genres": "tsx --env-file=.env scripts/repair-joined-genre-references.ts",
     "storage:check": "tsx --env-file=.env scripts/check-storage.ts"
   },

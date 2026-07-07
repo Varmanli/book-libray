@@ -9,6 +9,7 @@ import {
   HomeHeroSlideBook,
   User,
 } from "@/db/schema";
+import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import {
   homeBookColumns,
   homeBookJoins,
@@ -58,11 +59,16 @@ export interface HomeBookCard {
 
 export interface AdminFeaturedBook {
   id: string;
-  bookId: string;
+  catalogBookId: string | null;
+  bookId: string | null;
+  resolvedCatalogBookId: string | null;
   slug: string | null;
   title: string;
   author: string;
   coverImage: string | null;
+  genre: string | null;
+  primaryEditionId: string | null;
+  displayEditionId: string | null;
   isActive: boolean;
   sortOrder: number;
 }
@@ -74,6 +80,37 @@ export interface FeaturedBookSearchResult {
   author: string;
   coverImage: string | null;
 }
+
+type FeaturedBaseRow = {
+  id: string;
+  catalogBookId: string | null;
+  bookId: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+};
+
+type LegacyBookDisplay = {
+  id: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  genre: string | null;
+  coverImage: string | null;
+  catalogBookId: string | null;
+};
+
+type CatalogFeaturedDisplay = {
+  id: string;
+  slug: string | null;
+  title: string;
+  author: string;
+  genre: string | null;
+  primaryEditionId: string | null;
+  displayEditionId: string | null;
+  coverImage: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+};
 
 export interface HomeHeroSlide {
   id: string;
@@ -263,6 +300,116 @@ export const HOME_PLACEHOLDER_LISTS: HomeReadingListPreview[] = [
   },
 ];
 
+async function listFeaturedBaseRows(): Promise<FeaturedBaseRow[]> {
+  return db
+    .select({
+      id: HomeFeaturedBook.id,
+      catalogBookId: HomeFeaturedBook.catalogBookId,
+      bookId: HomeFeaturedBook.bookId,
+      isActive: HomeFeaturedBook.isActive,
+      sortOrder: HomeFeaturedBook.sortOrder,
+      createdAt: HomeFeaturedBook.createdAt,
+    })
+    .from(HomeFeaturedBook)
+    .orderBy(asc(HomeFeaturedBook.sortOrder), asc(HomeFeaturedBook.createdAt));
+}
+
+async function loadLegacyBookMap(bookIds: string[]) {
+  if (bookIds.length === 0) return new Map<string, LegacyBookDisplay>();
+
+  const rows = await db
+    .select({
+      id: Book.id,
+      slug: Book.slug,
+      title: Book.title,
+      author: Book.author,
+      genre: Book.genre,
+      coverImage: Book.coverImage,
+      catalogBookId: Book.catalogBookId,
+    })
+    .from(Book)
+    .where(inArray(Book.id, bookIds));
+
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+async function loadCatalogFeaturedDisplayMap(catalogIds: string[]) {
+  if (catalogIds.length === 0) return new Map<string, CatalogFeaturedDisplay>();
+
+  const rows = await db
+    .select({
+      id: CatalogBook.id,
+      slug: CatalogBook.slug,
+      title: CatalogBook.title,
+      author: CatalogBook.author,
+      genre: CatalogBook.genre,
+      status: CatalogBook.status,
+      primaryEditionId: CatalogBook.primaryEditionId,
+      displayEditionId: preferredEditionFieldSql<string | null>("id"),
+      coverImage: sql<string | null>`coalesce(
+        ${preferredEditionFieldSql<string | null>("cover_image")},
+        ${CatalogBook.coverImage}
+      )`,
+    })
+    .from(CatalogBook)
+    .where(inArray(CatalogBook.id, catalogIds));
+
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+async function resolveFeaturedRows(rows: FeaturedBaseRow[]) {
+  const bookIds = rows
+    .map((row) => row.bookId)
+    .filter((value): value is string => Boolean(value));
+  const legacyMap = await loadLegacyBookMap(bookIds);
+
+  const catalogIds = new Set<string>();
+  for (const row of rows) {
+    if (row.catalogBookId) {
+      catalogIds.add(row.catalogBookId);
+      continue;
+    }
+    const legacy = row.bookId ? legacyMap.get(row.bookId) : null;
+    if (legacy?.catalogBookId) {
+      catalogIds.add(legacy.catalogBookId);
+    }
+  }
+
+  const catalogMap = await loadCatalogFeaturedDisplayMap([...catalogIds]);
+
+  return rows.map((row) => {
+    if (row.catalogBookId) {
+      const catalog = catalogMap.get(row.catalogBookId) ?? null;
+      return {
+        row,
+        resolvedCatalogBookId: row.catalogBookId,
+        sourceType: "catalog" as const,
+        catalog,
+        legacy: null,
+      };
+    }
+
+    const legacy = row.bookId ? legacyMap.get(row.bookId) ?? null : null;
+    if (legacy?.catalogBookId) {
+      return {
+        row,
+        resolvedCatalogBookId: legacy.catalogBookId,
+        sourceType: "catalog" as const,
+        catalog: catalogMap.get(legacy.catalogBookId) ?? null,
+        legacy,
+      };
+    }
+
+    return {
+      row,
+      resolvedCatalogBookId: null,
+      sourceType: "legacy" as const,
+      catalog: null,
+      legacy,
+    };
+  });
+}
+
 /**
  * Popular books for the homepage.
  *
@@ -318,125 +465,158 @@ export async function getPopularBooks(limit = 12): Promise<HomeBookCard[]> {
  * کتاب‌های اخیرِ عمومی به‌عنوان fallback برمی‌گردد.
  */
 export async function getFeaturedBooks(limit = 12): Promise<HomeBookCard[]> {
-  const j = homeBookJoins("feat_pub");
-  const cols = homeBookColumns(j);
-  const rows = await db
-    .select({
-      homeId: HomeFeaturedBook.id,
-      sortOrder: HomeFeaturedBook.sortOrder,
-      createdAt: HomeFeaturedBook.createdAt,
-      ...cols,
-    })
-    .from(HomeFeaturedBook)
-    .leftJoin(
-      j.directCatalog,
-      eq(j.directCatalog.id, HomeFeaturedBook.catalogBookId),
-    )
-    .leftJoin(j.linkedBook, eq(j.linkedBook.id, HomeFeaturedBook.bookId))
-    .leftJoin(j.linkedCatalog, eq(j.linkedCatalog.id, j.linkedBook.catalogBookId))
-    .where(
-      and(
-        eq(HomeFeaturedBook.isActive, true),
-        // فقط آیتم‌هایی که هویت عمومیِ معتبر دارند: کتاب کانونیِ تأییدشده، یا یک
-        // ردیف کتابخانه‌ی قدیمیِ مستقل (بدون لینک کاتالوگ) که اسلاگ خودش را دارد.
-        or(
-          eq(j.directCatalog.status, "APPROVED"),
-          eq(j.linkedCatalog.status, "APPROVED"),
-          and(
-            sql`${HomeFeaturedBook.catalogBookId} is null`,
-            isNotNull(HomeFeaturedBook.bookId),
-            sql`${j.linkedBook.catalogBookId} is null`,
-          ),
-        ),
-      ),
-    )
-    .orderBy(asc(HomeFeaturedBook.sortOrder), asc(HomeFeaturedBook.createdAt))
-    .limit(limit);
+  const rows = (await listFeaturedBaseRows()).filter((row) => row.isActive);
+  const resolvedRows = await resolveFeaturedRows(rows);
 
-  return rows
-    .map((row): HomeBookCard | null => {
-      const resolved = normalizeResolvedHomeBook(row);
-      if (!resolved) return null;
+  return resolvedRows
+    .map((item): HomeBookCard | null => {
+      if (item.sourceType === "catalog") {
+        if (!item.catalog || item.catalog.status !== "APPROVED") return null;
+        return {
+          id: item.row.id,
+          slug: item.catalog.slug,
+          title: item.catalog.title,
+          author: item.catalog.author,
+          coverImage: coalesceCoverImage(item.catalog.coverImage),
+          genre: item.catalog.genre,
+          status: null,
+        };
+      }
+
+      if (!item.legacy?.slug) return null;
       return {
-        id: row.homeId,
-        slug: resolved.slug,
-        title: resolved.title,
-        author: resolved.author,
-        coverImage: resolved.coverImage,
-        genre: resolved.genre,
+        id: item.row.id,
+        slug: item.legacy.slug,
+        title: item.legacy.title,
+        author: item.legacy.author,
+        coverImage: coalesceCoverImage(item.legacy.coverImage),
+        genre: item.legacy.genre,
         status: null,
       };
     })
-    .filter((b): b is HomeBookCard => b !== null);
+    .filter((item): item is HomeBookCard => item !== null)
+    .slice(0, limit);
 }
 
 // ---------------- مدیریت ادمین: کتاب‌های پیشنهادی ----------------
 export async function adminListFeaturedBooks(): Promise<AdminFeaturedBook[]> {
-  const j = homeBookJoins("feat_admin");
-  const cols = homeBookColumns(j);
-  const rows = await db
-    .select({
-      id: HomeFeaturedBook.id,
-      catalogBookId: HomeFeaturedBook.catalogBookId,
-      legacyBookId: HomeFeaturedBook.bookId,
-      isActive: HomeFeaturedBook.isActive,
-      sortOrder: HomeFeaturedBook.sortOrder,
-      resolvedCatalogId: cols.catalogBookId,
-      slug: cols.slug,
-      title: cols.title,
-      author: cols.author,
-      coverImage: cols.coverImage,
-      genre: cols.genre,
-    })
-    .from(HomeFeaturedBook)
-    .leftJoin(
-      j.directCatalog,
-      eq(j.directCatalog.id, HomeFeaturedBook.catalogBookId),
-    )
-    .leftJoin(j.linkedBook, eq(j.linkedBook.id, HomeFeaturedBook.bookId))
-    .leftJoin(j.linkedCatalog, eq(j.linkedCatalog.id, j.linkedBook.catalogBookId))
-    .orderBy(asc(HomeFeaturedBook.sortOrder), asc(HomeFeaturedBook.createdAt));
+  const rows = await listFeaturedBaseRows();
+  const resolvedRows = await resolveFeaturedRows(rows);
 
-  return rows.map((row) => {
-    const resolved = normalizeResolvedHomeBook(row);
+  return resolvedRows.map((item) => {
+    const fromCatalog = item.sourceType === "catalog" ? item.catalog : null;
+    const fromLegacy = item.sourceType === "legacy" ? item.legacy : null;
+
     return {
-      id: row.id,
-      // شناسه‌ی هویتِ کانونی برای dedupه با نتایج جست‌وجو (catalogBookId جدید یا
-      // book_id قدیمی به‌عنوان fallback تا آیتم‌های legacy هم کلید یکتا داشته باشند).
-      bookId:
-        row.resolvedCatalogId ?? row.catalogBookId ?? row.legacyBookId ?? row.id,
-      slug: resolved?.slug ?? null,
-      title: resolved?.title ?? "—",
-      author: resolved?.author ?? "",
-      coverImage: resolved?.coverImage ?? null,
-      isActive: row.isActive,
-      sortOrder: row.sortOrder,
+      id: item.row.id,
+      catalogBookId: item.row.catalogBookId,
+      bookId: item.row.bookId,
+      resolvedCatalogBookId: item.resolvedCatalogBookId,
+      slug: fromCatalog?.slug ?? fromLegacy?.slug ?? null,
+      title: fromCatalog?.title ?? fromLegacy?.title ?? "—",
+      author: fromCatalog?.author ?? fromLegacy?.author ?? "",
+      coverImage: coalesceCoverImage(fromCatalog?.coverImage ?? fromLegacy?.coverImage ?? null),
+      genre: fromCatalog?.genre ?? fromLegacy?.genre ?? null,
+      primaryEditionId: fromCatalog?.primaryEditionId ?? null,
+      displayEditionId: fromCatalog?.displayEditionId ?? null,
+      isActive: item.row.isActive,
+      sortOrder: item.row.sortOrder,
     } satisfies AdminFeaturedBook;
   });
 }
 
-export async function adminAddFeaturedBook(identityId: string): Promise<void> {
+export async function adminAddFeaturedBook(catalogBookId: string): Promise<AdminFeaturedBook> {
+  const [catalog] = await db
+    .select({ id: CatalogBook.id })
+    .from(CatalogBook)
+    .where(eq(CatalogBook.id, catalogBookId))
+    .limit(1);
+
+  if (!catalog) {
+    throw new Error("CATALOG_BOOK_NOT_FOUND");
+  }
+
+  const existingRows = await listFeaturedBaseRows();
+  const resolvedRows = await resolveFeaturedRows(existingRows);
+  const duplicate = resolvedRows.find(
+    (item) => item.resolvedCatalogBookId === catalogBookId,
+  );
+
+  if (duplicate) {
+    await db
+      .update(HomeFeaturedBook)
+      .set({
+        catalogBookId,
+        bookId: null,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(HomeFeaturedBook.id, duplicate.row.id));
+
+    return (await adminListFeaturedBooks()).find((item) => item.id === duplicate.row.id)!;
+  }
+
   const [row] = await db
     .select({
       max: sql<number>`coalesce(max(${HomeFeaturedBook.sortOrder}), -1)::int`,
     })
     .from(HomeFeaturedBook);
   const nextOrder = (row?.max ?? -1) + 1;
-  const ref = await resolveHomeBookRef(identityId);
-  await db
+  const [created] = await db
     .insert(HomeFeaturedBook)
-    .values({ ...ref, sortOrder: nextOrder })
-    .onConflictDoNothing();
+    .values({ catalogBookId, bookId: null, sortOrder: nextOrder })
+    .returning({ id: HomeFeaturedBook.id });
+
+  return (await adminListFeaturedBooks()).find((item) => item.id === created.id)!;
 }
 
 export async function adminSetFeaturedActive(
   id: string,
   isActive: boolean
 ): Promise<void> {
-  await db
-    .update(HomeFeaturedBook)
-    .set({ isActive, updatedAt: new Date() })
-    .where(eq(HomeFeaturedBook.id, id));
+  if (!isActive) {
+    await db
+      .update(HomeFeaturedBook)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(HomeFeaturedBook.id, id));
+    return;
+  }
+
+  const rows = await listFeaturedBaseRows();
+  const resolvedRows = await resolveFeaturedRows(rows);
+  const target = resolvedRows.find((item) => item.row.id === id);
+
+  if (!target) return;
+
+  await db.transaction(async (tx) => {
+    if (target.resolvedCatalogBookId) {
+      const duplicateIds = resolvedRows
+        .filter(
+          (item) =>
+            item.row.id !== id &&
+            item.resolvedCatalogBookId === target.resolvedCatalogBookId &&
+            item.row.isActive,
+        )
+        .map((item) => item.row.id);
+
+      if (duplicateIds.length > 0) {
+        await tx
+          .update(HomeFeaturedBook)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(inArray(HomeFeaturedBook.id, duplicateIds));
+      }
+    }
+
+    await tx
+      .update(HomeFeaturedBook)
+      .set({
+        isActive: true,
+        catalogBookId: target.resolvedCatalogBookId ?? target.row.catalogBookId,
+        bookId: target.resolvedCatalogBookId ? null : target.row.bookId,
+        updatedAt: new Date(),
+      })
+      .where(eq(HomeFeaturedBook.id, id));
+  });
 }
 
 export async function adminRemoveFeaturedBook(id: string): Promise<void> {
