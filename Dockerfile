@@ -88,4 +88,4 @@ USER nextjs
 EXPOSE 3005
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start:next"]
