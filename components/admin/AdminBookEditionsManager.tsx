@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   compareEditionSets,
   findDuplicateEditionIds,
+  validatePrimaryEditionResponse,
 } from "@/lib/admin/edition-set-invariants";
 import type { AdminBookEditionRow } from "@/lib/admin/service";
 import { getEditionCoverSrc } from "@/lib/book/cover";
@@ -53,6 +54,7 @@ type EditionFormState = {
 type PrimaryEditionResponse = {
   success?: boolean;
   catalogBookId?: string;
+  catalogBook?: { id?: string; primaryEditionId?: string | null };
   previousPrimaryEditionId?: string | null;
   primaryEditionId?: string | null;
   editionIdsBefore?: string[];
@@ -231,7 +233,16 @@ export default function AdminBookEditionsManager({
         return;
       }
 
-      const nextItems = Array.isArray(data.editions) ? data.editions : [];
+      const payloadInvariant = validatePrimaryEditionResponse(catalogBookId, data);
+      const nextItems = payloadInvariant.editions as AdminBookEditionRow[] | null;
+      if (!nextItems) {
+        console.error("Primary edition response was missing an edition list.", {
+          catalogBookId,
+          apiResponse: data,
+        });
+        toast.error("پاسخ سرور نامعتبر است؛ فهرست نسخه‌ها بدون تغییر ماند.");
+        return;
+      }
       const invariant = compareEditionSets(beforeItems, nextItems);
       const selectedExistsInResponse = nextItems.some(
         (edition) => edition.id === editionId,
@@ -246,6 +257,7 @@ export default function AdminBookEditionsManager({
 
       if (
         !invariant.ok ||
+        !payloadInvariant.ok ||
         !selectedExistsInResponse ||
         !previousPrimaryExistsInResponse
       ) {
@@ -262,11 +274,12 @@ export default function AdminBookEditionsManager({
           previousPrimaryEditionId,
           selectedExistsInResponse,
           previousPrimaryExistsInResponse,
+          responseBookId: payloadInvariant.responseBookId,
+          crossBookEditionIds: payloadInvariant.crossBookEditionIds,
           beforeSnapshots,
           apiResponse: data,
         });
 
-        setPrimaryEditionId(data.primaryEditionId ?? editionId);
         toast.error("خطا در به‌روزرسانی نسخه اصلی؛ لیست نسخه‌ها نامعتبر برگشت.");
         return;
       }

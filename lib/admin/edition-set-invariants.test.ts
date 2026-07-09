@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { compareEditionSets } from "@/lib/admin/edition-set-invariants";
+import {
+  compareEditionSets,
+  validatePrimaryEditionResponse,
+} from "@/lib/admin/edition-set-invariants";
 
 const rows = (ids: string[]) => ids.map((id) => ({ id }));
 
@@ -33,4 +36,33 @@ test("extra ids fail the invariant", () => {
 
   assert.equal(result.ok, false);
   assert.deepEqual(result.addedIds, ["c"]);
+});
+
+test("cross-book editions in a primary-edition response are rejected", () => {
+  const result = validatePrimaryEditionResponse("book-a", {
+    catalogBook: { id: "book-a" },
+    primaryEditionId: "edition-a",
+    editions: [
+      { id: "edition-a", catalogBookId: "book-a" },
+      { id: "edition-b", catalogBookId: "book-b" },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.crossBookEditionIds, ["edition-b"]);
+});
+
+test("duplicate ids and an unknown primary are rejected", () => {
+  const result = validatePrimaryEditionResponse("book-a", {
+    catalogBook: { id: "book-a" },
+    primaryEditionId: "missing",
+    editions: [
+      { id: "edition-a", catalogBookId: "book-a" },
+      { id: "edition-a", catalogBookId: "book-a" },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.duplicateIds, ["edition-a"]);
+  assert.equal(result.primaryExists, false);
 });

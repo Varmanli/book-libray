@@ -23,6 +23,8 @@
     "featured:inspect": "tsx scripts/inspect-featured-book-integrity.ts",
     "featured:repair": "tsx scripts/repair-featured-book-integrity.ts",
     "featured:repair:dry": "tsx scripts/repair-featured-book-integrity.ts --dry-run",
+    "primary-edition:inspect": "tsx --env-file=.env scripts/repair-primary-edition-integrity.ts",
+    "primary-edition:repair": "tsx --env-file=.env scripts/repair-primary-edition-integrity.ts --apply",
     "repair:joined-genres": "tsx --env-file=.env scripts/repair-joined-genre-references.ts",
     "storage:check": "tsx --env-file=.env scripts/check-storage.ts"
   },

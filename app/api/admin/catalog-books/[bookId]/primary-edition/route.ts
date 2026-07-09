@@ -6,6 +6,7 @@ import { apiError, apiSuccess } from "@/lib/api/response";
 import {
   compareEditionSets,
   findDuplicateEditionIds,
+  validatePrimaryEditionResponse,
 } from "@/lib/admin/edition-set-invariants";
 import {
   getAdminCatalogBookForEdit,
@@ -36,7 +37,11 @@ export async function PATCH(
   }
 
   try {
-    const result = await setAdminCatalogBookPrimaryEdition(bookId, parsed.data);
+    const result = await setAdminCatalogBookPrimaryEdition(
+      bookId,
+      parsed.data,
+      gate.user.id,
+    );
     const [book, editions] = await Promise.all([
       getAdminCatalogBookForEdit(bookId),
       listAdminBookEditions(bookId),
@@ -45,9 +50,12 @@ export async function PATCH(
       result.editionIdsBefore.map((id) => ({ id })),
       editions,
     );
-    const selectedEditionMissing =
-      result.primaryEditionId !== null &&
-      !editions.some((edition) => edition.id === result.primaryEditionId);
+    const payloadInvariant = validatePrimaryEditionResponse(bookId, {
+      catalogBook: book ? { id: book.id } : null,
+      primaryEditionId: result.primaryEditionId,
+      editions,
+    });
+    const selectedEditionMissing = !payloadInvariant.primaryExists;
     const previousPrimaryMissing =
       result.previousPrimaryEditionId !== null &&
       result.editionIdsBefore.includes(result.previousPrimaryEditionId) &&
@@ -55,6 +63,8 @@ export async function PATCH(
 
     if (
       !responseInvariant.ok ||
+      !book ||
+      !payloadInvariant.ok ||
       selectedEditionMissing ||
       previousPrimaryMissing
     ) {
@@ -66,6 +76,7 @@ export async function PATCH(
         editionIdsBefore: result.editionIdsBefore,
         editionIdsAfter: result.editionIdsAfter,
         responseInvariant,
+        payloadInvariant,
         duplicateIds: findDuplicateEditionIds(editions),
         selectedEditionMissing,
         previousPrimaryMissing,
@@ -88,6 +99,7 @@ export async function PATCH(
     return apiSuccess({
       success: true,
       catalogBookId: bookId,
+      catalogBook: { id: bookId, primaryEditionId: result.primaryEditionId },
       previousPrimaryEditionId: result.previousPrimaryEditionId,
       primaryEditionId: result.primaryEditionId,
       editionIdsBefore: result.editionIdsBefore,
@@ -104,7 +116,7 @@ export async function PATCH(
         return apiError("نسخه پیدا نشد", 404, "EDITION_NOT_FOUND");
       }
       if (err.message === "EDITION_BOOK_MISMATCH") {
-        return apiError("نسخه انتخاب‌شده متعلق به این کتاب نیست", 422, "EDITION_BOOK_MISMATCH");
+        return apiError("نسخه انتخاب‌شده متعلق به این کتاب نیست", 400, "EDITION_BOOK_MISMATCH");
       }
       if (err.message === "PRIMARY_EDITION_MUTATED_EDITIONS") {
         return apiError(

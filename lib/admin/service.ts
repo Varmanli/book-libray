@@ -1119,6 +1119,7 @@ export async function deleteAdminBookEdition(
 export async function setAdminCatalogBookPrimaryEdition(
   bookId: string,
   input: AdminPrimaryEditionInput,
+  actorId?: string,
 ): Promise<{
   previousPrimaryEditionId: string | null;
   primaryEditionId: string | null;
@@ -1132,7 +1133,16 @@ export async function setAdminCatalogBookPrimaryEdition(
       .where(eq(CatalogBook.id, bookId))
       .limit(1);
 
-    if (!book) throw new Error("CATALOG_BOOK_NOT_FOUND");
+    if (!book) {
+      console.warn("Rejected primary edition selection: catalog book not found", {
+        catalogBookId: bookId,
+        selectedEditionId: input.editionId,
+        selectedEditionCatalogBookId: null,
+        previousPrimaryEditionId: null,
+        actorId,
+      });
+      throw new Error("CATALOG_BOOK_NOT_FOUND");
+    }
 
     const editionsBefore = await tx
       .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
@@ -1141,22 +1151,38 @@ export async function setAdminCatalogBookPrimaryEdition(
       .orderBy(asc(BookEdition.id));
 
     if (input.editionId !== null) {
-      const edition = editionsBefore.find((row) => row.id === input.editionId);
-      if (!edition) {
-        const [foreignEdition] = await tx
-          .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
-          .from(BookEdition)
-          .where(eq(BookEdition.id, input.editionId))
-          .limit(1);
+      const [selectedEdition] = await tx
+        .select({ id: BookEdition.id, catalogBookId: BookEdition.catalogBookId })
+        .from(BookEdition)
+        .where(eq(BookEdition.id, input.editionId))
+        .limit(1);
 
-        if (!foreignEdition) throw new Error("EDITION_NOT_FOUND");
+      if (!selectedEdition) {
+        console.warn("Rejected primary edition selection: edition not found", {
+          catalogBookId: bookId,
+          selectedEditionId: input.editionId,
+          selectedEditionCatalogBookId: null,
+          previousPrimaryEditionId: book.primaryEditionId,
+          actorId,
+        });
+        throw new Error("EDITION_NOT_FOUND");
+      }
+      if (selectedEdition.catalogBookId !== bookId) {
+        console.warn("Rejected cross-book primary edition selection", {
+          catalogBookId: bookId,
+          selectedEditionId: input.editionId,
+          selectedEditionCatalogBookId: selectedEdition.catalogBookId,
+          previousPrimaryEditionId: book.primaryEditionId,
+          actorId,
+        });
         throw new Error("EDITION_BOOK_MISMATCH");
       }
     }
 
     await tx
       .update(CatalogBook)
-      .set({ primaryEditionId: input.editionId, updatedAt: new Date() })
+      // This action intentionally has exactly one business-field mutation.
+      .set({ primaryEditionId: input.editionId })
       .where(eq(CatalogBook.id, bookId));
 
     const editionsAfter = await tx
