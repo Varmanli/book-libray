@@ -11,7 +11,6 @@ import {
 import { saveImageUpload } from "@/lib/server/upload-storage";
 import {
   getFilenameExtension,
-  sanitizeFilename,
 } from "@/lib/server/upload-key";
 import { validateImageFile } from "@/lib/upload";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
@@ -756,23 +755,15 @@ export async function previewReferenceMediaMatches(
   };
 }
 
-function referenceFolder(type: SupportedReferenceProfileType) {
-  if (type === "AUTHOR") return "authors";
-  if (type === "TRANSLATOR") return "translators";
-  return "publishers";
-}
-
 export function buildReferenceImageUploadKey(
-  reference: Pick<ReferenceItemDTO, "type" | "slug" | "imageFilename">,
+  _reference: Pick<ReferenceItemDTO, "type" | "slug" | "imageFilename">,
   fileName: string,
 ) {
   const extension = getFilenameExtension(fileName) || ".jpg";
-  const safeSlug = sanitizeFilename(reference.slug || "reference");
-  const preferredBase =
-    reference.imageFilename?.replace(/\.[a-z0-9]+$/i, "") ??
-    (reference.type === "PUBLISHER" ? "logo" : "avatar");
-  const safeBase = sanitizeFilename(preferredBase);
-  return `references/${referenceFolder(reference.type as SupportedReferenceProfileType)}/${safeSlug}/${safeBase}${extension}`;
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `references/${year}/${month}/${crypto.randomUUID()}${extension}`;
 }
 
 export async function uploadReferenceMedia(
@@ -786,6 +777,7 @@ export async function uploadReferenceMedia(
       slug: ReferenceItem.slug,
       name: ReferenceItem.name,
       imageFilename: ReferenceItem.imageFilename,
+      metadata: ReferenceItem.metadata,
     })
     .from(ReferenceItem)
     .where(
@@ -844,6 +836,7 @@ export async function uploadReferenceMedia(
       .set({
         coverImage: upload.url,
         imageFilename: row.imageFilename || fileNameFromPath(file.name),
+        metadata: { ...(row.metadata ?? {}), imageObjectKey: upload.key },
         updatedAt: new Date(),
       })
       .where(eq(ReferenceItem.id, row.id));

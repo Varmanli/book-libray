@@ -22,10 +22,11 @@ try {
 }
 
 const endpoint = process.env.S3_ENDPOINT;
-const region = process.env.S3_REGION;
+const region = process.env.S3_REGION || "auto";
 const bucket = process.env.S3_BUCKET;
 const accessKeyId = process.env.S3_ACCESS_KEY_ID;
 const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+const publicBaseUrl = process.env.S3_PUBLIC_BASE_URL;
 
 // زمان‌بندی‌ها سخاوتمندانه‌اند چون تأخیرِ اتصال/TLS به آروان از برخی شبکه‌ها
 // نوسان زیادی دارد (از ~۲ تا ~۲۰ ثانیه دیده شده). مقادیر خیلی کوچک باعث
@@ -52,9 +53,18 @@ export class StorageError extends Error {
 }
 
 function assertS3Config() {
-  if (!endpoint || !region || !bucket || !accessKeyId || !secretAccessKey) {
+  const missing = [
+    ["S3_ENDPOINT", endpoint],
+    ["S3_BUCKET", bucket],
+    ["S3_ACCESS_KEY_ID", accessKeyId],
+    ["S3_SECRET_ACCESS_KEY", secretAccessKey],
+    ["S3_PUBLIC_BASE_URL", publicBaseUrl],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
     throw new StorageError(
-      "S3 configuration is incomplete.",
+      `S3 configuration is incomplete. Missing: ${missing.join(", ")}.`,
       "STORAGE_CONFIG",
     );
   }
@@ -96,11 +106,8 @@ function getClient(): S3Client {
 }
 
 function getPublicUrl(key: string) {
-  if (process.env.S3_PUBLIC_BASE_URL) {
-    return `${process.env.S3_PUBLIC_BASE_URL.replace(/\/+$/, "")}/${key}`;
-  }
-
-  return `${endpoint?.replace(/\/+$/, "")}/${bucket}/${key}`;
+  // assertS3Config runs before every upload, so this must be configured.
+  return `${publicBaseUrl!.replace(/\/+$/, "")}/${key}`;
 }
 
 /** فقط هاستِ اندپوینت برای لاگ (بدون افشای کل URL/اعتبارنامه). */
@@ -138,6 +145,7 @@ function isConnectionError(err: unknown): boolean {
 
 /** خطای خام SDK را به StorageError با کدِ معنادار تبدیل می‌کند. */
 function toStorageError(err: unknown, step: string): StorageError {
+  if (err instanceof StorageError) return err;
   const e = err as
     | { code?: string; name?: string; message?: string; $metadata?: { httpStatusCode?: number } }
     | null;
@@ -176,6 +184,7 @@ export async function uploadImageToS3(params: {
   const started = Date.now();
   console.info("[s3] upload start", {
     folder: params.folder,
+    key,
     sizeBytes: params.buffer.length,
     contentType: params.contentType,
     endpointHost: endpointHost(),
@@ -210,6 +219,7 @@ export async function uploadImageToS3(params: {
 
   console.info("[s3] upload OK", {
     folder: params.folder,
+    key,
     durationMs: Date.now() - started,
   });
 

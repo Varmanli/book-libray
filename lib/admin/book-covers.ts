@@ -34,7 +34,7 @@ export function normalizeFilenameForCoverMatch(value: string | null | undefined)
 }
 
 function getManagedUploadPrefixes() {
-  const prefixes = ["/uploads/"];
+  const prefixes: string[] = [];
 
   const s3PublicBase = process.env.S3_PUBLIC_BASE_URL?.replace(/\/+$/, "");
   if (s3PublicBase) prefixes.push(`${s3PublicBase}/`);

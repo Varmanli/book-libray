@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { externalLinksArraySchema } from "@/lib/validations/external-links";
 import { ADMIN_BOOK_STRING_LIMITS } from "@/lib/validations/catalog-limits";
+import { isAllowedPersistedImageUrl } from "@/lib/storage/image-url";
 
 // وضعیت مطالعه — هم‌راستا با enum موجود BookStatus در دیتابیس
 export const readingStatusSchema = z.enum(["UNREAD", "READING", "FINISHED"]);
@@ -18,7 +19,10 @@ const adminEditionBaseSchema = z.object({
   isbn13: z.string().max(ADMIN_BOOK_STRING_LIMITS.isbn).nullish(),
   publishedYear: z.number().int().min(0).max(3000).nullish(),
   pageCount: z.number().int().min(1, "تعداد صفحات باید حداقل ۱ باشد").nullish(),
-  coverImage: z.string().min(1).nullable().optional(),
+  coverImage: z.string().min(1).nullable().optional().refine(
+    isAllowedPersistedImageUrl,
+    "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
+  ),
   editionDescription: z.string().max(5000).nullish(),
   editionLabel: z.string().max(ADMIN_BOOK_STRING_LIMITS.editionLabel).nullish(),
   language: z.string().max(ADMIN_BOOK_STRING_LIMITS.language).nullish(),
@@ -55,7 +59,10 @@ export const manualBookSchema = z.object({
   // ستون‌های موجود (notNull) بدون نیاز به انتخاب کاربر مقداردهی شوند.
   format: bookFormatSchema.default("ELECTRONIC"),
   // جلد اختیاری است
-  coverImage: z.string().min(1).optional(),
+  coverImage: z.string().min(1).optional().refine(
+    isAllowedPersistedImageUrl,
+    "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
+  ),
   publishedYear: z.number().int().min(0).max(3000).optional(),
   editionLabel: z.string().max(ADMIN_BOOK_STRING_LIMITS.editionLabel).optional(),
   pageCount: z.number().int().min(1, "تعداد صفحات باید حداقل ۱ باشد"),
@@ -86,7 +93,10 @@ export const adminBookUpdateSchema = z.object({
   editionLabel: z.string().max(ADMIN_BOOK_STRING_LIMITS.editionLabel).nullish(),
   pageCount: z.number().int().min(1, "تعداد صفحات باید حداقل ۱ باشد").nullish(),
   // جلد مشترکِ کانونی/نسخه
-  coverImage: z.string().min(1).nullable().optional(),
+  coverImage: z.string().min(1).nullable().optional().refine(
+    isAllowedPersistedImageUrl,
+    "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
+  ),
   // بازتولید صریح اسلاگ (پیش‌فرض خاموش تا لینک عمومی پایدار بماند)
   regenerateSlug: z.boolean().optional(),
 });

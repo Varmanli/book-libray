@@ -3,6 +3,7 @@ import {
   type ImportReferenceInput,
 } from "@/lib/reference/service";
 import { splitMultiValueText } from "@/lib/book/genres";
+import { isLocalUploadPath } from "@/lib/storage/image-url";
 import type {
   ImportStatus,
   NormalizedImportBook,
@@ -211,8 +212,7 @@ export function normalizeIsbn(value: unknown): string | null {
 }
 
 export function canPersistCoverUrl(coverUrl: string | null): boolean {
-  if (!coverUrl) return false;
-  return coverUrl.startsWith("/") || coverUrl.startsWith("uploads/");
+  return !!coverUrl && !isLocalUploadPath(coverUrl);
 }
 
 export function normalizeBookGroupingKey(

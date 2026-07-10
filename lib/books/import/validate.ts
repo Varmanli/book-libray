@@ -9,6 +9,7 @@ import {
 import { db } from "@/db";
 import {
   cleanString,
+  canPersistCoverUrl,
   normalizeBookGroupingKey,
   normalizeIsbn,
 } from "@/lib/books/import/normalize";
@@ -168,6 +169,11 @@ export async function buildImportPreview(
       }
       if (edition.pageCount != null && (!Number.isInteger(edition.pageCount) || edition.pageCount <= 0)) {
         errors.push("تعداد صفحات باید یک عدد مثبت باشد.");
+      }
+      if (edition.coverUrl && !canPersistCoverUrl(edition.coverUrl)) {
+        errors.push(
+          "مسیر محلی جلد (/uploads/ یا public/uploads/) قابل واردسازی نیست؛ یک URL عمومی معتبر وارد کنید.",
+        );
       }
       if (!hasMeaningfulEditionIdentity(edition)) {
         warnings.push("این نسخه مشخصه‌ی متمایزکننده‌ی کمی دارد و بهتر است مترجم، ناشر، شابک یا سال چاپ تکمیل شود.");

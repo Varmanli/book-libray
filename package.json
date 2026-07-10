@@ -26,7 +26,8 @@
     "primary-edition:inspect": "tsx --env-file=.env scripts/repair-primary-edition-integrity.ts",
     "primary-edition:repair": "tsx --env-file=.env scripts/repair-primary-edition-integrity.ts --apply",
     "repair:joined-genres": "tsx --env-file=.env scripts/repair-joined-genre-references.ts",
-    "storage:check": "tsx --env-file=.env scripts/check-storage.ts"
+    "storage:check": "tsx --env-file=.env scripts/check-storage.ts",
+    "storage:inspect-local-paths": "tsx --env-file=.env scripts/inspect-local-image-paths.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1073.0",

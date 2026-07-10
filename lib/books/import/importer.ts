@@ -8,6 +8,7 @@ import { serializeGenres } from "@/lib/book/genres";
 import { buildImportPreview } from "@/lib/books/import/validate";
 import {
   joinPeople,
+  canPersistCoverUrl,
   normalizeIsbn,
   referenceNames,
 } from "@/lib/books/import/normalize";
@@ -75,7 +76,11 @@ function resolveEditionCover(
   coverUrl: string | null | undefined,
 ) {
   return {
-    coverImage: normalizeCoverImage(coverUrl ?? null),
+    // Preview rejects local paths; keep this second guard so no caller can
+    // persist a container-local URL by bypassing the preview endpoint.
+    coverImage: canPersistCoverUrl(coverUrl ?? null)
+      ? normalizeCoverImage(coverUrl ?? null)
+      : null,
     coverFilename: coverFilename?.trim() || null,
   };
 }

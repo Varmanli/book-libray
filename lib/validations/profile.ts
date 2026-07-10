@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidUsername, normalizeUsername } from "@/lib/profile/username-rules";
+import { isAllowedPersistedImageUrl } from "@/lib/storage/image-url";
 
 // رشته‌ی خالی → null (یعنی «پاک کن»)؛ کلید نبود → undefined (یعنی «تغییری نده»)
 const emptyToNull = (v: unknown) => {
@@ -56,9 +57,15 @@ export const updateProfileSchema = z.object({
   twitter: optionalHandle,
   telegram: optionalHandle,
   // آواتار: string برای تنظیم، null برای حذف، undefined برای بدون‌تغییر
-  image: z.union([z.string().max(1000), z.null()]).optional(),
+  image: z.union([z.string().max(1000), z.null()]).optional().refine(
+    isAllowedPersistedImageUrl,
+    "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
+  ),
   // بنر/کاور پروفایل: همان قرارداد آواتار (string/null/undefined)
-  bannerImage: z.union([z.string().max(1000), z.null()]).optional(),
+  bannerImage: z.union([z.string().max(1000), z.null()]).optional().refine(
+    isAllowedPersistedImageUrl,
+    "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
+  ),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).optional(),
 });
 

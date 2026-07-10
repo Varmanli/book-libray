@@ -91,7 +91,11 @@ export async function POST(req: NextRequest) {
       }
       if (err.code === "STORAGE_CONFIG") {
         return NextResponse.json(
-          { error: STORAGE_UNREACHABLE_MESSAGE, code: err.code },
+          {
+            error:
+              "پیکربندی S3 ناقص است. S3_ENDPOINT، S3_BUCKET، S3_ACCESS_KEY_ID، S3_SECRET_ACCESS_KEY و S3_PUBLIC_BASE_URL را بررسی کنید.",
+            code: err.code,
+          },
           { status: 503 },
         );
       }

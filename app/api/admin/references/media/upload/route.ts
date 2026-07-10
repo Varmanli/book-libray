@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { uploadReferenceMedia } from "@/lib/reference/profile-import";
+import { StorageError } from "@/lib/server/s3";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,25 @@ export async function POST(req: NextRequest) {
     return apiError("نقشه‌ی اتصال فایل‌ها معتبر نیست.", 422, "INVALID_MATCH_MAP");
   }
 
-  const result = await uploadReferenceMedia(files, parsedMatches);
-  return apiSuccess({ ...result });
+  try {
+    const result = await uploadReferenceMedia(files, parsedMatches);
+    return apiSuccess({ ...result });
+  } catch (error) {
+    if (error instanceof StorageError) {
+      console.error("Reference media upload failed", {
+        code: error.code,
+        fileCount: files.length,
+      });
+      if (error.code === "STORAGE_CONFIG") {
+        return apiError(
+          "پیکربندی فضای ذخیره‌سازی ناقص است. متغیرهای S3 را بررسی کنید.",
+          503,
+          error.code,
+        );
+      }
+      return apiError("آپلود در فضای ذخیره‌سازی ناموفق بود.", 503, error.code);
+    }
+    console.error("Reference media upload failed", { fileCount: files.length });
+    return apiError("آپلود رسانه ناموفق بود.", 500, "REFERENCE_MEDIA_UPLOAD_FAILED");
+  }
 }

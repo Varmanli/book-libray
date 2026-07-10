@@ -14,18 +14,24 @@ export interface SaveUploadResult {
 
 /** درایورِ پیکربندی‌شده (پیش‌فرض S3). */
 function configuredDriver(): UploadDriver {
+  // Containers must never use /public/uploads: it is ephemeral and commonly
+  // unwritable by the runtime user. Local storage is intentionally dev-only.
+  if (process.env.NODE_ENV === "production") return "s3";
   return process.env.UPLOAD_DRIVER === "local" ? "local" : "s3";
 }
 
 /**
  * آیا در صورت خطای S3 به ذخیره‌سازیِ محلی برگردیم؟ در توسعه به‌صورت پیش‌فرض
- * روشن است (تا آپلودها هنگام در‌دسترس‌نبودن آروان از کار نیفتند) و در پرود فقط
- * با UPLOAD_LOCAL_FALLBACK=true.
+ * روشن است (تا آپلودها هنگام در‌دسترس‌نبودن آروان از کار نیفتند) و در production
+ * همیشه خاموش است.
  */
 function localFallbackEnabled(): boolean {
+  // Do not make this configurable in production. A successful fallback would
+  // hide a broken object-storage configuration and lose files on redeploy.
+  if (process.env.NODE_ENV === "production") return false;
   if (process.env.UPLOAD_LOCAL_FALLBACK === "true") return true;
   if (process.env.UPLOAD_LOCAL_FALLBACK === "false") return false;
-  return process.env.NODE_ENV !== "production";
+  return true;
 }
 
 /**
