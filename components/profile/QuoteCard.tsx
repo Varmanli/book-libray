@@ -46,6 +46,16 @@ export interface CardManage {
   onDelete: () => void;
 }
 
+interface QuoteCardProps {
+  quote: PublicQuote;
+  canLike: boolean;
+  showAuthor?: boolean;
+  showBook?: boolean;
+  manage?: CardManage;
+  background?: QuoteBackgroundVariant;
+  className?: string;
+}
+
 export default function QuoteCard({
   quote,
   canLike,
@@ -53,48 +63,61 @@ export default function QuoteCard({
   showBook = true,
   manage,
   background = "paper",
-}: {
-  quote: PublicQuote;
-  canLike: boolean;
-  showAuthor?: boolean;
-  showBook?: boolean;
-  manage?: CardManage;
-  background?: QuoteBackgroundVariant;
-}) {
+  className,
+}: QuoteCardProps) {
   const [liked, setLiked] = useState(quote.likedByViewer);
   const [likeCount, setLikeCount] = useState(quote.likeCount);
   const [likePending, setLikePending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [contentOpen, setContentOpen] = useState(false);
 
-  const bookHref = `/book/${encodeURIComponent(quote.bookSlug || quote.bookId)}`;
+  const bookHref = `/book/${encodeURIComponent(
+    quote.bookSlug || quote.bookId,
+  )}`;
+
   const quoteText = quote.content?.trim() || "";
+
   const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
+
   const isLongQuote =
     quoteText.length > LONG_QUOTE_CHAR_LIMIT ||
     wordCount > LONG_QUOTE_WORD_LIMIT;
 
   async function handleLike() {
-    if (!canLike) return void toast("برای پسندیدن وارد شوید");
+    if (!canLike) {
+      toast("برای پسندیدن وارد شوید");
+      return;
+    }
+
     if (likePending) return;
-    const nextLiked = !liked;
+
+    const previousLiked = liked;
+    const previousCount = likeCount;
+    const nextLiked = !previousLiked;
+
     setLiked(nextLiked);
-    setLikeCount((count) => count + (nextLiked ? 1 : -1));
+    setLikeCount(previousCount + (nextLiked ? 1 : -1));
     setLikePending(true);
+
     try {
       const response = await fetch(`/api/quotes/${quote.id}/like`, {
         method: "POST",
       });
-      if (!response.ok) throw new Error("like failed");
+
+      if (!response.ok) {
+        throw new Error("Like request failed");
+      }
+
       const data = (await response.json()) as {
         liked: boolean;
         likeCount: number;
       };
+
       setLiked(data.liked);
       setLikeCount(data.likeCount);
     } catch {
-      setLiked(!nextLiked);
-      setLikeCount((count) => count + (nextLiked ? -1 : 1));
+      setLiked(previousLiked);
+      setLikeCount(previousCount);
       toast.error("پسند ثبت نشد");
     } finally {
       setLikePending(false);
@@ -104,9 +127,13 @@ export default function QuoteCard({
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(quoteText);
+
       setCopied(true);
       toast.success("تکه کتاب کپی شد");
-      setTimeout(() => setCopied(false), 1400);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1400);
     } catch {
       toast.error("کپی نشد");
     }
@@ -117,19 +144,23 @@ export default function QuoteCard({
       typeof window !== "undefined"
         ? `${window.location.origin}${bookHref}`
         : bookHref;
-    const data = {
+
+    const shareData = {
       title: quote.bookTitle,
       text: `«${quoteText}» — ${quote.bookTitle}`,
       url,
     };
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share(data);
+        await navigator.share(shareData);
       } catch {
-        return;
+        // The share sheet may be intentionally closed.
       }
+
       return;
     }
+
     try {
       await navigator.clipboard.writeText(url);
       toast.success("لینک کتاب کپی شد");
@@ -138,131 +169,69 @@ export default function QuoteCard({
     }
   }
 
-  const openFull = () => isLongQuote && setContentOpen(true);
-  const onQuoteKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (isLongQuote && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
+  function openFullQuote() {
+    if (isLongQuote) {
       setContentOpen(true);
     }
-  };
+  }
+
+  function handleQuoteKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!isLongQuote || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+
+    event.preventDefault();
+    setContentOpen(true);
+  }
 
   return (
     <>
-      <article className="group relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-card/80 p-3 shadow-[0_26px_80px_-54px_rgba(0,0,0,0.8)] ring-1 ring-border/55 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_32px_90px_-52px_rgba(0,0,0,0.95)] sm:p-4">
+      <article
+        className={cn(
+          "group relative flex h-full min-h-[410px] flex-col overflow-hidden",
+          "rounded-[1.9rem] border border-border/55 bg-card/90",
+          "p-3 shadow-[0_24px_70px_-46px_rgba(0,0,0,0.85)]",
+          "transition-[transform,box-shadow,border-color] duration-300",
+          "hover:-translate-y-1 hover:border-primary/20",
+          "hover:shadow-[0_34px_90px_-50px_rgba(0,0,0,0.95)]",
+          "sm:min-h-[440px] sm:p-4",
+          className,
+        )}
+      >
         <QuoteBackground variant={background} />
 
-        <header className="relative z-10 px-1 pt-1">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            {showAuthor && quote.authorUsername ? (
-              <AuthorChip
-                username={quote.authorUsername}
-                name={quote.authorName}
-                image={quote.authorImage}
-              />
-            ) : (
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                <QuoteIcon className="h-4 w-4" />
-              </span>
-            )}
-            {showBook ? (
-              <BookChip
-                href={bookHref}
-                cover={quote.bookCover}
-                title={quote.bookTitle}
-                author={quote.bookAuthor}
-              />
-            ) : null}
-          </div>
-        </header>
-
         <div
-          role={isLongQuote ? "button" : undefined}
-          tabIndex={isLongQuote ? 0 : undefined}
-          onClick={openFull}
-          onKeyDown={onQuoteKeyDown}
-          aria-label={isLongQuote ? "مشاهده متن کامل تکه کتاب" : undefined}
-          className={cn(
-            "relative z-10 mt-5 flex min-h-[205px] flex-1 flex-col overflow-hidden rounded-[1.55rem] bg-background/[0.38] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_16px_32px_-28px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.055] sm:px-7 sm:py-8",
-            isLongQuote &&
-              "cursor-pointer transition-colors hover:bg-background/[0.52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-          )}
-        >
-          <span className="pointer-events-none absolute inset-y-7 right-0 w-px bg-gradient-to-b from-transparent via-primary/70 to-transparent" />
-          <QuoteIcon className="pointer-events-none absolute left-5 top-5 h-8 w-8 text-primary/[0.12] sm:left-7 sm:top-7" />
-          <p
-            className={cn(
-              "relative z-10 max-w-[62ch] whitespace-pre-line pr-5 text-start text-[0.94rem] font-medium leading-[2.1] tracking-[0.005em] text-foreground sm:text-base sm:leading-[2.15]",
-              isLongQuote && "line-clamp-5",
-            )}
-          >
-            {quoteText}
-          </p>
-          {isLongQuote || quote.page ? (
-            <div className="relative z-10 mt-5 flex items-center justify-between gap-3">
-              {isLongQuote ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setContentOpen(true);
-                  }}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-black text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                >
-                  ادامه خواندن <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-              ) : (
-                <span />
-              )}
-              {quote.page ? <PageBadge page={quote.page} /> : null}
-            </div>
-          ) : null}
-        </div>
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-12 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
+        />
 
-        <footer className="relative z-10 mt-3 flex items-center justify-between gap-2 px-1 pb-1 pt-2">
-          <LikePill
-            liked={liked}
-            count={likeCount}
-            pending={likePending}
-            onClick={handleLike}
-          />
-          <div className="flex items-center rounded-2xl bg-background/35 p-1 ring-1 ring-border/55 backdrop-blur-sm">
-            <IconAction
-              label="کپی تکه"
-              onClick={handleCopy}
-              active={copied}
-              icon={
-                copied ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )
-              }
-            />
-            <IconAction
-              label="اشتراک‌گذاری"
-              onClick={handleShare}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-            {manage ? (
-              <>
-                <span className="mx-1 h-5 w-px bg-border/70" />
-                <IconAction
-                  label="ویرایش"
-                  onClick={manage.onEdit}
-                  tone="primary"
-                  icon={<Pencil className="h-4 w-4" />}
-                />
-                <IconAction
-                  label="حذف"
-                  onClick={manage.onDelete}
-                  tone="danger"
-                  icon={<Trash2 className="h-4 w-4" />}
-                />
-              </>
-            ) : null}
-          </div>
-        </footer>
+        <QuoteCardHeader
+          quote={quote}
+          bookHref={bookHref}
+          showAuthor={showAuthor}
+          showBook={showBook}
+        />
+
+        <QuoteContent
+          quoteText={quoteText}
+          page={quote.page}
+          isLongQuote={isLongQuote}
+          onOpen={openFullQuote}
+          onKeyDown={handleQuoteKeyDown}
+        />
+
+        <QuoteCardFooter
+          liked={liked}
+          likeCount={likeCount}
+          likePending={likePending}
+          copied={copied}
+          manage={manage}
+          onLike={handleLike}
+          onCopy={handleCopy}
+          onShare={handleShare}
+        />
       </article>
+
       <QuoteReadingDialog
         open={contentOpen}
         onOpenChange={setContentOpen}
@@ -273,6 +242,228 @@ export default function QuoteCard({
         showBook={showBook}
       />
     </>
+  );
+}
+
+function QuoteCardHeader({
+  quote,
+  bookHref,
+  showAuthor,
+  showBook,
+}: {
+  quote: PublicQuote;
+  bookHref: string;
+  showAuthor: boolean;
+  showBook: boolean;
+}) {
+  return (
+    <header className="relative z-10 shrink-0 px-1 pb-2 pt-1">
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-3",
+          showAuthor && showBook ? "justify-between" : "justify-start",
+        )}
+      >
+        {showAuthor && quote.authorUsername ? (
+          <AuthorChip
+            username={quote.authorUsername}
+            name={quote.authorName}
+            image={quote.authorImage}
+          />
+        ) : (
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
+            <QuoteIcon className="h-4 w-4" />
+          </span>
+        )}
+
+        {showBook ? (
+          <BookChip
+            href={bookHref}
+            cover={quote.bookCover}
+            title={quote.bookTitle}
+            author={quote.bookAuthor}
+          />
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function QuoteContent({
+  quoteText,
+  page,
+  isLongQuote,
+  onOpen,
+  onKeyDown,
+}: {
+  quoteText: string;
+  page: number | null;
+  isLongQuote: boolean;
+  onOpen: () => void;
+  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      role={isLongQuote ? "button" : undefined}
+      tabIndex={isLongQuote ? 0 : undefined}
+      aria-label={isLongQuote ? "مشاهده متن کامل تکه کتاب" : undefined}
+      onClick={onOpen}
+      onKeyDown={onKeyDown}
+      className={cn(
+        "relative z-10 mt-2 flex min-h-0 flex-1 overflow-hidden",
+        "rounded-[1.55rem] border border-white/[0.055]",
+        "bg-background/35 backdrop-blur-sm",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+        isLongQuote &&
+          "cursor-pointer transition-colors duration-300 hover:bg-background/45",
+        isLongQuote &&
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.025] via-transparent to-black/[0.025]"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.09] to-transparent"
+      />
+
+      <QuoteIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute right-6 top-6 h-9 w-9 text-primary/[0.09] sm:right-8 sm:top-8"
+      />
+
+      <QuoteIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-7 left-6 h-9 w-9 rotate-180 text-primary/[0.07] sm:bottom-8 sm:left-8"
+      />
+
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-10 right-0 w-px bg-gradient-to-b from-transparent via-primary/45 to-transparent"
+      />
+
+      <div className="relative z-10 flex min-h-[285px] w-full flex-1 flex-col px-7 py-9 sm:min-h-[310px] sm:px-10 sm:py-11">
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <div className="mx-auto w-full max-w-[34rem]">
+            <p
+              className={cn(
+                "whitespace-pre-line text-center",
+                "text-[13px] font-medium leading-7",
+                "text-foreground/95",
+                "sm:text-[15px] sm:leading-[2.2]",
+                "md:text-[1rem] md:leading-[2.3]",
+                "lg:text-base lg:leading-[2.4]",
+                isLongQuote && "line-clamp-6",
+              )}
+            >
+              {quoteText}
+            </p>
+          </div>
+        </div>
+
+        {(isLongQuote || page) && (
+          <div className="mt-5 flex min-h-8 shrink-0 items-center justify-between gap-3">
+            {isLongQuote ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen();
+                }}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-full",
+                  "px-2.5 text-[11px] font-black text-primary",
+                  "transition-colors hover:bg-primary/10",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                )}
+              >
+                ادامه خواندن
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <span />
+            )}
+
+            {page ? <PageBadge page={page} /> : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuoteCardFooter({
+  liked,
+  likeCount,
+  likePending,
+  copied,
+  manage,
+  onLike,
+  onCopy,
+  onShare,
+}: {
+  liked: boolean;
+  likeCount: number;
+  likePending: boolean;
+  copied: boolean;
+  manage?: CardManage;
+  onLike: () => void;
+  onCopy: () => void;
+  onShare: () => void;
+}) {
+  return (
+    <footer className="relative z-10 mt-3 flex shrink-0 items-center justify-between gap-3 px-1 pb-1">
+      <LikePill
+        liked={liked}
+        count={likeCount}
+        pending={likePending}
+        onClick={onLike}
+      />
+
+      <div className="flex items-center gap-0.5 rounded-2xl border border-border/45 bg-background/25 p-1 backdrop-blur-sm">
+        <IconAction
+          label="کپی تکه"
+          onClick={onCopy}
+          active={copied}
+          icon={
+            copied ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )
+          }
+        />
+
+        <IconAction
+          label="اشتراک‌گذاری"
+          onClick={onShare}
+          icon={<Share2 className="h-4 w-4" />}
+        />
+
+        {manage ? (
+          <>
+            <span aria-hidden="true" className="mx-1 h-4 w-px bg-border/65" />
+
+            <IconAction
+              label="ویرایش"
+              onClick={manage.onEdit}
+              tone="primary"
+              icon={<Pencil className="h-4 w-4" />}
+            />
+
+            <IconAction
+              label="حذف"
+              onClick={manage.onDelete}
+              tone="danger"
+              icon={<Trash2 className="h-4 w-4" />}
+            />
+          </>
+        ) : null}
+      </div>
+    </footer>
   );
 }
 
@@ -293,8 +484,12 @@ export function QuoteBackground({
     marble: <MarbleBackground />,
     light: <LightBackground />,
   };
+
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+    >
       {variants[variant]}
     </div>
   );
@@ -302,60 +497,107 @@ export function QuoteBackground({
 
 function PaperBackground() {
   return (
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.13),transparent_37%),linear-gradient(135deg,rgba(255,248,229,0.045),transparent_52%)] before:absolute before:inset-0 before:opacity-[0.07] before:[background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_1px)] before:[background-size:11px_11px]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_0%,hsl(var(--primary)/0.14),transparent_36%),radial-gradient(circle_at_5%_100%,rgba(255,255,255,0.04),transparent_38%)]" />
+
+      <div className="absolute inset-0 opacity-[0.055] [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:12px_12px]" />
+    </>
   );
 }
+
 function GridBackground() {
   return (
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,hsl(var(--primary)/0.16)_1px,transparent_1px)] [background-size:18px_18px] opacity-40" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_38%)]" />
+
+      <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(hsl(var(--border)/0.45)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/0.45)_1px,transparent_1px)] [background-size:24px_24px]" />
+    </>
   );
 }
+
 function EditorialBackground() {
   return (
-    <div className="absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_31px,hsl(var(--border)/0.35)_32px)] opacity-40" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.11),transparent_36%)]" />
+
+      <div className="absolute inset-0 opacity-[0.18] [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_31px,hsl(var(--border)/0.42)_32px)]" />
+    </>
   );
 }
+
 function AuroraBackground() {
   return (
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_0,hsl(var(--primary)/0.22),transparent_35%),radial-gradient(circle_at_90%_90,rgba(56,189,248,0.13),transparent_36%)] blur-[1px]" />
+    <>
+      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+
+      <div className="absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-sky-400/10 blur-3xl" />
+
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.025] via-transparent to-primary/[0.025]" />
+    </>
   );
 }
+
 function MinimalBackground() {
   return (
-    <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.08),transparent_38%,rgba(255,255,255,0.025))]" />
+    <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.07),transparent_42%,rgba(255,255,255,0.02))]" />
   );
 }
+
 function LinenBackground() {
   return (
-    <div className="absolute inset-0 opacity-[0.13] [background-image:repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.16)_4px),repeating-linear-gradient(90deg,transparent_0,transparent_4px,rgba(255,255,255,0.09)_5px)]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.1),transparent_38%)]" />
+
+      <div className="absolute inset-0 opacity-[0.07] [background-image:repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.22)_4px),repeating-linear-gradient(90deg,transparent_0,transparent_4px,rgba(255,255,255,0.13)_5px)]" />
+    </>
   );
 }
+
 function DustBackground() {
   return (
-    <div className="absolute inset-0 opacity-35 [background-image:radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.45)_0_1px,transparent_1.5px),radial-gradient(circle_at_70%_60%,hsl(var(--primary)/0.55)_0_1px,transparent_1.5px)] [background-size:47px_53px,71px_67px]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.11),transparent_38%)]" />
+
+      <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.42)_0_1px,transparent_1.5px),radial-gradient(circle_at_70%_60%,hsl(var(--primary)/0.5)_0_1px,transparent_1.5px)] [background-size:47px_53px,71px_67px]" />
+    </>
   );
 }
+
 function OrnamentBackground() {
   return (
-    <div className="absolute inset-0 opacity-[0.1] [background-image:linear-gradient(45deg,hsl(var(--primary)/0.8)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.8)_88%),linear-gradient(-45deg,hsl(var(--primary)/0.8)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.8)_88%)] [background-size:28px_28px]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.1),transparent_40%)]" />
+
+      <div className="absolute inset-0 opacity-[0.055] [background-image:linear-gradient(45deg,hsl(var(--primary)/0.9)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.9)_88%),linear-gradient(-45deg,hsl(var(--primary)/0.9)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.9)_88%)] [background-size:30px_30px]" />
+    </>
   );
 }
+
 function MarbleBackground() {
   return (
-    <div className="absolute inset-0 opacity-[0.14] [background-image:radial-gradient(ellipse_at_20%_20%,transparent_42%,rgba(255,255,255,0.26)_43%,transparent_45%),radial-gradient(ellipse_at_75%_80%,transparent_47%,hsl(var(--primary)/0.3)_48%,transparent_50%)]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.09),transparent_40%)]" />
+
+      <div className="absolute inset-0 opacity-[0.08] [background-image:radial-gradient(ellipse_at_20%_20%,transparent_42%,rgba(255,255,255,0.32)_43%,transparent_45%),radial-gradient(ellipse_at_75%_80%,transparent_47%,hsl(var(--primary)/0.4)_48%,transparent_50%)]" />
+    </>
   );
 }
+
 function LightBackground() {
   return (
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.15),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
+    <>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.14),transparent_44%)]" />
+
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.025] to-transparent" />
+    </>
   );
 }
 
 function PageBadge({ page }: { page: number }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 px-1 text-[11px] font-medium tabular-nums text-muted-foreground">
-      <BookOpen className="h-3 w-3 opacity-70" />ص{" "}
-      {page.toLocaleString("fa-IR")}
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-background/30 px-2.5 py-1.5 text-[10px] font-medium tabular-nums text-muted-foreground ring-1 ring-border/40">
+      <BookOpen className="h-3 w-3 opacity-70" />
+      صفحه {page.toLocaleString("fa-IR")}
     </span>
   );
 }
@@ -375,23 +617,30 @@ function BookChip({
     <Link
       href={href}
       onClick={(event) => event.stopPropagation()}
-      className="group/book flex min-w-0 items-center gap-2 border-s border-border/55 ps-3 transition hover:text-primary sm:max-w-[55%]"
+      className={cn(
+        "group/book flex min-w-0 items-center gap-2.5",
+        "rounded-2xl px-2 py-1.5",
+        "transition-colors hover:bg-background/30",
+        "sm:max-w-[60%]",
+      )}
     >
-      <span className="relative h-8 w-5 shrink-0 overflow-hidden rounded-md shadow-sm shadow-black/30">
+      <span className="relative h-10 w-7 shrink-0 overflow-hidden rounded-lg bg-muted shadow-[0_7px_18px_-8px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
         <BookCoverImage
           src={cover || PLACEHOLDER}
           alt={title}
           fill
-          sizes="20px"
-          className="object-cover transition duration-500 group-hover/book:scale-110"
+          sizes="28px"
+          className="object-cover transition-transform duration-500 group-hover/book:scale-105"
         />
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[11px] font-black text-foreground transition group-hover/book:text-primary">
+
+      <span className="min-w-0 text-right">
+        <span className="block truncate text-[11px] font-black text-foreground transition-colors group-hover/book:text-primary">
           {title}
         </span>
+
         {author ? (
-          <span className="mt-0.5 block truncate text-[10px] font-medium text-muted-foreground">
+          <span className="mt-1 block truncate text-[10px] font-medium text-muted-foreground">
             {author}
           </span>
         ) : null}
@@ -418,19 +667,24 @@ function LikePill({
       disabled={pending}
       aria-pressed={liked}
       className={cn(
-        "inline-flex h-10 min-w-14 items-center justify-center gap-1.5 rounded-2xl px-3 text-xs font-black tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60",
+        "inline-flex h-9 min-w-[58px] items-center justify-center gap-1.5",
+        "rounded-2xl px-3 text-xs font-black tabular-nums",
+        "transition-all duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        "disabled:cursor-not-allowed disabled:opacity-60",
         liked
-          ? "bg-rose-500/15 text-rose-300 ring-1 ring-rose-300/20"
-          : "bg-background/35 text-muted-foreground ring-1 ring-border/55 hover:bg-rose-500/10 hover:text-rose-300",
+          ? "bg-rose-500/14 text-rose-300 ring-1 ring-rose-300/15"
+          : "bg-background/25 text-muted-foreground ring-1 ring-border/45 hover:bg-rose-500/10 hover:text-rose-300",
       )}
     >
       <Heart
         className={cn(
-          "h-4 w-4 transition-transform",
-          liked && "fill-current scale-110",
+          "h-4 w-4 transition-transform duration-200",
+          liked && "scale-110 fill-current",
         )}
       />
-      {count.toLocaleString("fa-IR")}
+
+      <span>{count.toLocaleString("fa-IR")}</span>
     </button>
   );
 }
@@ -454,19 +708,23 @@ function QuoteReadingDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden rounded-[2rem] border-border/70 bg-card p-0 shadow-2xl sm:max-w-3xl">
-        <div className="relative p-5 sm:p-7">
+      <DialogContent className="overflow-hidden rounded-[2rem] border-border/60 bg-card p-0 shadow-2xl sm:max-w-3xl">
+        <div className="relative border-b border-border/45 px-5 py-5 sm:px-7 sm:py-6">
           <QuoteBackground variant={background} />
-          <div className="relative flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+
+          <div className="relative z-10 flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
               <QuoteIcon className="h-5 w-5" />
             </span>
+
             <div className="min-w-0">
-              <DialogTitle className="text-lg font-black text-foreground">
+              <DialogTitle className="text-base font-black text-foreground sm:text-lg">
                 تکه کتاب
               </DialogTitle>
+
               <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">
                 {showBook ? quote.bookTitle : "خوانش کامل تکه"}
+
                 {quote.page
                   ? ` · صفحه ${quote.page.toLocaleString("fa-IR")}`
                   : ""}
@@ -474,21 +732,55 @@ function QuoteReadingDialog({
             </div>
           </div>
         </div>
-        <div className="max-h-[72vh] overflow-auto p-5 sm:p-7">
-          <div className="relative overflow-hidden rounded-[1.65rem] bg-background/40 px-6 py-8 shadow-inner ring-1 ring-border/60 sm:px-10 sm:py-11">
+
+        <div className="max-h-[75vh] overflow-y-auto p-4 sm:p-7">
+          <div
+            className={cn(
+              "relative overflow-hidden rounded-[1.65rem]",
+              "border border-border/50 bg-background/35",
+              "px-6 py-9 shadow-inner",
+              "sm:px-10 sm:py-12",
+            )}
+          >
             <QuoteBackground variant={background} />
-            <QuoteIcon className="relative h-8 w-8 text-primary/20" />
-            <p className="relative mt-4 whitespace-pre-line text-[0.98rem] font-medium leading-9 text-foreground sm:text-[1.08rem] sm:leading-10">
+
+            <QuoteIcon className="pointer-events-none absolute right-7 top-7 h-10 w-10 text-primary/10" />
+
+            <QuoteIcon className="pointer-events-none absolute bottom-7 left-7 h-10 w-10 rotate-180 text-primary/10" />
+
+            <p
+              className="
+    relative z-10
+    whitespace-pre-line
+    text-right
+    text-sm
+    leading-8
+    font-medium
+    text-foreground/95
+    sm:text-[0.98rem]
+    sm:leading-[2.45]
+    md:text-[1rem]
+  "
+            >
               {quoteText}
             </p>
           </div>
+
           {showBook ? (
             <Link
               href={bookHref}
               onClick={() => onOpenChange(false)}
-              className="mt-5 inline-flex h-11 items-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className={cn(
+                "mt-5 inline-flex h-11 items-center gap-2",
+                "rounded-2xl bg-primary px-4",
+                "text-sm font-black text-primary-foreground",
+                "shadow-lg shadow-primary/15",
+                "transition-transform hover:-translate-y-0.5",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+              )}
             >
-              مشاهده کتاب <ExternalLink className="h-4 w-4" />
+              مشاهده کتاب
+              <ExternalLink className="h-4 w-4" />
             </Link>
           ) : null}
         </div>
@@ -520,12 +812,15 @@ export function IconAction({
       aria-label={label}
       title={label}
       className={cn(
-        "grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-        active && "bg-primary/15 text-primary",
+        "grid h-8 w-8 place-items-center rounded-xl",
+        "text-muted-foreground transition-all duration-200",
+        "hover:-translate-y-0.5",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        active && "bg-primary/12 text-primary",
         tone === "primary" && "text-primary hover:bg-primary/10",
         tone === "danger" &&
           "text-red-300 hover:bg-red-500/10 hover:text-red-200",
-        tone === "default" && "hover:bg-white/[0.07] hover:text-foreground",
+        tone === "default" && "hover:bg-white/[0.06] hover:text-foreground",
       )}
     >
       {icon}
@@ -544,32 +839,33 @@ export function AuthorChip({
 }) {
   const displayName = name || `@${username}`;
   const initial = displayName.trim().charAt(0) || "؟";
+
   return (
     <Link
       href={`/${username}`}
-      className="group/author inline-flex min-w-0 items-center gap-2 transition hover:text-primary"
+      onClick={(event) => event.stopPropagation()}
+      className="group/author flex min-w-0 items-center gap-2 rounded-2xl px-1.5 py-1 transition-colors hover:bg-background/25"
     >
-      <span className="relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-primary/35 to-sky-400/20 text-xs font-black text-foreground ring-1 ring-white/15">
+      <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-primary/30 to-sky-400/15 text-xs font-black text-foreground ring-1 ring-white/12">
         {image ? (
-          <>
-            {/* Native image deliberately uses the direct, normalized storage URL so avatars share the production-safe Arvan fallback. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt={displayName}
-              className="h-full w-full object-cover"
-            />
-          </>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt={displayName}
+            className="h-full w-full object-cover"
+          />
         ) : (
           <span>{initial}</span>
         )}
       </span>
-      <span className="min-w-0">
-        <span className="block max-w-[140px] truncate text-xs font-black text-foreground transition group-hover/author:text-primary">
+
+      <span className="min-w-0 text-right">
+        <span className="block max-w-[140px] truncate text-[11px] font-black text-foreground transition-colors group-hover/author:text-primary">
           {displayName}
         </span>
+
         {name ? (
-          <span className="block max-w-[140px] truncate text-[10px] font-medium text-muted-foreground">
+          <span className="mt-0.5 block max-w-[140px] truncate text-[10px] font-medium text-muted-foreground">
             {username}@
           </span>
         ) : null}

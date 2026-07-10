@@ -27,8 +27,8 @@ export default function HomeQuotesSection({
           <Carousel
             ariaLabel="تازه‌ترین تکه‌های کتاب"
             className="py-1 ps-10 pe-10 sm:ps-11 sm:pe-11 lg:ps-12 lg:pe-12"
-            slideClassName="basis-full md:basis-1/2 xl:basis-1/3"
-            containerClassName="gap-4 lg:gap-5"
+            slideClassName="flex basis-full md:basis-1/2 xl:basis-1/3"
+            containerClassName="items-stretch gap-4 lg:gap-5"
             slides={quotes.map((quote) => (
               <QuoteCard
                 key={quote.id}
@@ -36,6 +36,7 @@ export default function HomeQuotesSection({
                 canLike={isLoggedIn}
                 showAuthor
                 showBook
+                className="min-h-[460px] w-full lg:min-h-[500px]"
               />
             ))}
           />
