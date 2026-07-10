@@ -34,6 +34,7 @@ export default function BookQuotesSection({
   quotes,
   variant = "preview",
   viewAllHref,
+  showBook = false,
 }: {
   subjectBookId: string;
   viewerEntryId: string | null;
@@ -41,6 +42,8 @@ export default function BookQuotesSection({
   quotes: PublicQuote[];
   variant?: "preview" | "all";
   viewAllHref?: string;
+  /** Book pages already establish context, so their cards omit repeated book metadata. */
+  showBook?: boolean;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -172,7 +175,7 @@ export default function BookQuotesSection({
         quote={quote}
         canLike={isLoggedIn}
         showAuthor
-        showBook
+        showBook={showBook}
         manage={
           canManage
             ? {
