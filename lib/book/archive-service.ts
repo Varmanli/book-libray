@@ -206,6 +206,28 @@ function buildCatalogConditions(
     );
   }
 
+  // Rating filters use the same per-catalog average that powers the archive
+  // cards and rating sort.  Keeping this in the shared condition list means
+  // the page query and COUNT(*) always describe the exact same result set.
+  if (filters.minRating !== null) {
+    conditions.push(sql`(
+      select avg(b.rating)
+      from "Book" b
+      where b.catalog_book_id = ${CatalogBook.id}
+        and b.rating is not null
+        and b.rating > 0
+    ) >= ${filters.minRating}`);
+  }
+  if (filters.maxRating !== null) {
+    conditions.push(sql`(
+      select avg(b.rating)
+      from "Book" b
+      where b.catalog_book_id = ${CatalogBook.id}
+        and b.rating is not null
+        and b.rating > 0
+    ) <= ${filters.maxRating}`);
+  }
+
   if (!scope.fixedGenre && filters.genre) {
     conditions.push(genreContains(CatalogBook.genre, filters.genre));
   }
@@ -514,15 +536,23 @@ export async function getBookArchivePageData(
   };
   const conditions = buildCatalogConditions(filters, scope);
   const stats = buildStatsJoin();
-  const offset = (filters.page - 1) * BOOK_ARCHIVE_PAGE_SIZE;
 
-  const [options, countRows, rows] = await Promise.all([
+  const [options, countRows] = await Promise.all([
     getBookArchiveOptions(scope),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(CatalogBook)
       .where(and(...conditions)),
-    db
+  ]);
+
+  const totalCount = countRows[0]?.count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / BOOK_ARCHIVE_PAGE_SIZE));
+  const page = Math.min(filters.page, pageCount);
+  const offset = (page - 1) * BOOK_ARCHIVE_PAGE_SIZE;
+
+  const rows = totalCount === 0
+    ? []
+    : await db
       .select({
         id: CatalogBook.id,
         slug: CatalogBook.slug,
@@ -561,12 +591,7 @@ export async function getBookArchivePageData(
       .where(and(...conditions))
       .orderBy(...sortOrder(filters.sort, stats))
       .limit(BOOK_ARCHIVE_PAGE_SIZE)
-      .offset(offset),
-  ]);
-
-  const totalCount = countRows[0]?.count ?? 0;
-  const pageCount = Math.max(1, Math.ceil(totalCount / BOOK_ARCHIVE_PAGE_SIZE));
-  const page = Math.min(filters.page, pageCount);
+      .offset(offset);
   const normalizedRows = await Promise.all(
     rows.map(async (row) => ({
       ...row,

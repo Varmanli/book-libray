@@ -1,9 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 
+import BlogCoverImage from "@/components/blog/BlogCoverImage";
 import type { PublicBlogPostPreview } from "@/lib/blog/service";
-
-const FALLBACK_BANNER = "/placeholder-cover.svg";
 
 export default function BlogCard({ post }: { post: PublicBlogPostPreview }) {
   return (
@@ -12,10 +10,9 @@ export default function BlogCard({ post }: { post: PublicBlogPostPreview }) {
       className="group block overflow-hidden rounded-[1.8rem] border border-border/70 bg-card/60 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card/75"
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-background/60">
-        <Image
-          src={post.bannerImage || FALLBACK_BANNER}
+        <BlogCoverImage
+          src={post.bannerImage}
           alt={post.title}
-          fill
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
           className="object-cover transition duration-500 group-hover:scale-[1.03]"
         />

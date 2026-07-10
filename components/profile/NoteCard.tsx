@@ -2,7 +2,6 @@
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   CalendarDays,
   Check,
@@ -23,12 +22,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import type { PublicNote } from "@/lib/notes/service";
 import { AuthorChip, type CardManage } from "@/components/profile/QuoteCard";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
-const LONG_NOTE_CHAR_LIMIT = 170;
-const LONG_NOTE_WORD_LIMIT = 30;
+// These thresholds are purely presentational: a six-line preview should show a
+// meaningful passage before the full-note control is needed.
+const LONG_NOTE_CHAR_LIMIT = 360;
+const LONG_NOTE_WORD_LIMIT = 65;
 
 export default function NoteCard({
   note,
@@ -154,7 +156,7 @@ export default function NoteCard({
 
   return (
     <>
-      <article className="group relative overflow-hidden rounded-[1.5rem] border border-border/85 bg-card/90 p-3.5 shadow-[0_18px_60px_-44px_rgba(0,0,0,0.95)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/25">
+      <article className="group relative overflow-hidden rounded-[1.6rem] border border-border/80 bg-card/90 p-4 shadow-[0_20px_65px_-46px_rgba(0,0,0,0.9)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/25 hover:shadow-[0_26px_70px_-48px_rgba(0,0,0,0.95)] sm:p-5">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
         <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-sky-400/10 opacity-0 blur-3xl transition-opacity duration-300 group-hover:opacity-100" />
 
@@ -195,96 +197,101 @@ export default function NoteCard({
           onKeyDown={handleNoteKeyDown}
           aria-label={isLongNote ? "مشاهده متن کامل یادداشت" : undefined}
           className={cn(
-            "relative mt-3 overflow-hidden rounded-[1.2rem] border border-border/80 bg-background/35 px-4 py-3.5 outline-none",
+            "relative mt-5 overflow-hidden rounded-[1.3rem] border border-border/75 bg-background/35 px-4 py-4 outline-none sm:px-5 sm:py-5",
             "shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]",
             isLongNote &&
-              "cursor-pointer transition-colors hover:border-sky-300/25 focus-visible:ring-2 focus-visible:ring-sky-300/25",
+              "cursor-pointer transition-colors hover:border-sky-300/25 hover:bg-background/50 focus-visible:ring-2 focus-visible:ring-sky-300/25",
           )}
         >
           <NotePattern />
 
-          <div className="pointer-events-none absolute inset-y-3.5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
-          <NotebookPen className="pointer-events-none absolute right-4 top-[0.95rem] h-4.5 w-4.5 text-sky-300/25" />
+          <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
+          <NotebookPen className="pointer-events-none absolute right-4 top-5 h-4.5 w-4.5 text-sky-300/25 sm:right-5" />
 
           <p
             className={cn(
-              "relative z-10 whitespace-pre-line pr-7 text-sm font-medium leading-7 text-foreground",
-              isLongNote && "line-clamp-2 pb-7",
+              "relative z-10 whitespace-pre-line pr-7 text-[0.9375rem] font-medium leading-8 text-foreground sm:text-base sm:leading-8",
+              isLongNote && "line-clamp-6",
             )}
           >
             {noteText}
           </p>
 
           {isLongNote ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-10 z-20 flex items-end bg-gradient-to-t from-card via-card/95 to-transparent px-4 pb-2.5 pt-8">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[10px] font-black text-sky-300 backdrop-blur">
-                مشاهده کامل
-                <ExternalLink className="h-3 w-3" />
-              </span>
-            </div>
-          ) : null}
-
-          <div className="relative z-20 mt-3 flex items-center justify-between gap-2 border-t border-border/70 pt-2.5">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                handleLike();
+                openFullContent();
               }}
-              disabled={likePending}
-              aria-pressed={liked}
-              aria-label={liked ? "برداشتن پسند" : "پسندیدن"}
-              className={cn(
-                "inline-flex h-8 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-black tabular-nums transition-all disabled:opacity-60",
-                liked
-                  ? "bg-rose-500/12 text-rose-300 ring-1 ring-rose-300/15"
-                  : "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300",
-              )}
+              className="relative z-10 mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl border border-sky-300/20 bg-sky-400/[0.07] px-3 text-xs font-black text-sky-300 transition-all hover:-translate-y-0.5 hover:border-sky-300/35 hover:bg-sky-400/15 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/30"
             >
-              <Heart className={cn("h-4 w-4", liked && "fill-current")} />
-              {likeCount.toLocaleString("fa-IR")}
+                مشاهده کامل
+                <ExternalLink className="h-3 w-3" />
             </button>
+          ) : null}
+        </div>
 
-            <div className="flex items-center gap-0.5">
-              <NoteIconAction
-                label="کپی یادداشت"
-                onClick={handleCopy}
-                active={copied}
-                icon={
-                  copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )
-                }
-              />
+        <div className="relative mt-4 flex items-center justify-between gap-2 border-t border-border/70 pt-3 sm:mt-5 sm:pt-4">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleLike();
+            }}
+            disabled={likePending}
+            aria-pressed={liked}
+            aria-label={liked ? "برداشتن پسند" : "پسندیدن"}
+            className={cn(
+              "inline-flex h-9 min-w-12 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-black tabular-nums transition-all disabled:opacity-60",
+              liked
+                ? "bg-rose-500/12 text-rose-300 ring-1 ring-rose-300/15"
+                : "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300",
+            )}
+          >
+            <Heart className={cn("h-4 w-4", liked && "fill-current")} />
+            {likeCount.toLocaleString("fa-IR")}
+          </button>
 
-              <NoteIconAction
-                label="اشتراک‌گذاری"
-                onClick={handleShare}
-                icon={<Share2 className="h-4 w-4" />}
-              />
+          <div className="flex items-center gap-0.5">
+            <NoteIconAction
+              label="کپی یادداشت"
+              onClick={handleCopy}
+              active={copied}
+              icon={
+                copied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )
+              }
+            />
 
-              {manage ? (
-                <>
-                  <span className="mx-1 h-5 w-px bg-border/80" />
+            <NoteIconAction
+              label="اشتراک‌گذاری"
+              onClick={handleShare}
+              icon={<Share2 className="h-4 w-4" />}
+            />
 
-                  <NoteIconAction
-                    label="ویرایش"
-                    onClick={manage.onEdit}
-                    tone="primary"
-                    icon={<Pencil className="h-4 w-4" />}
-                  />
+            {manage ? (
+              <>
+                <span className="mx-1 h-5 w-px bg-border/80" />
 
-                  <NoteIconAction
-                    label="حذف"
-                    onClick={manage.onDelete}
-                    tone="danger"
-                    icon={<Trash2 className="h-4 w-4" />}
-                  />
-                </>
-              ) : null}
-            </div>
+                <NoteIconAction
+                  label="ویرایش"
+                  onClick={manage.onEdit}
+                  tone="primary"
+                  icon={<Pencil className="h-4 w-4" />}
+                />
+
+                <NoteIconAction
+                  label="حذف"
+                  onClick={manage.onDelete}
+                  tone="danger"
+                  icon={<Trash2 className="h-4 w-4" />}
+                />
+              </>
+            ) : null}
           </div>
         </div>
       </article>
@@ -319,7 +326,7 @@ function BookChip({
       className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/80 bg-background/35 py-1 pe-3 ps-1.5 transition-colors hover:border-sky-300/25 hover:bg-sky-300/[0.035]"
     >
       <span className="relative aspect-[3/4] w-8 shrink-0 overflow-hidden rounded-lg bg-white/5 ring-1 ring-white/10">
-        <Image
+        <BookCoverImage
           src={cover || PLACEHOLDER}
           alt={title}
           fill

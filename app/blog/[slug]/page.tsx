@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
+import BlogCoverImage from "@/components/blog/BlogCoverImage";
 import PublicShell from "@/components/PublicShell";
 import { getPublicBlogPostBySlug } from "@/lib/blog/service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -84,10 +84,9 @@ export default async function BlogPostPage({
         />
         <div className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
           <div className="relative aspect-[16/7] overflow-hidden">
-            <Image
+            <BlogCoverImage
               src={post.bannerImage}
               alt={post.title}
-              fill
               sizes="100vw"
               className="object-cover"
               priority

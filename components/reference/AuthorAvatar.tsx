@@ -4,6 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import { UserRound } from "lucide-react";
 
+import { normalizeCoverImage } from "@/lib/book/cover";
+import { shouldBypassImageOptimizer } from "@/components/books/BookCoverImage";
+
 export default function AuthorAvatar({
   name,
   image,
@@ -21,7 +24,11 @@ export default function AuthorAvatar({
 }) {
   const [imgError, setImgError] = useState(false);
   const initial = name.trim().charAt(0) || "ن";
-  const showImage = !!image && !imgError;
+  // Author portraits use the same URL normalization and S3 optimizer bypass as
+  // book artwork. This produces the same SSR output in the directory, book
+  // header, and author profile while rejecting empty/invalid URLs up front.
+  const imageSrc = normalizeCoverImage(image);
+  const showImage = !!imageSrc && !imgError;
 
   return (
     <div
@@ -29,11 +36,12 @@ export default function AuthorAvatar({
     >
       {showImage ? (
         <Image
-          src={image as string}
+          src={imageSrc}
           alt={name}
           fill
           sizes="128px"
           className="object-cover"
+          unoptimized={shouldBypassImageOptimizer(imageSrc)}
           onError={() => setImgError(true)}
         />
       ) : (

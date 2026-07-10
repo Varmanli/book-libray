@@ -106,7 +106,11 @@ export async function getReferenceEntity(
     .limit(1);
 
   if (!row?.slug) return null;
-  return { ...row, slug: row.slug };
+  return {
+    ...row,
+    slug: row.slug,
+    coverImage: coalesceCoverImage(row.coverImage),
+  };
 }
 
 /**

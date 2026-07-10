@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, like, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ReferenceItem } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
+import { normalizeCoverImage } from "@/lib/book/cover";
 import { hasMultiValueSeparator, splitMultiValueText } from "@/lib/book/genres";
 import type {
   ReferenceTypeValue,
@@ -242,7 +243,7 @@ function toDto(row: ReferenceRow): ReferenceItemDTO {
     type: row.type,
     name: row.name,
     slug: row.slug,
-    coverImage: row.coverImage,
+    coverImage: normalizeCoverImage(row.coverImage),
     bannerImage: row.bannerImage,
     originalName: row.originalName,
     description: row.description,
@@ -650,7 +651,7 @@ export async function searchReference(
     .orderBy(ReferenceItem.name)
     .limit(limit);
 
-  return rows as ReferenceItemDTO[];
+  return rows.map((row) => toDto(row as ReferenceRow));
 }
 
 export async function searchReferencePage(
@@ -691,7 +692,7 @@ export async function searchReferencePage(
   const normalizedPage = Math.min(safePage, pageCount);
 
   return {
-    items: rows as ReferenceItemDTO[],
+    items: rows.map((row) => toDto(row as ReferenceRow)),
     totalCount,
     page: normalizedPage,
     pageSize: safePageSize,

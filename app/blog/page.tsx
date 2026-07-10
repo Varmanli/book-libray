@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: "بلاگ",
-    description: "نوشته‌ها، یادداشت‌ها و مقاله‌های قفسه درباره خواندن و کشف کتاب.",
+    description:
+      "نوشته‌ها، یادداشت‌ها و مقاله‌های قفسه درباره خواندن و کشف کتاب.",
     path: "/blog",
     type: "website",
   });
@@ -29,14 +30,19 @@ export default async function BlogArchivePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const q = typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : "";
+  const q =
+    typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : "";
   const category =
     typeof resolvedSearchParams.category === "string"
       ? resolvedSearchParams.category
       : "";
   const page = Math.max(
     1,
-    Number(typeof resolvedSearchParams.page === "string" ? resolvedSearchParams.page : "1") || 1,
+    Number(
+      typeof resolvedSearchParams.page === "string"
+        ? resolvedSearchParams.page
+        : "1",
+    ) || 1,
   );
 
   const [archive, categories, activeCategory] = await Promise.all([
@@ -53,24 +59,96 @@ export default async function BlogArchivePage({
   return (
     <PublicShell>
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
-        <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
+        <section className="group relative isolate overflow-hidden rounded-[2rem] border border-border/70 bg-card/80 shadow-[0_32px_110px_-70px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+          {/* Background atmosphere */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(103,146,124,0.18),transparent_34%),radial-gradient(circle_at_80%_30%,rgba(103,146,124,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_28%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(103,146,124,0.22),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(103,146,124,0.14),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_38%)]"
           />
-          <div className="relative px-5 py-6 sm:px-7 sm:py-8">
-            <span className="inline-flex rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
-              بلاگ قفسه
-            </span>
-            <h1 className="mt-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-[2.2rem]">
-              نوشته‌هایی درباره خواندن و کشف کتاب
-            </h1>
-            {activeCategory ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                فیلتر فعال: {activeCategory.name}
+
+          {/* Subtle grid pattern */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.14]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
+              backgroundSize: "34px 34px",
+              maskImage:
+                "linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 82%)",
+            }}
+          />
+
+          {/* Decorative glow */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl transition-opacity duration-500 group-hover:opacity-80"
+          />
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-28 -right-20 h-72 w-72 rounded-full bg-primary/[0.07] blur-3xl"
+          />
+
+          {/* Top highlight */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
+          />
+
+          <div className="relative flex min-h-[250px] flex-col justify-center px-5 py-8 sm:min-h-[280px] sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+            <div className="max-w-3xl">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[11px] font-black text-primary shadow-sm backdrop-blur-md">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                  </span>
+                  بلاگ قفسه
+                </span>
+
+                {activeCategory ? (
+                  <span className="inline-flex items-center rounded-full border border-border/80 bg-background/50 px-3 py-1.5 text-[11px] font-bold text-muted-foreground backdrop-blur-md">
+                    دسته‌بندی:
+                    <span className="mr-1 text-foreground">
+                      {activeCategory.name}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+
+              <h1 className="mt-5 max-w-2xl text-3xl font-black leading-[1.35] tracking-tight text-foreground sm:text-4xl sm:leading-[1.3] lg:text-[2.8rem]">
+                نوشته‌هایی درباره
+                <span className="relative mx-2 inline-block text-primary">
+                  خواندن
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 -bottom-1 h-2 rounded-full bg-primary/15 blur-sm"
+                  />
+                </span>
+                و کشف کتاب
+              </h1>
+
+              <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-muted-foreground sm:text-base sm:leading-8">
+                یادداشت‌ها، تجربه‌ها و پیشنهادهایی برای پیدا کردن کتاب‌های تازه
+                و ساختن رابطه‌ای عمیق‌تر با دنیای مطالعه.
               </p>
-            ) : null}
+
+              <div className="mt-7 flex items-center gap-3">
+                <div className="h-px w-12 bg-gradient-to-l from-primary/70 to-transparent sm:w-20" />
+
+                <span className="text-[11px] font-bold tracking-wide text-muted-foreground">
+                  بخوان، کشف کن، به اشتراک بگذار
+                </span>
+              </div>
+            </div>
           </div>
+
+          {/* Bottom fade */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/15 to-transparent"
+          />
         </section>
 
         <form className="mt-6">
@@ -83,7 +161,9 @@ export default async function BlogArchivePage({
               placeholder="جست‌وجو در نوشته‌ها..."
               className="h-14 w-full rounded-[1.8rem] border border-border/70 bg-card/70 pr-12 pl-4 text-sm text-foreground shadow-[0_24px_80px_-60px_rgba(0,0,0,0.7)] outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15 sm:text-base"
             />
-            {category ? <input type="hidden" name="category" value={category} /> : null}
+            {category ? (
+              <input type="hidden" name="category" value={category} />
+            ) : null}
           </div>
         </form>
 
@@ -108,7 +188,9 @@ export default async function BlogArchivePage({
         <div className="mt-8">
           {archive.posts.length === 0 ? (
             <div className="rounded-[1.8rem] border border-dashed border-border/70 bg-card/50 px-6 py-14 text-center">
-              <h2 className="text-xl font-black text-foreground">نوشته‌ای پیدا نشد</h2>
+              <h2 className="text-xl font-black text-foreground">
+                نوشته‌ای پیدا نشد
+              </h2>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
                 جست‌وجوی دیگری را امتحان کن یا بعداً دوباره سر بزن.
               </p>

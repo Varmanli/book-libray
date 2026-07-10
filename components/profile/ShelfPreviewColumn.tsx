@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowUpLeft, Library } from "lucide-react";
 
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { cn } from "@/lib/utils";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
@@ -71,7 +71,7 @@ export default function ShelfPreviewColumn({
                   index % 2 === 1 && "group-hover:-translate-y-1",
                 )}
               >
-                <Image
+                <BookCoverImage
                   src={book.coverImage || PLACEHOLDER}
                   alt={book.title}
                   fill

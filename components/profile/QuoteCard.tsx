@@ -2,7 +2,6 @@
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   BookOpen,
   Check,
@@ -23,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import type { PublicQuote } from "@/lib/quotes/service";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
@@ -324,7 +324,7 @@ function BookChip({
       className="group/book flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border/80 bg-background/45 py-1.5 pe-3 ps-1.5 backdrop-blur transition-colors hover:border-primary/25 hover:bg-primary/[0.04]"
     >
       <span className="relative aspect-[3/4] w-8 shrink-0 overflow-hidden rounded-lg bg-white/5 ring-1 ring-white/10">
-        <Image
+        <BookCoverImage
           src={cover || PLACEHOLDER}
           alt={title}
           fill

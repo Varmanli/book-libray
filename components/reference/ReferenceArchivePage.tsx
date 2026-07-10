@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
-import type { ReferenceSearchPage } from "@/lib/reference/service";
+import type {
+  ReferenceItemDTO,
+  ReferenceSearchPage,
+} from "@/lib/reference/service";
 
 function toReferenceSearchParams(q: string, page: number) {
   const params = new URLSearchParams();
@@ -63,17 +66,25 @@ export default function ReferenceArchivePage({
   routeBase,
   searchPlaceholder,
   emptyTitle,
+  loadMoreEndpoint,
 }: {
   initialQuery: string;
   result: ReferenceSearchPage;
   routeBase: "/authors" | "/translators" | "/publishers";
   searchPlaceholder: string;
   emptyTitle: string;
+  /** Enables append-only pagination for public directories such as authors. */
+  loadMoreEndpoint?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(initialQuery);
+  const [items, setItems] = useState(result.items);
+  const [loadedPage, setLoadedPage] = useState(result.page);
+  const [hasMore, setHasMore] = useState(result.page < result.pageCount);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const currentParams = useMemo(
     () => toReferenceSearchParams(initialQuery, result.page).toString(),
     [initialQuery, result.page],
@@ -82,6 +93,15 @@ export default function ReferenceArchivePage({
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
+
+  // A server navigation (search/clear-search) establishes a new result set.
+  // Reset the appended client pages only at that boundary.
+  useEffect(() => {
+    setItems(result.items);
+    setLoadedPage(result.page);
+    setHasMore(result.page < result.pageCount);
+    setLoadMoreError(null);
+  }, [initialQuery, result.items, result.page, result.pageCount]);
 
   useEffect(() => {
     const nextParams = toReferenceSearchParams(query, 1).toString();
@@ -114,6 +134,49 @@ export default function ReferenceArchivePage({
     });
   };
 
+  const loadMore = async () => {
+    if (!loadMoreEndpoint || isLoadingMore || !hasMore || isPending) return;
+
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+
+    try {
+      const params = new URLSearchParams({
+        page: String(loadedPage + 1),
+        limit: String(result.pageSize),
+      });
+      if (initialQuery.trim()) params.set("q", initialQuery.trim());
+
+      const response = await fetch(`${loadMoreEndpoint}?${params}`, {
+        cache: "no-store",
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        items?: ReferenceItemDTO[];
+        page?: number;
+        hasMore?: boolean;
+      };
+
+      if (!response.ok || !data.ok || !data.items || !data.page) {
+        throw new Error(data.error || "بارگذاری نویسنده‌ها ناموفق بود");
+      }
+
+      setItems((current) => {
+        const ids = new Set(current.map((item) => item.id));
+        return [...current, ...data.items!.filter((item) => !ids.has(item.id))];
+      });
+      setLoadedPage(data.page);
+      setHasMore(Boolean(data.hasMore));
+    } catch (error) {
+      setLoadMoreError(
+        error instanceof Error ? error.message : "بارگذاری نویسنده‌ها ناموفق بود",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="space-y-4">
@@ -139,7 +202,7 @@ export default function ReferenceArchivePage({
         </div>
       </section>
 
-      {result.items.length === 0 ? (
+      {items.length === 0 ? (
         <div className="rounded-[1.8rem] border border-dashed border-border/70 bg-card/50 px-6 py-14 text-center">
           <h2 className="text-xl font-black text-foreground">{emptyTitle}</h2>
           {initialQuery ? (
@@ -162,7 +225,7 @@ export default function ReferenceArchivePage({
                 : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
             }
           >
-            {result.items.map((item) => (
+            {items.map((item) => (
               <Link
                 key={item.id}
                 href={`${routeBase}/${encodeURIComponent(item.slug ?? item.name)}`}
@@ -206,11 +269,40 @@ export default function ReferenceArchivePage({
             ))}
           </div>
 
-          <Pagination
-            page={result.page}
-            pageCount={result.pageCount}
-            onNavigate={navigateToPage}
-          />
+          {loadMoreEndpoint ? (
+            <div className="pt-3 text-center" aria-busy={isLoadingMore}>
+              {hasMore ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={isLoadingMore || isPending}
+                  className="h-11 min-w-40 rounded-2xl px-5 font-bold focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      در حال بارگذاری…
+                    </>
+                  ) : (
+                    "مشاهده بیشتر"
+                  )}
+                </Button>
+              ) : null}
+
+              {loadMoreError ? (
+                <p role="alert" className="mt-3 text-xs font-medium text-destructive">
+                  {loadMoreError}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <Pagination
+              page={result.page}
+              pageCount={result.pageCount}
+              onNavigate={navigateToPage}
+            />
+          )}
         </>
       )}
 

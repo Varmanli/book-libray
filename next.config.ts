@@ -6,9 +6,11 @@ import type { NextConfig } from "next";
  * استخراج می‌کنیم تا تغییر دامنه‌ی عمومیِ storage باعث 400 از image optimizer
  * نشود.
  */
+const ARVAN_STORAGE_HOST = "qafaseh-prod.s3.ir-thr-at1.arvanstorage.ir";
+
 function resolveImageHosts(): string[] {
   const hosts = new Set<string>([
-    "qafaseh-prod.s3.ir-thr-at1.arvanstorage.ir",
+    ARVAN_STORAGE_HOST,
     "qafaseh-prod.s3.ir-thr-at1.liara.space",
     "www.iranketab.ir",
     "iranketab.ir",

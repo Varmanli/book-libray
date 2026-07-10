@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import Image from "next/image";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { useRouter } from "next/navigation";
 import { useState, memo, useCallback } from "react";
 import { BookType } from "@/types";
@@ -64,14 +64,11 @@ const BookCard = memo(function BookCard({
     <Card className="flex flex-col md:flex-row items-start border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer py-0">
       {/* جلد کتاب */}
       <div className="relative w-full h-130 md:w-55 md:h-80 flex-shrink-0">
-        <Image
+        <BookCoverImage
           src={book.coverImage || "/placeholder-cover.svg"}
           alt={book.title}
           fill
           className="object-cover rounded-t-xl md:rounded-t-none md:rounded-r-xl w-full h-full"
-          loading="lazy"
-          placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
       </div>
 

@@ -1,4 +1,7 @@
-export const BOOK_ARCHIVE_PAGE_SIZE = 24;
+// The desktop archive uses a five-column grid, so a full page is a complete
+// 5 × 5 set of cards.  All archive limit/offset/page-count math derives from
+// this single constant.
+export const BOOK_ARCHIVE_PAGE_SIZE = 25;
 
 export const BOOK_ARCHIVE_SORT_OPTIONS = [
   { value: "NEWEST", label: "جدیدترین" },

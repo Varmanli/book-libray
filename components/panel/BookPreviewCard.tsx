@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { BookOpen, Star } from "lucide-react";
+import { Star } from "lucide-react";
 
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { getPublicBookHref } from "@/lib/book/public-href";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +22,6 @@ export default function BookPreviewCard({
   };
   compact?: boolean;
 }) {
-  const [imgError, setImgError] = useState(false);
-  const showCover = !!book.coverImage && !imgError;
   const href = getPublicBookHref(book) ?? `/book/${encodeURIComponent(book.id)}`;
 
   return (
@@ -36,20 +33,13 @@ export default function BookPreviewCard({
       )}
     >
       <div className="relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-muted sm:w-16">
-        {showCover ? (
-          <Image
-            src={book.coverImage as string}
-            alt={book.title}
-            fill
-            className="object-cover transition group-hover:scale-[1.03]"
-            sizes="64px"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <BookOpen className="h-5 w-5" />
-          </div>
-        )}
+        <BookCoverImage
+          src={book.coverImage}
+          alt={book.title}
+          fill
+          className="object-cover transition group-hover:scale-[1.03]"
+          sizes="64px"
+        />
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">

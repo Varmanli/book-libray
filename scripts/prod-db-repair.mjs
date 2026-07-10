@@ -120,6 +120,11 @@ const publishedBookNoteStatements = [
   'ALTER TABLE "PublishedBookNote" ADD COLUMN IF NOT EXISTS "scope" "NoteScope"',
 ];
 
+const quoteStatements = [
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "book_edition_id" varchar',
+];
+
 const publishedBookNoteLikeStatements = [
   'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "id" varchar',
   'ALTER TABLE "PublishedBookNoteLike" ADD COLUMN IF NOT EXISTS "note_id" varchar',
@@ -224,6 +229,51 @@ async function repairFeaturedBookIntegrity(pool) {
   );
 }
 
+async function repairQuoteIntegrity(pool) {
+  const requiredTables = await Promise.all(
+    ["Quote", "Book", "CatalogBook", "BookEdition"].map((table) =>
+      tableExists(pool, table),
+    ),
+  );
+  if (requiredTables.some((exists) => !exists)) {
+    log("Quote relation repair skipped because a required table does not exist.");
+    return;
+  }
+
+  await pool.query(`
+    UPDATE "Quote" q SET "catalog_book_id" = NULL
+    WHERE q."catalog_book_id" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "CatalogBook" cb WHERE cb."id" = q."catalog_book_id")
+  `);
+  await pool.query(`
+    UPDATE "Quote" q SET "book_edition_id" = NULL
+    WHERE q."book_edition_id" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "BookEdition" be WHERE be."id" = q."book_edition_id")
+  `);
+  await pool.query(`
+    UPDATE "Quote" q
+    SET
+      "catalog_book_id" = COALESCE(q."catalog_book_id", b."catalog_book_id"),
+      "book_edition_id" = COALESCE(q."book_edition_id", b."edition_id")
+    FROM "Book" b
+    WHERE q."book_id" = b."id"
+      AND (q."catalog_book_id" IS NULL OR q."book_edition_id" IS NULL)
+  `);
+
+  for (const statement of [
+    `DO $$ BEGIN
+       ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_CatalogBook_id_fk"
+       FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL;
+     EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN
+       ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_BookEdition_id_fk"
+       FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL;
+     EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  ]) {
+    await pool.query(statement);
+  }
+}
+
 async function main() {
   const { loadedFiles } = loadScriptEnv();
   if (loadedFiles.length > 0) {
@@ -254,6 +304,7 @@ async function main() {
     await runStatements(pool, "BookEdition", bookEditionStatements);
     await runStatements(pool, "CatalogBook", catalogBookStatements);
     await runStatements(pool, "ReferenceItem", referenceItemStatements);
+    await runStatements(pool, "Quote", quoteStatements);
     await runStatements(pool, "PublishedBookNote", publishedBookNoteStatements);
     await runStatements(
       pool,
@@ -261,6 +312,7 @@ async function main() {
       publishedBookNoteLikeStatements,
     );
     await runStatements(pool, "HomeFeaturedBook", homeFeaturedBookStatements);
+    await repairQuoteIntegrity(pool);
     await repairFeaturedBookIntegrity(pool);
 
     log("production database repair completed.");

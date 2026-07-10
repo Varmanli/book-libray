@@ -387,10 +387,8 @@ export default function BookArchiveFilters({
             <div className="flex min-w-0 items-center gap-2 text-xs font-bold text-muted-foreground">
               <BookOpen className="h-4 w-4 shrink-0" />
               <span className="truncate">
-                {archive.items.length > 0
-                  ? `${archive.items.length.toLocaleString(
-                      "fa-IR",
-                    )} کتاب در این صفحه`
+                {archive.totalCount > 0
+                  ? `${archive.totalCount.toLocaleString("fa-IR")} کتاب پیدا شد`
                   : "نتیجه‌ای برای نمایش نیست"}
               </span>
             </div>
@@ -489,7 +487,7 @@ export default function BookArchiveFilters({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 items-stretch gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 lg:gap-x-5 xl:grid-cols-4 2xl:grid-cols-5">
+              <div className="grid grid-cols-2 items-stretch gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-5 xl:grid-cols-5">
                 {archive.items.map((book) => (
                   <BookArchiveCard key={book.id} book={book} />
                 ))}

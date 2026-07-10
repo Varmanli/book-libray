@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Heart, Pencil, RefreshCw, Star, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { getPublicBookHref } from "@/lib/book/public-href";
 import { cn } from "@/lib/utils";
 import type { LibraryBook } from "@/lib/library/service";
@@ -34,8 +33,6 @@ export default function LibraryBookCard({
   onCycleStatus?: (book: LibraryBook) => void;
   onDelete?: (book: LibraryBook) => void;
 }) {
-  const [imgError, setImgError] = useState(false);
-  const showCover = !!book.coverImage && !imgError;
   const bookHref =
     getPublicBookHref(book) ?? `/book/${encodeURIComponent(book.id)}`;
 
@@ -43,21 +40,13 @@ export default function LibraryBookCard({
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/60 shadow-sm transition hover:border-primary/30 hover:shadow-md">
       <Link href={bookHref} className="block">
         <div className="relative aspect-[2/3] overflow-hidden bg-muted">
-          {showCover ? (
-            <Image
-              src={book.coverImage as string}
-              alt={book.title}
-              fill
-              className="object-cover transition duration-500 group-hover:scale-[1.03]"
-              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 18vw"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-              <BookOpen className="h-8 w-8" />
-              <span className="text-[11px]">بدون جلد</span>
-            </div>
-          )}
+          <BookCoverImage
+            src={book.coverImage}
+            alt={book.title}
+            fill
+            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 18vw"
+          />
 
           <span
             className={cn(

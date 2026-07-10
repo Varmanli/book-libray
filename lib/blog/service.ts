@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { BlogCategory, BlogPost, User } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
+import { normalizeMediaUrl } from "@/lib/book/cover";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
 import type {
   BlogCategoryInput,
@@ -80,6 +81,15 @@ function estimateReadingTime(html: string) {
   return Math.max(1, Math.round(words / 200));
 }
 
+function normalizeBlogBanner<T extends { bannerImage: string }>(post: T): T {
+  return {
+    ...post,
+    // Public DTOs always expose the original source URL, never an optimizer
+    // URL or a bare object key that public Image components cannot resolve.
+    bannerImage: normalizeMediaUrl(post.bannerImage) ?? "",
+  };
+}
+
 async function generateUniqueBlogSlug(title: string, excludeId?: string) {
   const base = slugify(title) || "blog-post";
   const rows = await db
@@ -150,7 +160,7 @@ function normalizeInput(input: BlogPostInput) {
     categoryId: input.categoryId,
     excerpt: input.excerpt.trim(),
     content: sanitizedContent,
-    bannerImage: input.bannerImage.trim(),
+    bannerImage: normalizeMediaUrl(input.bannerImage) ?? input.bannerImage.trim(),
     status: input.status,
     publishedAt,
     readingTime: estimateReadingTime(sanitizedContent),
@@ -211,7 +221,7 @@ export async function listAdminBlogPosts({
     db.select({ total: count() }).from(BlogPost).where(where),
   ]);
 
-  return { posts, total: totalRows[0]?.total ?? 0 };
+  return { posts: posts.map(normalizeBlogBanner), total: totalRows[0]?.total ?? 0 };
 }
 
 export async function getAdminBlogPostById(id: string): Promise<AdminBlogPostDetail | null> {
@@ -240,7 +250,7 @@ export async function getAdminBlogPostById(id: string): Promise<AdminBlogPostDet
     .where(eq(BlogPost.id, id))
     .limit(1);
 
-  return post ?? null;
+  return post ? normalizeBlogBanner(post) : null;
 }
 
 export async function createBlogPost(input: BlogPostInput, adminId: string) {
@@ -374,7 +384,9 @@ export async function listPublicBlogPosts({
   const clampedPage = Math.min(safePage, pageCount);
 
   return {
-    posts: posts.filter((post): post is PublicBlogPostPreview => Boolean(post.publishedAt)),
+    posts: posts
+      .filter((post): post is PublicBlogPostPreview => Boolean(post.publishedAt))
+      .map(normalizeBlogBanner),
     total,
     page: clampedPage,
     pageCount,
@@ -404,7 +416,9 @@ export async function getLatestPublishedBlogPosts(
     .orderBy(desc(BlogPost.publishedAt), desc(BlogPost.createdAt))
     .limit(limit);
 
-  return posts.filter((post): post is PublicBlogPostPreview => Boolean(post.publishedAt));
+  return posts
+    .filter((post): post is PublicBlogPostPreview => Boolean(post.publishedAt))
+    .map(normalizeBlogBanner);
 }
 
 export async function getPublicBlogPostBySlug(slug: string): Promise<PublicBlogPost | null> {
@@ -432,10 +446,10 @@ export async function getPublicBlogPostBySlug(slug: string): Promise<PublicBlogP
 
   if (!post || !post.publishedAt) return null;
 
-  return {
+  return normalizeBlogBanner({
     ...post,
     publishedAt: post.publishedAt,
-  };
+  });
 }
 
 // ---------------- دسته‌بندی‌های بلاگ ----------------

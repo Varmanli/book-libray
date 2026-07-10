@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
+import { normalizeMediaUrl } from "@/lib/book/cover";
+
 const PLACEHOLDER_COVER = "/placeholder-cover.svg";
 
-export function shouldBypassImageOptimizer(src: string): boolean {
+export function shouldBypassImageOptimizer(src: string | null | undefined): boolean {
+  if (!src) return false;
   try {
     const url = new URL(src);
     const hostname = url.hostname.toLowerCase();
@@ -48,7 +51,7 @@ export default function BookCoverImage({
   }, [src]);
 
   const resolvedSrc = useMemo(() => {
-    const value = src?.trim();
+    const value = normalizeMediaUrl(src);
     if (!value || failed) return PLACEHOLDER_COVER;
     return value;
   }, [failed, src]);

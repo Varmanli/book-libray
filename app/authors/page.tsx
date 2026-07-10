@@ -26,12 +26,9 @@ export default async function AuthorsPage({
 }) {
   const resolvedSearchParams = await searchParams;
   const q = firstOf(resolvedSearchParams.q).trim();
-  const rawPage = Number(firstOf(resolvedSearchParams.page) || "1");
-  const page = Number.isFinite(rawPage) ? Math.max(1, Math.trunc(rawPage)) : 1;
-
   const result = await searchReferencePage("AUTHOR", q, {
     approvedOnly: true,
-    page,
+    page: 1,
     pageSize: 20,
   });
 

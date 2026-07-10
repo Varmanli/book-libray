@@ -15,6 +15,7 @@ export default function AuthorsArchivePage({
       routeBase="/authors"
       searchPlaceholder="جستجو در نویسنده‌ها..."
       emptyTitle="نویسنده‌ای پیدا نشد"
+      loadMoreEndpoint="/api/authors"
     />
   );
 }

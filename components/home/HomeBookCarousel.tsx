@@ -10,47 +10,37 @@ import type { HomeBookCard } from "@/lib/home/service";
 
 const PLACEHOLDER_COVER = "/placeholder-cover.svg";
 
-const STATUS_LABELS: Record<string, string> = {
-  UNREAD: "خوانده‌نشده",
-  READING: "در حال خواندن",
-  FINISHED: "خوانده‌شده",
-};
-
 function BookCard({ book }: { book: HomeBookCard }) {
   const presentation = resolveBookPresentation(book, book.displayEdition);
-  const meta = book.genre || (book.status ? STATUS_LABELS[book.status] : null);
-  const href = getPublicBookHref({ ...book, editionId: presentation.linkEditionId });
+  const href = getPublicBookHref({
+    ...book,
+    editionId: presentation.linkEditionId,
+  });
 
   if (!href) return null;
 
   return (
     <Link
       href={href}
-      className="group block rounded-[1.55rem] border border-border/75 bg-card/90 p-3 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:border-primary/25"
+      className="group flex h-full flex-col rounded-[1.55rem] border border-border/75 bg-card/90 p-3 shadow-[0_24px_60px_-42px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_28px_65px_-40px_rgba(0,0,0,0.45)]"
     >
-      <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-secondary">
+      <div className="relative aspect-[5/8] overflow-hidden rounded-[1.25rem] bg-secondary/80">
         <BookCoverImage
           src={presentation.coverImage || PLACEHOLDER_COVER}
           alt={presentation.title}
           fill
-          sizes="(max-width: 640px) 42vw, (max-width: 1024px) 25vw, 200px"
-          className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          sizes="(max-width: 640px) 42vw, (max-width: 1024px) 25vw, 220px"
+          className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
         />
       </div>
 
-      <div className="px-1 pb-1 pt-4">
-        <h3 className="line-clamp-1 text-sm font-black text-foreground">
+      <div className="flex min-h-[5.75rem] flex-1 flex-col px-1 pb-1 pt-4">
+        <h3 className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-foreground">
           {presentation.title}
         </h3>
-        <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+        <p className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground">
           {book.author}
         </p>
-
-        {meta ? (
-          <span className="mt-3 inline-flex rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
-            {meta}
-          </span>
-        ) : null}
       </div>
     </Link>
   );
@@ -65,11 +55,7 @@ export default function HomeBookCarousel({
 }) {
   return (
     <section className="rounded-[2rem] border border-border/65 bg-secondary/25 px-4 py-6 sm:px-6 sm:py-7">
-      <HomeSectionHeader
-        icon={BookMarked}
-        eyebrow={isFallback ? "تازه‌ترین‌ها" : "انتخاب سردبیر"}
-        title="کتاب‌های پیشنهادی"
-      />
+      <HomeSectionHeader icon={BookMarked} title="کتاب‌های پیشنهادی" />
 
       {books.length > 0 ? (
         <Carousel
