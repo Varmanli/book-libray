@@ -5,6 +5,7 @@ import BookCoverImage from "@/components/books/BookCoverImage";
 import HomeSectionHeader from "@/components/home/HomeSectionHeader";
 import { Carousel } from "@/components/ui/Carousel";
 import { getPublicBookHref } from "@/lib/book/public-href";
+import { resolveBookPresentation } from "@/lib/book/presentation";
 import type { HomeBookCard } from "@/lib/home/service";
 
 const PLACEHOLDER_COVER = "/placeholder-cover.svg";
@@ -16,8 +17,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function BookCard({ book }: { book: HomeBookCard }) {
+  const presentation = resolveBookPresentation(book, book.displayEdition);
   const meta = book.genre || (book.status ? STATUS_LABELS[book.status] : null);
-  const href = getPublicBookHref(book);
+  const href = getPublicBookHref({ ...book, editionId: presentation.linkEditionId });
 
   if (!href) return null;
 
@@ -28,8 +30,8 @@ function BookCard({ book }: { book: HomeBookCard }) {
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-[1.25rem] bg-secondary">
         <BookCoverImage
-          src={book.coverImage || PLACEHOLDER_COVER}
-          alt={book.title}
+          src={presentation.coverImage || PLACEHOLDER_COVER}
+          alt={presentation.title}
           fill
           sizes="(max-width: 640px) 42vw, (max-width: 1024px) 25vw, 200px"
           className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -38,7 +40,7 @@ function BookCard({ book }: { book: HomeBookCard }) {
 
       <div className="px-1 pb-1 pt-4">
         <h3 className="line-clamp-1 text-sm font-black text-foreground">
-          {book.title}
+          {presentation.title}
         </h3>
         <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
           {book.author}

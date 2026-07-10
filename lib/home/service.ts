@@ -18,6 +18,7 @@ import {
 } from "@/lib/home/book-resolver";
 import { searchAdminCatalogBooks } from "@/lib/admin/service";
 import { coalesceCoverImage } from "@/lib/book/cover";
+import type { BookPresentationEdition } from "@/lib/book/presentation";
 import {
   getLatestPublishedBlogPosts,
   type PublicBlogPostPreview,
@@ -56,6 +57,7 @@ export interface HomeBookCard {
   coverImage: string | null;
   genre: string | null;
   status: string | null;
+  displayEdition?: BookPresentationEdition | null;
 }
 
 export interface AdminFeaturedBook {

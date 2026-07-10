@@ -58,6 +58,7 @@ export default async function BookNotesPage({
 
   const {
     book,
+    presentation,
     selectedEdition,
     editions,
     authorChip,
@@ -149,15 +150,13 @@ export default async function BookNotesPage({
             loginHref={loginHref}
             title="یادداشت‌ها"
             editionSummary={
-              selectedEdition
+              presentation.edition
                 ? {
                     label:
-                      selectedEdition.editionLabel ??
-                      selectedEdition.titleOverride ??
-                      null,
-                    publisher: selectedEdition.publisher,
-                    translator: selectedEdition.translator,
-                    publishedYear: selectedEdition.publishedYear,
+                      presentation.editionLabel ?? presentation.title ?? null,
+                    publisher: presentation.publisher,
+                    translator: presentation.translator,
+                    publishedYear: presentation.publishedYear,
                   }
                 : null
             }

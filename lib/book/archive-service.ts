@@ -10,6 +10,7 @@ import {
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
+import type { BookPresentationEdition } from "@/lib/book/presentation";
 import {
   BOOK_ARCHIVE_PAGE_SIZE,
   parseBookArchiveSearchParams,
@@ -33,6 +34,11 @@ export interface BookArchiveItem {
   coverImage: string | null;
   publishedYear: number | null;
   pageCount: number | null;
+  /** Set only when the archive query originated from a specific edition. */
+  editionId: string | null;
+  editionLabel: string | null;
+  /** Explicit only for edition-originating scopes such as translator/publisher. */
+  displayEdition: BookPresentationEdition | null;
   popularityCount: number;
   wantedCount: number;
   averageRating: number | null;
@@ -75,6 +81,34 @@ function genreContains(column: unknown, value: string) {
 
 function bestEditionField<T>(fieldName: string) {
   return preferredEditionFieldSql<T>(fieldName);
+}
+
+function presentationEditionField<T>(
+  fieldName: string,
+  scope: BookArchiveScope,
+) {
+  if (!scope.fixedTranslator && !scope.fixedPublisher) {
+    return bestEditionField<T>(fieldName);
+  }
+
+  const conditions = [
+    sql`be.catalog_book_id = ${CatalogBook.id}`,
+    sql`be.status = 'APPROVED'`,
+    scope.fixedTranslator
+      ? sql`lower(be.translator) = lower(${scope.fixedTranslator})`
+      : undefined,
+    scope.fixedPublisher
+      ? sql`lower(be.publisher) = lower(${scope.fixedPublisher})`
+      : undefined,
+  ].filter(Boolean);
+
+  return sql<T>`(
+    select be.${sql.raw(fieldName)}
+    from "BookEdition" be
+    where ${sql.join(conditions, sql` and `)}
+    order by be.created_at desc, be.id asc
+    limit 1
+  )`;
 }
 
 function sampleBookField<T>(fieldName: string) {
@@ -492,21 +526,31 @@ export async function getBookArchivePageData(
       .select({
         id: CatalogBook.id,
         slug: CatalogBook.slug,
-        title: CatalogBook.title,
+        title: sql<string>`coalesce(
+          nullif(trim(${presentationEditionField<string | null>("title_override", scope)}), ''),
+          ${CatalogBook.title}
+        )`,
         originalTitle: CatalogBook.originalTitle,
         author: CatalogBook.author,
         genre: CatalogBook.genre,
         country: CatalogBook.country,
         description: CatalogBook.description,
         language: sql<string | null>`coalesce(
-          ${bestEditionField<string | null>("language")},
+          ${presentationEditionField<string | null>("language", scope)},
           ${CatalogBook.language}
         )`,
-        translator: bestEditionField<string | null>("translator"),
-        publisher: bestEditionField<string | null>("publisher"),
-        coverImage: archiveCoverField(),
-        publishedYear: bestEditionField<number | null>("published_year"),
-        pageCount: bestEditionField<number | null>("page_count"),
+        translator: presentationEditionField<string | null>("translator", scope),
+        publisher: presentationEditionField<string | null>("publisher", scope),
+        coverImage: sql<string | null>`coalesce(
+          ${presentationEditionField<string | null>("cover_image", scope)},
+          ${CatalogBook.coverImage}
+        )`,
+        publishedYear: presentationEditionField<number | null>("published_year", scope),
+        pageCount: presentationEditionField<number | null>("page_count", scope),
+        editionId: scope.fixedTranslator || scope.fixedPublisher
+          ? presentationEditionField<string | null>("id", scope)
+          : sql<string | null>`null`,
+        editionLabel: presentationEditionField<string | null>("edition_label", scope),
         popularityCount: sql<number>`coalesce(${stats.popularityCount}, 0)`,
         wantedCount: sql<number>`coalesce(${stats.wantedCount}, 0)`,
         ratingCount: sql<number>`coalesce(${stats.ratingCount}, 0)`,
@@ -554,6 +598,22 @@ export async function getBookArchivePageData(
         coverImage: row.coverImage,
         publishedYear: row.publishedYear,
         pageCount: row.pageCount,
+        editionId: row.editionId,
+        editionLabel: row.editionLabel,
+        displayEdition: row.editionId
+          ? {
+              id: row.editionId,
+              // The scoped SQL already resolves title_override ?? catalog title.
+              titleOverride: row.title,
+              coverImage: row.coverImage,
+              translator: row.translator,
+              publisher: row.publisher,
+              editionLabel: row.editionLabel,
+              language: row.language,
+              publishedYear: row.publishedYear,
+              pageCount: row.pageCount,
+            }
+          : null,
         popularityCount: row.popularityCount,
         wantedCount: row.wantedCount,
         ratingCount: row.ratingCount,

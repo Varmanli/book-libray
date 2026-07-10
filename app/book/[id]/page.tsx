@@ -92,6 +92,7 @@ export default async function BookPage({
 
   const {
     book,
+    presentation,
     selectedEdition,
     editions,
     viewer: entry,
@@ -143,19 +144,19 @@ export default async function BookPage({
         .trim() || undefined,
     image: book.displayCoverImage ? [toAbsoluteUrl(book.displayCoverImage)] : undefined,
     inLanguage: book.language || "fa",
-    numberOfPages: selectedEdition?.pageCount ?? undefined,
+    numberOfPages: presentation.pageCount ?? undefined,
     datePublished:
-      selectedEdition?.publishedYear != null
-        ? String(selectedEdition.publishedYear)
+      presentation.publishedYear != null
+        ? String(presentation.publishedYear)
         : book.firstPublishedYear != null
           ? String(book.firstPublishedYear)
           : undefined,
     author: [{ "@type": "Person", name: book.author }],
-    translator: selectedEdition?.translator
-      ? [{ "@type": "Person", name: selectedEdition.translator }]
+    translator: presentation.translator
+      ? [{ "@type": "Person", name: presentation.translator }]
       : undefined,
-    publisher: selectedEdition?.publisher
-      ? { "@type": "Organization", name: selectedEdition.publisher }
+    publisher: presentation.publisher
+      ? { "@type": "Organization", name: presentation.publisher }
       : undefined,
     genre: genreList.length > 0 ? genreList : undefined,
     aggregateRating:
@@ -204,28 +205,28 @@ export default async function BookPage({
         }
       />
     ),
-    selectedEdition?.translator && (
+    presentation.translator && (
       <BookMetaItem
         key="translator"
         icon={<FiEdit3 className="h-4 w-4" />}
         label="مترجم"
-        value={selectedEdition.translator}
+        value={presentation.translator}
         valueAvatar={
           <MetaAvatar
             image={translatorChip?.image}
-            name={selectedEdition.translator}
+            name={presentation.translator}
             fallback={<FiEdit3 />}
           />
         }
         href={translatorChip?.href ?? undefined}
       />
     ),
-    selectedEdition?.publisher && (
+    presentation.publisher && (
       <BookMetaItem
         key="publisher"
         icon={<FiArchive className="h-4 w-4" />}
         label="ناشر"
-        value={selectedEdition.publisher}
+        value={presentation.publisher}
         href={
           refLinks.publisher
             ? `/publishers/${encodeURIComponent(refLinks.publisher)}`
@@ -233,20 +234,20 @@ export default async function BookPage({
         }
       />
     ),
-    selectedEdition?.pageCount != null && (
+    presentation.pageCount != null && (
       <BookMetaItem
         key="pageCount"
         icon={<FiBookOpen className="h-4 w-4" />}
         label="تعداد صفحه"
-        value={selectedEdition.pageCount.toLocaleString("fa-IR")}
+        value={presentation.pageCount.toLocaleString("fa-IR")}
       />
     ),
-    selectedEdition?.publishedYear != null && (
+    presentation.publishedYear != null && (
       <BookMetaItem
         key="publishedYear"
         icon={<FiCalendar className="h-4 w-4" />}
         label="سال چاپ"
-        value={selectedEdition.publishedYear.toLocaleString("fa-IR", {
+        value={presentation.publishedYear.toLocaleString("fa-IR", {
           useGrouping: false,
         })}
       />
@@ -311,10 +312,23 @@ export default async function BookPage({
               <div className="rounded-[1.8rem] border border-border/70 bg-background/55 p-3 shadow-[0_24px_80px_-58px_rgba(0,0,0,0.65)] backdrop-blur-md dark:bg-black/10">
                 <div className="grid gap-2.5">
                   {editions.length > 1 ? (
-                    <BookEditionSelector
-                      editions={editions}
-                      selectedEditionId={selectedEdition?.id ?? null}
-                    />
+                    <>
+                      <BookEditionSelector
+                        editions={editions}
+                        selectedEditionId={selectedEdition?.id ?? null}
+                      />
+                      {presentation.edition ? (
+                        <p className="px-1 text-[11px] font-bold leading-5 text-muted-foreground">
+                          در حال مشاهده: {[
+                            presentation.editionLabel,
+                            presentation.publisher,
+                            presentation.translator,
+                          ]
+                            .filter(Boolean)
+                            .join(" • ") || "نسخه انتخاب‌شده"}
+                        </p>
+                      ) : null}
+                    </>
                   ) : null}
 
                   <ReadingStatusControl

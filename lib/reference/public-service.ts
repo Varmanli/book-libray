@@ -6,6 +6,7 @@ import { coalesceCoverImage } from "@/lib/book/cover";
 import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
+import type { BookPresentationEdition } from "@/lib/book/presentation";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 
 export interface ReferenceEntity {
@@ -40,6 +41,7 @@ export interface ReferenceBookCard {
   coverImage: string | null;
   rating: number | null;
   createdAt: Date;
+  displayEdition?: BookPresentationEdition | null;
 }
 
 /** مسیر عمومی هر نوع موجودیت. */

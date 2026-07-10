@@ -25,13 +25,15 @@ import {
   type BookArchiveFilters,
 } from "@/lib/book/archive-search";
 import { getPublicBookHref } from "@/lib/book/public-href";
+import { resolveBookPresentation } from "@/lib/book/presentation";
 import type {
   BookArchiveItem,
   BookArchiveResult,
 } from "@/lib/book/archive-service";
 
 function bookHref(book: BookArchiveItem) {
-  return getPublicBookHref(book);
+  const presentation = resolveBookPresentation(book, book.displayEdition);
+  return getPublicBookHref({ ...book, editionId: presentation.linkEditionId });
 }
 
 function FilterChip({
@@ -145,7 +147,8 @@ function ActiveFilters({
 
 function BookArchiveCard({ book }: { book: BookArchiveItem }) {
   const href = bookHref(book);
-  const coverSrc = book.coverImage || "/placeholder-cover.svg";
+  const presentation = resolveBookPresentation(book, book.displayEdition);
+  const coverSrc = presentation.coverImage || "/placeholder-cover.svg";
 
   const ratingLabel =
     book.averageRating != null
@@ -162,7 +165,7 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
         <div className="relative aspect-[2/3]">
           <BookCoverImage
             src={coverSrc}
-            alt={book.title}
+            alt={presentation.title}
             fill
             sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, (max-width: 1400px) 19vw, 15vw"
             className="object-cover transition duration-500 group-hover/card:scale-[1.035]"
@@ -172,12 +175,20 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
 
       <div className="flex flex-col px-1 pt-3 text-right">
         <h2 className="line-clamp-2 min-h-[3rem] text-sm font-black leading-6 tracking-tight text-foreground transition-colors group-hover/card:text-primary sm:text-[0.95rem]">
-          {book.title}
+          {presentation.title}
         </h2>
 
         <p className="mt-1.5 line-clamp-1 text-xs font-semibold leading-5 text-muted-foreground sm:text-sm">
           {book.author || "نویسنده نامشخص"}
         </p>
+
+        {presentation.linkEditionId ? (
+          <p className="mt-1 line-clamp-1 text-[11px] font-bold text-primary/85">
+            {[presentation.editionLabel, presentation.publisher, presentation.translator]
+              .filter(Boolean)
+              .join(" • ") || "نسخه انتخاب‌شده"}
+          </p>
+        ) : null}
 
         <div className="mt-3 flex items-center justify-end">
           <div className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-2.5 text-[11px] font-bold text-foreground shadow-sm backdrop-blur">

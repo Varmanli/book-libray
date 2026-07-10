@@ -7,6 +7,7 @@ import { BookOpen, Search } from "lucide-react";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
 import { getPublicBookHref } from "@/lib/book/public-href";
+import { resolveBookPresentation } from "@/lib/book/presentation";
 import { cn } from "@/lib/utils";
 import type { ReferenceBookCard } from "@/lib/reference/public-service";
 
@@ -132,8 +133,9 @@ function ReferenceCard({
   book: ReferenceBookCard;
   subduedAuthor: boolean;
 }) {
-  const href = getPublicBookHref(book);
-  const coverSrc = book.coverImage || "/placeholder-cover.svg";
+  const presentation = resolveBookPresentation(book, book.displayEdition);
+  const href = getPublicBookHref({ ...book, editionId: presentation.linkEditionId });
+  const coverSrc = presentation.coverImage || "/placeholder-cover.svg";
 
   if (!href) return null;
 
@@ -145,7 +147,7 @@ function ReferenceCard({
       <div className="relative aspect-[2/3] overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-emerald-950/35 via-background to-muted">
         <BookCoverImage
           src={coverSrc}
-          alt={book.title}
+          alt={presentation.title}
           fill
           className="object-cover transition duration-500 group-hover:scale-[1.025]"
           sizes="(max-width: 640px) 45vw, (max-width: 1024px) 29vw, (max-width: 1400px) 18vw, 14vw"
@@ -154,7 +156,7 @@ function ReferenceCard({
 
       <div className="space-y-1.5 px-1 pt-3 text-right">
         <h3 className="line-clamp-2 text-sm font-black leading-6 text-foreground transition-colors group-hover:text-primary sm:text-[0.95rem]">
-          {book.title}
+          {presentation.title}
         </h3>
 
         {!subduedAuthor ? (

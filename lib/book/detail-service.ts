@@ -22,6 +22,10 @@ import {
 } from "@/lib/book/public-slug";
 import { primaryEditionOrderBy } from "@/lib/book/primary-edition";
 import {
+  resolveBookPresentation,
+  type BookPresentationEdition,
+} from "@/lib/book/presentation";
+import {
   getPublicBookExternalLinks,
   type PublicBookExternalLink,
 } from "@/lib/book/external-links";
@@ -113,6 +117,7 @@ export type BookDetailResult =
   | {
       found: true;
       book: BookDetailMeta;
+      presentation: ReturnType<typeof resolveBookPresentation>;
       selectedEdition: BookEditionSummary | null;
       editions: BookEditionSummary[];
       viewer: ViewerLibraryEntry | null;
@@ -570,6 +575,10 @@ export async function getBookDetail(
     displayCoverImage,
     coverImage: displayCoverImage,
   };
+  const presentation = resolveBookPresentation(
+    book,
+    selectedEdition as BookPresentationEdition | null,
+  );
 
   const quotes = await loadPublicQuotes(
     siblingIds,
@@ -586,6 +595,7 @@ export async function getBookDetail(
   return {
     found: true,
     book,
+    presentation,
     selectedEdition,
     editions,
     viewer,
