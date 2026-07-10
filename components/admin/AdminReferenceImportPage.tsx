@@ -130,6 +130,16 @@ function profileLookupKey(item: {
   return `${item.type ?? ""}::${item.name ?? ""}::${item.slug ?? ""}`;
 }
 
+function uniqueRenderKeys<T>(items: T[], identity: (item: T) => string): string[] {
+  const occurrences = new Map<string, number>();
+  return items.map((item) => {
+    const base = identity(item);
+    const occurrence = occurrences.get(base) ?? 0;
+    occurrences.set(base, occurrence + 1);
+    return `${base}::${occurrence}`;
+  });
+}
+
 export default function AdminReferenceImportPage() {
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -171,6 +181,20 @@ export default function AdminReferenceImportPage() {
     mediaFiles.length > 0 && !mediaPreviewLoading && !mediaUploadLoading;
   const canUploadMedia =
     Boolean(mediaPreview) && !mediaUploadLoading && !mediaPreviewLoading;
+  const previewItemKeys = useMemo(
+    () => uniqueRenderKeys(
+      preview?.items ?? [],
+      (item) => `${item.type}::${item.slug ?? ""}::${item.name}`,
+    ),
+    [preview],
+  );
+  const mediaPreviewItemKeys = useMemo(
+    () => uniqueRenderKeys(
+      mediaPreview?.items ?? [],
+      (item) => `${item.relativePath ?? ""}::${item.filename}`,
+    ),
+    [mediaPreview],
+  );
 
   async function readJsonFile(file: File) {
     const text = await file.text();
@@ -532,10 +556,11 @@ export default function AdminReferenceImportPage() {
                       disabled={!canRunPreview}
                       className="h-10 rounded-2xl border-border/80 bg-background/60"
                     >
-                      {previewLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      {previewLoading ? "در حال بررسی فایل JSON..." : "بررسی فایل"}
+                      <LoadingButtonContent
+                        loading={previewLoading}
+                        loadingLabel="در حال بررسی فایل JSON..."
+                        label="بررسی فایل"
+                      />
                     </Button>
 
                     <Button
@@ -544,10 +569,11 @@ export default function AdminReferenceImportPage() {
                       disabled={!canApply}
                       className="h-10 rounded-2xl"
                     >
-                      {applyLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      {applyLoading ? "در حال ثبت اطلاعات پروفایل‌ها..." : "ثبت اطلاعات"}
+                      <LoadingButtonContent
+                        loading={applyLoading}
+                        loadingLabel="در حال ثبت اطلاعات پروفایل‌ها..."
+                        label="ثبت اطلاعات"
+                      />
                     </Button>
                   </div>
                 </div>
@@ -599,7 +625,7 @@ export default function AdminReferenceImportPage() {
                     const raw = clientProfiles.get(profileLookupKey(item));
                     return (
                       <div
-                        key={`${item.name}-${index}`}
+                        key={previewItemKeys[index]}
                         className="rounded-[1.6rem] border border-border/70 bg-background/55 p-4"
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -643,11 +669,19 @@ export default function AdminReferenceImportPage() {
                               ) : null}
                             </div>
 
-                            {item.warnings.map((warning) => (
-                              <Notice key={warning} tone="warning" message={warning} />
+                            {item.warnings.map((warning, warningIndex) => (
+                              <Notice
+                                key={`${previewItemKeys[index]}::warning::${warning}::${warningIndex}`}
+                                tone="warning"
+                                message={warning}
+                              />
                             ))}
-                            {item.errors.map((error) => (
-                              <Notice key={error} tone="danger" message={error} />
+                            {item.errors.map((error, errorIndex) => (
+                              <Notice
+                                key={`${previewItemKeys[index]}::error::${error}::${errorIndex}`}
+                                tone="danger"
+                                message={error}
+                              />
                             ))}
                           </div>
                         </div>
@@ -726,7 +760,7 @@ export default function AdminReferenceImportPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Button asChild type="button" variant="outline" className="h-10 rounded-2xl border-border/80 bg-background/60">
+              <Button asChild variant="outline" className="h-10 rounded-2xl border-border/80 bg-background/60">
                 <label htmlFor="reference-image-files">
                   <FileImage className="h-4 w-4" />
                   انتخاب فایل‌ها
@@ -741,7 +775,7 @@ export default function AdminReferenceImportPage() {
                 onChange={(event) => collectMediaFiles(event.target.files)}
               />
 
-              <Button asChild type="button" variant="outline" className="h-10 rounded-2xl border-border/80 bg-background/60">
+              <Button asChild variant="outline" className="h-10 rounded-2xl border-border/80 bg-background/60">
                 <label htmlFor="reference-image-folder">
                   <UploadCloud className="h-4 w-4" />
                   انتخاب پوشه
@@ -764,10 +798,11 @@ export default function AdminReferenceImportPage() {
                 disabled={!canPreviewMedia}
                 className="h-10 rounded-2xl border-border/80 bg-background/60"
               >
-                {mediaPreviewLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                {mediaPreviewLoading ? "در حال بررسی تصاویر..." : "بررسی تصاویر"}
+                <LoadingButtonContent
+                  loading={mediaPreviewLoading}
+                  loadingLabel="در حال بررسی تصاویر..."
+                  label="بررسی تصاویر"
+                />
               </Button>
 
               <Button
@@ -776,10 +811,11 @@ export default function AdminReferenceImportPage() {
                 disabled={!canUploadMedia}
                 className="h-10 rounded-2xl"
               >
-                {mediaUploadLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                {mediaUploadLoading ? "در حال آپلود و اتصال تصاویر..." : "آپلود و اتصال تصاویر"}
+                <LoadingButtonContent
+                  loading={mediaUploadLoading}
+                  loadingLabel="در حال آپلود و اتصال تصاویر..."
+                  label="آپلود و اتصال تصاویر"
+                />
               </Button>
             </div>
 
@@ -831,7 +867,7 @@ export default function AdminReferenceImportPage() {
                 <div className="space-y-3">
                   {mediaPreview.items.map((item, index) => (
                     <div
-                      key={`${item.filename}-${index}`}
+                      key={mediaPreviewItemKeys[index]}
                       className="rounded-[1.6rem] border border-border/70 bg-background/55 p-4"
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -957,6 +993,30 @@ export default function AdminReferenceImportPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+function LoadingButtonContent({
+  loading,
+  loadingLabel,
+  label,
+}: {
+  loading: boolean;
+  loadingLabel: string;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex h-4 w-4 items-center justify-center">
+        {loading ? (
+          <Loader2
+            className="h-4 w-4 shrink-0 animate-spin"
+            aria-hidden="true"
+          />
+        ) : null}
+      </span>
+      <span>{loading ? loadingLabel : label}</span>
+    </span>
   );
 }
 
