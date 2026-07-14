@@ -23,6 +23,17 @@ export type RelatedProfileCandidate = {
   sourceUrl: string | null;
   originalName: string | null;
   country: GhafasehCountry | null;
+  description?: string | null;
+  shortDescription?: string | null;
+  imageUrl?: string | null;
+  bannerImageUrl?: string | null;
+  birthYear?: number | null;
+  deathYear?: number | null;
+  website?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  metadata?: Record<string, unknown> | null;
+  diagnostics?: string[];
 };
 
 export type EditionCleanupResult = {
@@ -42,5 +53,4 @@ export type ExtractionDiagnostics = {
   relatedProfiles: RelatedProfileCandidate[];
   coverCandidatesByEdition: Record<string, IranKetabCoverCandidate[]>;
 };
-
 

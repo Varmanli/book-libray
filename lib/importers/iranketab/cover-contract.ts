@@ -30,6 +30,21 @@ export const preparedDraftSchema = z.object({
   draft: iranKetabImportDraftSchema,
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
   preparedCovers: z.array(preparedCoverResultSchema),
+  preparedReferenceImages: z.array(z.object({
+    entityType: z.enum(["AUTHOR", "TRANSLATOR", "PUBLISHER"]),
+    extractedName: z.string().min(1),
+    kind: z.enum(["PROFILE", "BANNER"]),
+    status: z.enum(["PREPARED", "FAILED"]),
+    objectKey: z.string().optional(),
+    sourceUrl: z.string().url(),
+    hash: z.string().optional(),
+    mimeType: z.literal("image/webp").optional(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+    sizeBytes: z.number().int().positive().optional(),
+    url: z.string().optional(),
+    error: z.string().optional(),
+  })).optional(),
 });
 
 export const prepareCoversSuccessSchema = z.object({

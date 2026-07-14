@@ -23,9 +23,50 @@ export type ImportEventType =
   | "DRAFT_SAVED"
   | "COVER_PREPARATION_STARTED"
   | "COVER_PREPARATION_COMPLETED"
+  | "CONTRIBUTOR_STEP_STARTED"
+  | "CONTRIBUTOR_PROFILE_FETCH_STARTED"
+  | "CONTRIBUTOR_PROFILE_FETCH_COMPLETED"
+  | "CONTRIBUTOR_MATCHED"
+  | "CONTRIBUTOR_CREATED"
+  | "CONTRIBUTOR_UPDATED"
+  | "CONTRIBUTOR_IGNORED"
+  | "CONTRIBUTOR_IMAGE_STAGED"
+  | "CONTRIBUTOR_FAILED"
+  | "CONTRIBUTOR_STEP_COMPLETED"
   | "COMMIT_STARTED"
   | "COMMIT_COMPLETED"
   | "COMMIT_FAILED";
+const contributorEventTypes = [
+  "CONTRIBUTOR_STEP_STARTED",
+  "CONTRIBUTOR_PROFILE_FETCH_STARTED",
+  "CONTRIBUTOR_PROFILE_FETCH_COMPLETED",
+  "CONTRIBUTOR_MATCHED",
+  "CONTRIBUTOR_CREATED",
+  "CONTRIBUTOR_UPDATED",
+  "CONTRIBUTOR_IGNORED",
+  "CONTRIBUTOR_IMAGE_STAGED",
+  "CONTRIBUTOR_FAILED",
+  "CONTRIBUTOR_STEP_COMPLETED",
+] as const;
+let contributorEventEnumReady: Promise<void> | null = null;
+async function ensureContributorEventEnum() {
+  contributorEventEnumReady ??= (async () => {
+    for (const value of contributorEventTypes)
+      await db.execute(sql.raw(`ALTER TYPE "IranKetabImportEventType" ADD VALUE IF NOT EXISTS '${value}'`));
+  })().catch((error) => {
+    contributorEventEnumReady = null;
+    throw error;
+  });
+  await contributorEventEnumReady;
+}
+let importerStatusEnumReady: Promise<void> | null = null;
+async function ensureImporterStatusEnum() {
+  importerStatusEnumReady ??= db.execute(sql.raw(`ALTER TYPE "IranKetabImportStatus" ADD VALUE IF NOT EXISTS 'IMPORTING_REFERENCES'`)).then(() => undefined).catch((error) => {
+    importerStatusEnumReady = null;
+    throw error;
+  });
+  await importerStatusEnumReady;
+}
 export function extractionFingerprint(extraction: unknown) {
   return createHash("sha256").update(JSON.stringify(extraction)).digest("hex");
 }
@@ -34,6 +75,7 @@ export async function appendImportEvent(
   type: ImportEventType,
   metadata?: unknown,
 ) {
+  if (type.startsWith("CONTRIBUTOR_")) await ensureContributorEventEnum();
   await db
     .insert(IranKetabImportEvent)
     .values({ sessionId, type, metadata: safeAuditJson(metadata) });
@@ -72,6 +114,7 @@ export async function transitionImportSession(
   event?: ImportEventType,
   eventMetadata?: unknown,
 ) {
+  if (next === "IMPORTING_REFERENCES") await ensureImporterStatusEnum();
   const [current] = await db
     .select({ status: IranKetabImportSession.status })
     .from(IranKetabImportSession)

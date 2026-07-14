@@ -101,6 +101,7 @@ export const IranKetabImportStatus = pgEnum("IranKetabImportStatus", [
   "PREVIEW_READY",
   "DRAFT_REVIEW",
   "COVER_PREPARATION",
+  "IMPORTING_REFERENCES",
   "READY_TO_COMMIT",
   "COMMITTING",
   "SUCCESS",
@@ -114,10 +115,21 @@ export const IranKetabImportEventType = pgEnum("IranKetabImportEventType", [
   "DRAFT_SAVED",
   "COVER_PREPARATION_STARTED",
   "COVER_PREPARATION_COMPLETED",
+  "CONTRIBUTOR_STEP_STARTED",
+  "CONTRIBUTOR_PROFILE_FETCH_STARTED",
+  "CONTRIBUTOR_PROFILE_FETCH_COMPLETED",
+  "CONTRIBUTOR_MATCHED",
+  "CONTRIBUTOR_CREATED",
+  "CONTRIBUTOR_UPDATED",
+  "CONTRIBUTOR_IGNORED",
+  "CONTRIBUTOR_IMAGE_STAGED",
+  "CONTRIBUTOR_FAILED",
+  "CONTRIBUTOR_STEP_COMPLETED",
   "COMMIT_STARTED",
   "COMMIT_COMPLETED",
   "COMMIT_FAILED",
 ]);
+export const CatalogBookContributorRole = pgEnum("CatalogBookContributorRole", ["AUTHOR", "TRANSLATOR"]);
 
 // ---------------- User ----------------
 export const User = pgTable("User", {
@@ -343,6 +355,25 @@ export const BookEdition = pgTable("BookEdition", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+export const CatalogBookContributor = pgTable("CatalogBookContributor", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  catalogBookId: varchar("catalog_book_id").notNull().references(() => CatalogBook.id, { onDelete: "cascade" }),
+  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
+  role: CatalogBookContributorRole("role").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
+}, (t) => ({ uniqueContributor: unique("CatalogBookContributor_unique").on(t.catalogBookId, t.referenceItemId, t.role), catalogIdx: index("CatalogBookContributor_catalog_idx").on(t.catalogBookId), referenceIdx: index("CatalogBookContributor_reference_idx").on(t.referenceItemId) }));
+
+export const BookEditionPublisher = pgTable("BookEditionPublisher", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  bookEditionId: varchar("book_edition_id").notNull().references(() => BookEdition.id, { onDelete: "cascade" }),
+  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
+}, (t) => ({ uniquePublisher: unique("BookEditionPublisher_unique").on(t.bookEditionId, t.referenceItemId), editionIdx: index("BookEditionPublisher_edition_idx").on(t.bookEditionId), referenceIdx: index("BookEditionPublisher_reference_idx").on(t.referenceItemId) }));
 
 // ---------------- BookExternalLink (لینک‌های خرید/مطالعه‌ی بیرونی) ----------------
 // مدل مقیاس‌پذیر: به‌جای یک ستون برای هر فروشگاه، هر لینک یک ردیف است. هویت

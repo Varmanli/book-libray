@@ -29,13 +29,21 @@ export function applyRelationDiff<T>(
   return result;
 }
 
-export function splitRelations(value: string | null | undefined): string[] {
-  return (
-    value
-      ?.split(/\s*[،,]\s*/)
-      .map((item) => item.trim())
-      .filter(Boolean) ?? []
-  );
+export function normalizeTranslatorNames(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : value == null ? [] : [value];
+  const names = values.flatMap((item) => {
+    if (typeof item === "string") return item.split(/\s*[،,]\s*/);
+    if (item && typeof item === "object" && "name" in item) {
+      const name = (item as { name?: unknown }).name;
+      return typeof name === "string" ? name.split(/\s*[،,]\s*/) : [];
+    }
+    return [];
+  });
+  return [...new Set(names.map((name) => name.trim()).filter(Boolean))];
+}
+
+export function splitRelations(value: unknown): string[] {
+  return normalizeTranslatorNames(value);
 }
 
 export function isValidIsbn(value: string | null): boolean {
@@ -64,7 +72,7 @@ export function isValidIsbn(value: string | null): boolean {
 type EditionSource = {
   titleOverride: string | null;
   publisher: string | null;
-  translators: string | null;
+  translators: unknown;
   isbn10: string | null;
   isbn13: string | null;
   publishedYear: number | null;

@@ -154,6 +154,11 @@ type RecoverableSession = {
   preparedCovers: unknown[] | null;
   metadata: { analysis?: IranKetabMatchAnalysis; preview?: Preview } | null;
 };
+function workflowStageForSession(session: Pick<RecoverableSession, "status" | "preparedCovers">) {
+  if (session.status === "IMPORTING_REFERENCES" || session.status === "READY_TO_COMMIT") return 3;
+  if (session.status === "COVER_PREPARATION" || session.preparedCovers?.length) return 2;
+  return 1;
+}
 
 export default function IranKetabPreviewClient() {
   const [url, setUrl] = useState("");
@@ -169,7 +174,7 @@ export default function IranKetabPreviewClient() {
   const [expanded, setExpanded] = useState(false);
   const [editionFilter, setEditionFilter] = useState("ALL");
   const [draftDirty, setDraftDirty] = useState(false);
-  const [workflowStage, setWorkflowStage] = useState(2);
+  const [workflowStage, setWorkflowStage] = useState(1);
   const [recent, setRecent] = useState<RecentImport[]>([]);
   const [terminalSuccess, setTerminalSuccess] = useState<CommitSuccess | null>(
     null,
@@ -232,7 +237,7 @@ export default function IranKetabPreviewClient() {
       preview: recoverable.metadata.preview,
     });
     setRecoverable(null);
-    setWorkflowStage(recoverable.preparedCovers?.length ? 3 : 2);
+    setWorkflowStage(workflowStageForSession(recoverable));
   }
   async function restartSession() {
     if (
@@ -353,7 +358,7 @@ export default function IranKetabPreviewClient() {
           <div className="border-b border-border/60 bg-gradient-to-l from-primary/[0.08] via-transparent to-transparent px-4 py-4 sm:px-6 lg:px-8">
             <ImportStepper
               current={
-                terminalSuccess ? 5 : result ? workflowStage : loading ? 1 : 0
+                terminalSuccess ? 5 : result ? workflowStage : loading ? 0 : 0
               }
             />
           </div>

@@ -85,6 +85,7 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
       const extraction = await extractIranKetabBook({
         url: canonicalUrl,
         html: fetched.html,
+        enrichProfiles: true,
       });
       assertExtractionCollectionLimits(extraction);
       const data = await dependencies.loadAnalysisData(extraction);

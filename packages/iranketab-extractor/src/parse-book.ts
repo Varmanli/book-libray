@@ -17,6 +17,7 @@ import {
   normalizeTitleForDedup,
   normalizeWhitespace,
   parseNullableInt,
+  parseYear,
   slugify
 } from "./normalize.js";
 import { extractBookDescription } from "./description.js";
@@ -83,11 +84,9 @@ export function parseIranKetabBookPage(input: {
 
   const genres = parseGenres($);
   const country = inferCountryFromGenres(genres);
-  const firstPublishedYear =
-    parseNullableInt(section.find('meta[itemprop="datePublished"]').first().attr("content")) ?? null;
-  if (!firstPublishedYear) {
-    needsReview.push("firstPublishedYear missing");
-  }
+  const firstPublishedYear = parseYear(
+    section.find('meta[itemprop="datePublished"]').first().attr("content"),
+  );
 
   const firstBlock = $('div[id^="p-"]').first();
   const titleCandidates = $('h1, h2[itemprop="name"], h2').toArray().map((element) => $(element).text());
@@ -104,9 +103,6 @@ export function parseIranKetabBookPage(input: {
 
   const primaryAuthor = parsePrimaryAuthor($, firstBlock, country, relatedProfiles);
   const authors = primaryAuthor ? [primaryAuthor] : [];
-  if (!primaryAuthor?.originalName) {
-    needsReview.push("author originalName missing");
-  }
 
   const descriptionResult = extractBookDescription({ $ });
   if (descriptionResult.completeness !== "full") {
@@ -544,7 +540,6 @@ function dedupeRelatedProfiles(items: RelatedProfileCandidate[]): RelatedProfile
 
   return [...map.values()];
 }
-
 
 
 

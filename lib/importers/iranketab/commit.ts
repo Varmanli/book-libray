@@ -3,8 +3,10 @@ import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor"
 import { db } from "@/db";
 import {
   BookEdition,
+  BookEditionPublisher,
   BookExternalLink,
   CatalogBook,
+  CatalogBookContributor,
   ReferenceItem,
 } from "@/db/schema";
 import { generateUniqueCatalogBookSlug } from "@/lib/book/public-slug";
@@ -80,6 +82,7 @@ export async function commitIranKetabImport(params: {
   prepared: IranKetabImportDraftWithPreparedCovers;
 }) {
   const { draft, fingerprint, preparedCovers } = params.prepared;
+  const preparedReferenceImages = params.prepared.preparedReferenceImages ?? [];
   const extractionLimitIssues = extractionCollectionLimitIssues(params.extraction);
   if (extractionLimitIssues.length) throw new IranKetabCommitError("INVALID_DRAFT", extractionLimitIssues.join(" "));
   if (preparedCovers.length > IRANKETAB_COLLECTION_LIMITS.editions) throw new IranKetabCommitError("INVALID_DRAFT", `تعداد «کاورهای آماده‌شده» ${preparedCovers.length.toLocaleString("fa-IR")} مورد است؛ حداکثر مجاز ${IRANKETAB_COLLECTION_LIMITS.editions.toLocaleString("fa-IR")} مورد است.`);
@@ -104,6 +107,7 @@ export async function commitIranKetabImport(params: {
     );
   const promoted: string[] = [];
   const coverUrls = new Map<number, string>();
+  const referenceImageUrls = new Map<string, { profile?: string; banner?: string; filename?: string }>();
   const promoteCovers = async () => {
     try {
       for (const preparedCover of preparedCovers.filter(
@@ -171,6 +175,16 @@ export async function commitIranKetabImport(params: {
         // Persist the canonical Arvan object key. Display code resolves this
         // key to S3_PUBLIC_BASE_URL; /uploads is reserved for real local files.
         coverUrls.set(preparedCover.extractedEditionIndex, finalIranKetabCoverValue(finalKey));
+      }
+      for (const image of preparedReferenceImages.filter((item) => item.status === "PREPARED")) {
+        if (!image.objectKey || !isOwnedTemporaryCoverKey(image.objectKey, params.adminId, fingerprint)) continue;
+        const finalKey = `references/iranketab-${image.entityType.toLowerCase()}-${fingerprint.slice(0, 20)}-${image.kind.toLowerCase()}.webp`;
+        if (!await headImageUpload(finalKey)) {
+          await copyImageUpload({ sourceKey: image.objectKey, destinationKey: finalKey, contentType: "image/webp", metadata: { "iranketab-fingerprint": fingerprint, "iranketab-reference-source": image.sourceUrl } });
+          promoted.push(finalKey);
+        }
+        const current = referenceImageUrls.get(`${image.entityType}:${image.extractedName}`) ?? {};
+        referenceImageUrls.set(`${image.entityType}:${image.extractedName}`, { ...current, [image.kind === "PROFILE" ? "profile" : "banner"]: finalIranKetabCoverValue(finalKey), filename: finalKey.split("/").pop() });
       }
     } catch (error) {
       await Promise.all(
@@ -242,7 +256,9 @@ export async function commitIranKetabImport(params: {
         reused: [] as Array<{ entityType: string; id: string; name: string }>,
       };
       const referenceCache = createReferenceResolutionCache();
+      const resolvedEntityIds = new Map<string, string>();
       for (const entity of draft.entities) {
+        if (entity.action === "IGNORE") continue;
         if (entity.action === "REUSE_EXISTING") {
           const [row] = await tx
             .select({
@@ -258,15 +274,41 @@ export async function commitIranKetabImport(params: {
               "STALE_DRAFT",
               "یکی از مراجع انتخاب‌شده تغییر کرده است.",
             );
+          const profile = entity.profile;
+          const images = referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`);
+          const patch: Partial<typeof ReferenceItem.$inferInsert> = {};
+          const put = (key: keyof typeof patch, value: unknown) => {
+            if (typeof value === "string" && value.trim()) (patch[key] as unknown) = value.trim();
+            else if (typeof value === "number") (patch[key] as unknown) = value;
+          };
+          put("originalName", profile?.originalName);
+          put("description", profile?.description);
+          put("shortDescription", profile?.shortDescription);
+          put("birthYear", profile?.birthYear);
+          put("deathYear", profile?.deathYear);
+          put("countryName", profile?.countryName);
+          put("countrySlug", profile?.countrySlug);
+          put("website", profile?.website);
+          put("sourceUrl", profile?.sourceUrl);
+          put("seoTitle", profile?.seoTitle);
+          put("seoDescription", profile?.seoDescription);
+          if (profile?.metadata && Object.keys(profile.metadata).length) patch.metadata = profile.metadata;
+          if (entity.profileImageAction === "replace" && images?.profile) patch.coverImage = images.profile;
+          if (entity.profileImageAction === "replace" && images?.filename) patch.imageFilename = images.filename;
+          if (entity.profileImageAction === "remove") patch.coverImage = null;
+          if (entity.bannerImageAction === "replace" && images?.banner) patch.bannerImage = images.banner;
+          if (entity.bannerImageAction === "remove") patch.bannerImage = null;
+          if (Object.keys(patch).length) await tx.update(ReferenceItem).set(patch).where(eq(ReferenceItem.id, row.id));
           entityResult.reused.push({
             entityType: row.type,
             id: row.id,
             name: row.name,
           });
+          resolvedEntityIds.set(`${entity.entityType}:${entity.extractedName}`, row.id);
         } else if (entity.action === "CREATE_NEW") {
           const resolved = await resolveReferenceItem(tx, {
             type: entity.entityType,
-            input: { name: entity.proposedName },
+            input: { name: entity.proposedName, ...entity.profile, imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl, bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl, imageFilename: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.filename },
             cache: referenceCache,
             createdById: params.adminId,
             defaultStatus: "APPROVED",
@@ -283,6 +325,7 @@ export async function commitIranKetabImport(params: {
             id: resolved.id,
             name: resolved.name,
           });
+          resolvedEntityIds.set(`${entity.entityType}:${entity.extractedName}`, resolved.id);
         }
       }
       let catalogId: string;
@@ -626,6 +669,24 @@ export async function commitIranKetabImport(params: {
           isActive: true,
           sortOrder: 0,
         });
+      for (const [index, entity] of draft.catalog.authors.entries()) {
+        const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
+        if (referenceId) await tx.insert(CatalogBookContributor).values({ catalogBookId: catalogId, referenceItemId: referenceId, role: "AUTHOR", sortOrder: index, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+      }
+      for (const decision of draft.editions) {
+        if (decision.action === "EXCLUDE") continue;
+        const editionId = editions.find((item) => item.extractedEditionIndex === decision.extractedEditionIndex)?.editionId;
+        if (!editionId) continue;
+        for (const [order, entity] of decision.translators.entries()) {
+          const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
+          if (referenceId) await tx.insert(CatalogBookContributor).values({ catalogBookId: catalogId, referenceItemId: referenceId, role: "TRANSLATOR", sortOrder: order, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+        }
+        if (decision.publisher) {
+          const entity = decision.publisher;
+          const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
+          if (referenceId) await tx.insert(BookEditionPublisher).values({ bookEditionId: editionId, referenceItemId: referenceId, sortOrder: 0, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+        }
+      }
       const [catalog] = await tx
         .select({ primaryEditionId: CatalogBook.primaryEditionId })
         .from(CatalogBook)
@@ -646,6 +707,12 @@ export async function commitIranKetabImport(params: {
     await Promise.all(
       promoted.map((key) => deleteImageUpload(key).catch(() => undefined)),
     );
+    await Promise.all(
+      [...preparedCovers, ...preparedReferenceImages]
+        .map((item) => (item as { status: string; objectKey?: string }).objectKey)
+        .filter((key): key is string => Boolean(key))
+        .map((key) => deleteImageUpload(key).catch(() => undefined)),
+    );
     if (error instanceof IranKetabCommitError) throw error;
     throw new IranKetabCommitError(
       "DATABASE_TRANSACTION_FAILED",
@@ -653,14 +720,16 @@ export async function commitIranKetabImport(params: {
     );
   }
   const cleanupWarnings: string[] = [];
-  for (const preparedCover of preparedCovers)
-    if (preparedCover.status === "PREPARED" && preparedCover.objectKey)
+  for (const preparedCover of [...preparedCovers, ...preparedReferenceImages]) {
+    const tempKey = (preparedCover as { objectKey?: string }).objectKey;
+    if (preparedCover.status === "PREPARED" && tempKey)
       try {
-        await deleteImageUpload(preparedCover.objectKey);
+        await deleteImageUpload(tempKey);
       } catch {
         cleanupWarnings.push(
           "پاک‌سازی یکی از کاورهای موقت بعد از ثبت ناموفق بود.",
         );
       }
+  }
   return { ...result, warnings: cleanupWarnings };
 }

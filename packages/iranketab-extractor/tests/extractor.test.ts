@@ -15,6 +15,8 @@ import {
   type GhafasehEdition,
   type ParsedEditionSnapshot
 } from "../src/index.js";
+import { parseIranKetabReferenceProfile } from "../src/reference-profile.js";
+import { enrichIranKetabReferenceProfiles } from "../src/reference-profile.js";
 
 const fixtureRoot = path.resolve(import.meta.dirname, "../fixtures");
 const fixture = (name: string) => readFile(path.join(fixtureRoot, name, "raw-page.html"), "utf8");
@@ -70,6 +72,46 @@ test("parser tolerates optional description and translator", () => {
   assert.deepEqual(parsed.book.editions[0]?.translators, []);
 });
 
+test("missing first publication year and author original name remain optional", () => {
+  const parsed = parseIranKetabBookPage({
+    html: '<div itemtype="http://schema.org/Book"><h1>کتاب نمونه</h1><div id="p-71294"><h2 itemprop="name">کتاب نمونه</h2><div>نویسنده: <a href="/profile/author"><span itemprop="name">نویسنده فارسی</span></a> انتشارات: ناشر</div></div></div>',
+    pageUrl: "https://www.iranketab.ir/book/71294-sample",
+    selectedEditionCode: "71294",
+    selectedOnly: false,
+  });
+  assert.equal(parsed.book.firstPublishedYear, null);
+  assert.equal(parsed.book.authors[0]?.originalName, null);
+  assert.doesNotMatch(parsed.needsReview.join("|"), /firstPublishedYear missing|author originalName missing/);
+  assert.deepEqual(parsed.book.editions[0]?.translators, []);
+});
+
+test("reference profile parser extracts structured author metadata without inventing fields", () => {
+  const profile = parseIranKetabReferenceProfile({
+    type: "AUTHOR",
+    pageUrl: "https://www.iranketab.ir/profile/author-1",
+    html: '<link rel="canonical" href="https://www.iranketab.ir/profile/author-1"><meta property="og:title" content="نویسنده فارسی"><meta name="description" content="زندگی‌نامه"><meta property="og:image" content="https://www.iranketab.ir/images/a.jpg"><div>تولد: ۱۳۵۰</div>',
+  });
+  assert.equal(profile.name, "نویسنده فارسی");
+  assert.equal(profile.originalName, null);
+  assert.equal(profile.birthYear, 1350);
+  assert.equal(profile.imageUrl, "https://www.iranketab.ir/images/a.jpg");
+});
+
+test("reference profile enrichment deduplicates URLs and keeps fetch failure non-blocking", async () => {
+  let calls = 0;
+  const profiles = await enrichIranKetabReferenceProfiles({
+    profiles: [
+      { type: "AUTHOR", name: "الف", sourceUrl: "https://www.iranketab.ir/profile/a" },
+      { type: "AUTHOR", name: "الف", sourceUrl: "https://www.iranketab.ir/profile/a" },
+      { type: "PUBLISHER", name: "ناشر", sourceUrl: "https://www.iranketab.ir/profile/p" },
+    ],
+    fetcher: async () => { calls += 1; throw new Error("timeout"); },
+  });
+  assert.equal(calls, 2);
+  assert.equal(profiles.length, 2);
+  assert.match(profiles[0]!.diagnostics[0]!, /fetch failed/);
+});
+
 test("malformed HTML and empty edition collections remain diagnosable", async () => {
   await assert.rejects(extractIranKetabBook({ url: "https://www.iranketab.ir/book/7-sample", html: "<html></html>" }), (error: unknown) => error instanceof IranKetabExtractionError && error.code === "BOOK_TITLE_MISSING");
   const parsed = parseIranKetabBookPage({ html: "<h1>نمونه</h1>", pageUrl: "https://www.iranketab.ir/book/7-sample", selectedEditionCode: null, selectedOnly: false });
@@ -84,5 +126,3 @@ test("dedupe keeps the more complete established edition", () => {
   assert.equal(result.editions.length, 1);
   assert.equal(result.editions[0]?.sourceEditionCode, "2");
 });
-
-

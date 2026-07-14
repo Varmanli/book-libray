@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
 import AdminRichTextEditor from "@/components/admin/AdminRichTextEditor";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import {
@@ -120,7 +121,7 @@ export default function IranKetabDraftReview({
     [],
   );
   useEffect(() => {
-    onStageChange?.(commitResult ? 5 : preparedDraft ? 3 : 2);
+    onStageChange?.(commitResult ? 5 : preparedDraft ? 3 : 1);
   }, [commitResult, preparedDraft, onStageChange]);
   useEffect(() => {
     dispatch({ type: "RESET", draft: initial });
@@ -364,7 +365,7 @@ export default function IranKetabDraftReview({
   return (
     <section
       ref={reviewRef}
-      className="relative space-y-6 pb-44 sm:pb-36"
+      className="relative space-y-6 pb-40 sm:pb-32"
       aria-label="بررسی و تصمیم‌گیری برای ورود کتاب"
     >
       {controlTarget
@@ -390,6 +391,9 @@ export default function IranKetabDraftReview({
                       کاورها: {coverSummary.prepared.toLocaleString("fa-IR")}{" "}
                       آماده، {coverSummary.failed.toLocaleString("fa-IR")}{" "}
                       ناموفق
+                    </span>
+                    <span>
+                      تصاویر مراجع: {(preparedDraft?.preparedReferenceImages?.filter((item) => item.status === "PREPARED").length ?? 0).toLocaleString("fa-IR")} آماده
                     </span>
                     <span>
                       خطاها:{" "}
@@ -433,8 +437,7 @@ export default function IranKetabDraftReview({
                       مشاهده موارد
                     </Button>
                   ) : null}
-                  <WorkflowActionSummary
-                    readiness={readiness}
+                  <WorkflowActionSummary readiness={readiness}
                     unresolvedCount={unresolvedEntities.length}
                     blockingCount={blockingConflicts.length}
                     failedCoverCount={failedCovers.length}
@@ -696,12 +699,19 @@ export default function IranKetabDraftReview({
                 key={`${entity.entityType}-${entity.extractedName}-${index}`}
                 className="group rounded-2xl border border-border/70 bg-card/70 p-4 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md"
               >
+                {entity.profile?.imageUrl ? <Image src={entity.profile.imageUrl} alt="" width={56} height={56} className="mb-3 h-14 w-14 rounded-xl object-cover" unoptimized /> : null}
                 <p className="font-black">
                   {entity.extractedName}{" "}
                   <span className="text-muted-foreground">
                     ({entity.entityType})
                   </span>
                 </p>
+                {entity.profile ? <div className="mt-2 grid gap-2 text-xs text-muted-foreground">
+                  <span>منبع: {entity.profile.sourceUrl ?? "بدون صفحه پروفایل"}</span>
+                  {entity.profile.originalName !== undefined ? <Input aria-label={`نام اصلی ${entity.extractedName}`} placeholder="نام اصلی" value={entity.profile.originalName ?? ""} onChange={(e) => dispatch({ type: "SET_ENTITY", index, entity: { ...entity, profile: { ...entity.profile, originalName: e.target.value || null } } })} /> : null}
+                  {entity.profile.description !== undefined ? <Input aria-label={`توضیحات ${entity.extractedName}`} placeholder="توضیحات" value={entity.profile.description ?? ""} onChange={(e) => dispatch({ type: "SET_ENTITY", index, entity: { ...entity, profile: { ...entity.profile, description: e.target.value || null } } })} /> : null}
+                  <span>{entity.profile.countryName ?? "کشور نامشخص"} · {entity.profile.birthYear ?? "؟"}–{entity.profile.deathYear ?? "؟"}</span>
+                </div> : null}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {candidate ? (
                     <Button
@@ -722,6 +732,9 @@ export default function IranKetabDraftReview({
                             entityId: candidate.id,
                             extractedName: entity.extractedName,
                             displayName: candidate.name,
+                            profile: entity.profile,
+                            profileImageAction: "preserve",
+                            bannerImageAction: "preserve",
                           },
                         })
                       }
@@ -747,11 +760,17 @@ export default function IranKetabDraftReview({
                             entity.action === "CREATE_NEW"
                               ? entity.proposedName
                               : entity.extractedName,
+                          profile: entity.profile,
+                          profileImageAction: entity.action === "CREATE_NEW" ? entity.profileImageAction : "replace",
+                          bannerImageAction: entity.action === "CREATE_NEW" ? entity.bannerImageAction : "replace",
                         },
                       })
                     }
                   >
                     ایجاد در مرحله بعد
+                  </Button>
+                  <Button size="sm" type="button" variant={entity.action === "IGNORE" ? "default" : "outline"} onClick={() => dispatch({ type: "SET_ENTITY", index, entity: { action: "IGNORE", entityType: entity.entityType, extractedName: entity.extractedName, reason: "نادیده‌گرفته‌شده توسط مدیر", profile: entity.profile } })}>
+                    نادیده گرفتن
                   </Button>
                   <Button
                     size="sm"
@@ -788,6 +807,19 @@ export default function IranKetabDraftReview({
                       })
                     }
                   />
+                ) : null}
+                {entity.action !== "IGNORE" && entity.action !== "UNRESOLVED" && entity.profile ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {(["profile", "banner"] as const).map((kind) => {
+                      const field = kind === "profile" ? "profileImageAction" : "bannerImageAction";
+                      const value = entity[field];
+                      return <label key={kind} className="text-xs font-bold">{kind === "profile" ? "تصویر پروفایل" : "تصویر بنر"}
+                        <select className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={value} onChange={(e) => dispatch({ type: "SET_ENTITY", index, entity: { ...entity, [field]: e.target.value as "preserve" | "replace" | "remove" } })}>
+                          <option value="preserve">حفظ موجود</option><option value="replace">جایگزینی</option><option value="remove">حذف صریح</option>
+                        </select>
+                      </label>;
+                    })}
+                  </div>
                 ) : null}
               </div>
             );
@@ -1127,6 +1159,7 @@ export default function IranKetabDraftReview({
               ))}
             </ul>
           ) : null}
+          {preparedDraft ? <ContributorImportPanel draft={draft} preparedDraft={preparedDraft} /> : null}
         </CardContent>
       </Card>
       {blockingConflicts.length ? (
@@ -1154,6 +1187,21 @@ export default function IranKetabDraftReview({
       ) : null}
     </section>
   );
+}
+
+function ContributorImportPanel({ draft, preparedDraft }: { draft: IranKetabImportDraft; preparedDraft: PreparedDraft }) {
+  const entities = draft.entities.filter((entity) => entity.entityType === "AUTHOR" || entity.entityType === "TRANSLATOR" || entity.entityType === "PUBLISHER");
+  const staged = preparedDraft.preparedReferenceImages ?? [];
+  const completed = entities.filter((entity) => entity.action === "IGNORE" || staged.some((image) => image.entityType === entity.entityType && image.extractedName === entity.extractedName && image.status === "PREPARED") || !entity.profile?.imageUrl).length;
+  const groups = (["AUTHOR", "TRANSLATOR", "PUBLISHER"] as const).map((type) => {
+    const items = entities.filter((entity) => entity.entityType === type);
+    const warnings = items.filter((entity) => staged.some((image) => image.entityType === type && image.extractedName === entity.extractedName && image.status === "FAILED")).length;
+    return { type, items, warnings };
+  });
+  return <Card data-testid="iranketab-contributor-step" className="overflow-hidden rounded-3xl border-primary/20 shadow-sm">
+    <CardHeader className="border-b border-border/60 bg-primary/[0.04]"><CardTitle>ایمپورت نویسندگان، مترجمان و ناشران</CardTitle><CardDescription>در حال آماده‌سازی اطلاعات اشخاص — {completed.toLocaleString("fa-IR")} از {entities.length.toLocaleString("fa-IR")}</CardDescription></CardHeader>
+    <CardContent className="grid gap-3 p-5 sm:grid-cols-3">{groups.map(({ type, items, warnings }) => <details key={type} open className="rounded-2xl border p-3"><summary className="cursor-pointer font-black">{type === "AUTHOR" ? "نویسندگان" : type === "TRANSLATOR" ? "مترجمان" : "ناشران"} · {items.length.toLocaleString("fa-IR")} · هشدار {warnings.toLocaleString("fa-IR")}</summary><ul className="mt-3 space-y-2 text-sm">{items.map((entity) => { const images = staged.filter((image) => image.entityType === type && image.extractedName === entity.extractedName); const failed = images.some((image) => image.status === "FAILED"); return <li key={`${type}-${entity.extractedName}`} className="rounded-xl bg-muted/30 p-2"><div className="font-bold">{entity.extractedName}</div><div className="text-xs text-muted-foreground">{entity.action === "IGNORE" ? "نادیده گرفته شد" : failed ? "ناموفق — ادامه با هشدار" : images.length ? "تصویر آماده شد" : "پروفایل دریافت شد"}</div></li>; })}</ul></details>)}</CardContent>
+  </Card>;
 }
 
 function WorkflowActionSummary({

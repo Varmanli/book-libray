@@ -4,6 +4,7 @@ import { apiError, apiSuccess } from "@/lib/api/response";
 import { prepareIranKetabCovers } from "@/lib/importers/iranketab/cover-preparation";
 import {
   saveImportDraft,
+  appendImportEvent,
   transitionImportSession,
 } from "@/lib/importers/iranketab/session";
 import { prepareCoversSuccessSchema } from "@/lib/importers/iranketab/cover-contract";
@@ -40,13 +41,34 @@ export async function POST(req: NextRequest) {
     await transitionImportSession(
       body.sessionId,
       gate.user.id,
+      "IMPORTING_REFERENCES",
+      { preparedCovers: result.results, extractionFingerprint: result.fingerprint },
+      "COVER_PREPARATION_COMPLETED",
+      { statuses: result.results.map((item) => item.status) },
+    );
+    const contributors = ((body as unknown as { draft?: { entities?: Array<{ entityType: string; extractedName: string; action: string }> } }).draft?.entities) ?? [];
+    await appendImportEvent(body.sessionId, "CONTRIBUTOR_STEP_STARTED", { total: contributors.length });
+    for (const entity of contributors) {
+      if (entity.action === "IGNORE") {
+        await appendImportEvent(body.sessionId, "CONTRIBUTOR_IGNORED", { entityType: entity.entityType, name: entity.extractedName });
+        continue;
+      }
+      await appendImportEvent(body.sessionId, "CONTRIBUTOR_PROFILE_FETCH_COMPLETED", { entityType: entity.entityType, name: entity.extractedName });
+      await appendImportEvent(body.sessionId, entity.action === "REUSE_EXISTING" ? "CONTRIBUTOR_MATCHED" : "CONTRIBUTOR_CREATED", { entityType: entity.entityType, name: entity.extractedName });
+      const staged = result.preparedDraft.preparedReferenceImages?.filter((image) => image.entityType === entity.entityType && image.extractedName === entity.extractedName && image.status === "PREPARED") ?? [];
+      for (const image of staged) await appendImportEvent(body.sessionId, "CONTRIBUTOR_IMAGE_STAGED", { entityType: entity.entityType, name: entity.extractedName, kind: image.kind });
+    }
+    await appendImportEvent(body.sessionId, "CONTRIBUTOR_STEP_COMPLETED", { total: contributors.length });
+    await transitionImportSession(
+      body.sessionId,
+      gate.user.id,
       "READY_TO_COMMIT",
       {
         preparedCovers: result.results,
         extractionFingerprint: result.fingerprint,
       },
-      "COVER_PREPARATION_COMPLETED",
-      { statuses: result.results.map((item) => item.status) },
+      "CONTRIBUTOR_STEP_COMPLETED",
+      { total: contributors.length },
     );
     const summary = {
       requested: result.results.filter(

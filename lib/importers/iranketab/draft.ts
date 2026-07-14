@@ -12,25 +12,53 @@ const entityType = z.enum([
   "GENRE",
   "COUNTRY",
 ]);
+const entityProfile = z.object({
+  originalName: z.string().nullable().optional(),
+  slug: z.string().nullable().optional(),
+  sourceUrl: z.string().url().nullable().optional(),
+  description: z.string().nullable().optional(),
+  shortDescription: z.string().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
+  bannerImageUrl: z.string().url().nullable().optional(),
+  birthYear: z.number().int().nullable().optional(),
+  deathYear: z.number().int().nullable().optional(),
+  countryName: z.string().nullable().optional(),
+  countrySlug: z.string().nullable().optional(),
+  website: z.string().url().nullable().optional(),
+  seoTitle: z.string().nullable().optional(),
+  seoDescription: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+}).optional();
+const imageDecision = z.enum(["preserve", "replace", "remove"]);
+const entityImageDecisions = {
+  profileImageAction: imageDecision.optional(),
+  bannerImageAction: imageDecision.optional(),
+} as const;
 const entityDraft = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("IGNORE"), entityType, extractedName: z.string(), reason: z.string().optional(), profile: entityProfile }),
   z.object({
     action: z.literal("REUSE_EXISTING"),
     entityType,
     entityId: z.string().min(1),
     extractedName: z.string(),
     displayName: z.string().min(1),
+    profile: entityProfile,
+    ...entityImageDecisions,
   }),
   z.object({
     action: z.literal("CREATE_NEW"),
     entityType,
     extractedName: z.string(),
     proposedName: z.string().min(1).max(200),
+    profile: entityProfile,
+    ...entityImageDecisions,
   }),
   z.object({
     action: z.literal("UNRESOLVED"),
     entityType,
     extractedName: z.string(),
     reason: z.string().min(1),
+    profile: entityProfile,
   }),
 ]);
 const coverAction = z.discriminatedUnion("action", [
@@ -174,7 +202,12 @@ export function initializeIranKetabDraft(
   extraction: IranKetabExtractionEnvelope,
   analysis: IranKetabMatchAnalysis,
 ): IranKetabImportDraft {
+  const profileFor = (type: z.infer<typeof entityType>, name: string) => {
+    const profile = extraction.diagnostics.relatedProfiles.find((item) => item.type === type && item.name === name);
+    return profile ? { originalName: profile.originalName, slug: profile.slug, sourceUrl: profile.sourceUrl, description: profile.description, shortDescription: profile.shortDescription, imageUrl: profile.imageUrl, bannerImageUrl: profile.bannerImageUrl, birthYear: profile.birthYear, deathYear: profile.deathYear, countryName: profile.country?.name ?? null, countrySlug: profile.country?.slug ?? null, website: profile.website, seoTitle: profile.seoTitle, seoDescription: profile.seoDescription, metadata: profile.metadata } : undefined;
+  };
   const resolve = (type: z.infer<typeof entityType>, name: string) => {
+    const profile = profileFor(type, name);
     const found = analysis.entities.find(
       (item) => item.type === type && item.extractedName === name,
     );
@@ -185,12 +218,18 @@ export function initializeIranKetabDraft(
           entityId: found.candidate.id,
           extractedName: name,
           displayName: found.candidate.name,
+          profile,
+          profileImageAction: (profile?.imageUrl ? (found?.candidate ? "preserve" : "replace") : "preserve") as z.infer<typeof imageDecision>,
+          bannerImageAction: (profile?.bannerImageUrl ? (found?.candidate ? "preserve" : "replace") : "preserve") as z.infer<typeof imageDecision>,
         }
       : {
           action: "CREATE_NEW" as const,
           entityType: type,
           extractedName: name,
           proposedName: name,
+          profile,
+          profileImageAction: (profile?.imageUrl ? "replace" : "preserve") as z.infer<typeof imageDecision>,
+          bannerImageAction: (profile?.bannerImageUrl ? "replace" : "preserve") as z.infer<typeof imageDecision>,
         };
   };
   const authors = extraction.book.authors.map((item) =>
@@ -316,7 +355,7 @@ export function initializeIranKetabDraft(
       ...authors,
       ...genres,
       ...(country ? [country] : []),
-      ...extraction.editions.flatMap((item) => [
+        ...extraction.editions.flatMap((item) => [
         ...item.translators.map((person) => resolve("TRANSLATOR", person.name)),
         ...(item.publisher.name
           ? [resolve("PUBLISHER", item.publisher.name)]
@@ -354,11 +393,18 @@ export function validateIranKetabDraft(
           : `${item.entityType}:name:${item.action === "CREATE_NEW" ? item.proposedName : item.extractedName}`;
       if (keys.has(key)) issues.push("یک مرجع بیش از یک‌بار انتخاب شده است.");
       keys.add(key);
+      if (item.action === "CREATE_NEW" || item.action === "REUSE_EXISTING") {
+        for (const [field, source] of [["profileImageAction", item.profile?.imageUrl], ["bannerImageAction", item.profile?.bannerImageUrl]] as const) {
+          const decision = item[field];
+          if (decision === "replace" && !source) issues.push(`${item.extractedName}: برای جایگزینی ${field} تصویر منبع وجود ندارد.`);
+          if (decision === "remove" && item.action === "CREATE_NEW") issues.push(`${item.extractedName}: حذف تصویر برای مرجع جدید ناسازگار است.`);
+        }
+      }
       if (item.action === "UNRESOLVED")
         issues.push("برخی مراجع هنوز حل نشده‌اند.");
     }
   };
-  check(draft.entities);
+  check(draft.entities.filter((item) => item.action !== "IGNORE"));
   if (
     draft.catalog.action === "CREATE_NEW" &&
     !draft.catalog.fields.title.trim()

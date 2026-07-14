@@ -180,6 +180,16 @@ export function parseNullableInt(value: string | null | undefined): number | nul
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Parse a standalone Jalali/Gregorian year; unknown or malformed values stay null. */
+export function parseYear(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const normalized = toLatinDigits(value).trim();
+  const match = normalized.match(/^(?:\D*)?(\d{4})(?:$|[-/.])/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year >= 1 && year <= 3000 ? year : null;
+}
+
 export function slugify(value: string): string {
   const normalized = normalizeWhitespace(value);
   const known = KNOWN_SLUGS.get(normalized);
@@ -328,7 +338,6 @@ export function buildCoverFilename(input: {
   input.usedFilenames.add(filename);
   return filename;
 }
-
 
 
 

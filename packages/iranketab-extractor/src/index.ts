@@ -10,6 +10,5 @@ export { dedupeNormalizedEditions as dedupeIranKetabEditions } from "./dedupe-ed
 export { extractIranKetabBook, type ExtractIranKetabBookInput, type IranKetabExtractionEnvelope } from "./extract-book.js";
 export { extractIranKetabCoverCandidates, type IranKetabCoverCandidate } from "./parse-images.js";
 export { normalizePersianText } from "./slug.js";
+export { parseIranKetabReferenceProfile, enrichIranKetabReferenceProfiles, type ParsedIranKetabReferenceProfile } from "./reference-profile.js";
 export { normalizeEditionIsbn } from "./normalize-editions.js";
-
-

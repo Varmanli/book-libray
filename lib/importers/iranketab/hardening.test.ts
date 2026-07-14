@@ -5,6 +5,7 @@ import {
   diffRelations,
   editionFieldPatch,
   isValidIsbn,
+  normalizeTranslatorNames,
 } from "./hardening";
 import {
   advisoryLockKey,
@@ -72,4 +73,16 @@ test("edition actions preserve curated fields and validate custom ISBN", () => {
 test("ISBN normalization handles Persian digits, hyphens, and checksum", () => {
   assert.equal(isValidIsbn("۹۷۸-۰-۳۰۶-۴۰۶۱۵-۷"), true);
   assert.equal(isValidIsbn("978-0-306-40615-8"), false);
+});
+
+test("translator normalization accepts optional and mixed source shapes", () => {
+  assert.deepEqual(normalizeTranslatorNames(undefined), []);
+  assert.deepEqual(normalizeTranslatorNames("  مترجم  "), ["مترجم"]);
+  assert.deepEqual(normalizeTranslatorNames([{ name: " مترجم " }, { name: "مترجم" }, "نفر دوم"]), ["مترجم", "نفر دوم"]);
+  assert.deepEqual(normalizeTranslatorNames({ name: " مترجم " }), ["مترجم"]);
+});
+
+test("edition 71294 with malformed empty translator remains valid", () => {
+  assert.deepEqual(normalizeTranslatorNames({ name: "   " }), []);
+  assert.deepEqual(normalizeTranslatorNames(["", { name: "   " }, { name: "مترجم 71294" }]), ["مترجم 71294"]);
 });

@@ -7,9 +7,10 @@ import { normalizeEditions } from "./normalize-editions.js";
 import { parseIranKetabBookPage } from "./parse-book.js";
 import { extractIranKetabCoverCandidates } from "./parse-images.js";
 import type { ExtractionDiagnostics, ExtractionWarning } from "./types.js";
+import { enrichIranKetabReferenceProfiles } from "./reference-profile.js";
 import { extractIranKetabEditionCode, normalizeIranKetabBookUrl } from "./validate-url.js";
 
-export type ExtractIranKetabBookInput = { url: string; html?: string; fetcher?: IranKetabFetcher; selectedOnly?: boolean; limit?: number; preferredSourceEditionCode?: string };
+export type ExtractIranKetabBookInput = { url: string; html?: string; fetcher?: IranKetabFetcher; profileFetcher?: IranKetabFetcher; enrichProfiles?: boolean; selectedOnly?: boolean; limit?: number; preferredSourceEditionCode?: string };
 export type IranKetabExtractionEnvelope = { contractVersion: 1; source: { name: "IRANKETAB"; submittedUrl: string; canonicalUrl: string; editionCode: string | null }; book: GhafasehBookImport; editions: GhafasehBookImport["editions"]; warnings: ExtractionWarning[]; diagnostics: ExtractionDiagnostics };
 
 export async function extractIranKetabBook(input: ExtractIranKetabBookInput): Promise<IranKetabExtractionEnvelope> {
@@ -29,7 +30,8 @@ export async function extractIranKetabBook(input: ExtractIranKetabBookInput): Pr
       ...[...new Set([...parsed.needsReview, ...deduped.needsReview])].map(message => ({ code: "REVIEW_REQUIRED" as const, message }))
     ];
     const coverCandidatesByEdition = Object.fromEntries(book.editions.map(edition => [edition.sourceEditionCode, extractIranKetabCoverCandidates({ html, pageUrl: canonicalUrl, editionCode: edition.sourceEditionCode })]));
-    return { contractVersion: 1, source: { name: "IRANKETAB", submittedUrl: input.url, canonicalUrl, editionCode }, book, editions: book.editions, warnings, diagnostics: { descriptionCompleteness: parsed.descriptionCompleteness, editionsParsed: parsed.editionsParsed, editionsAfterDedup: book.editions.length, parsedEditions: parsed.parsedEditions, relatedProfiles: parsed.relatedProfiles, coverCandidatesByEdition } };
+    const relatedProfiles = input.enrichProfiles ? await enrichIranKetabReferenceProfiles({ profiles: parsed.relatedProfiles, fetcher: input.profileFetcher ?? input.fetcher }) : parsed.relatedProfiles;
+    return { contractVersion: 1, source: { name: "IRANKETAB", submittedUrl: input.url, canonicalUrl, editionCode }, book, editions: book.editions, warnings, diagnostics: { descriptionCompleteness: parsed.descriptionCompleteness, editionsParsed: parsed.editionsParsed, editionsAfterDedup: book.editions.length, parsedEditions: parsed.parsedEditions, relatedProfiles, coverCandidatesByEdition } };
   } catch (cause) {
     if (cause instanceof IranKetabExtractionError) throw cause;
     throw new IranKetabExtractionError({ code: "PARSE_FAILED", message: "Failed to parse the IranKetab book page.", cause });
@@ -54,5 +56,4 @@ function sortFinalEditions(
     return (right.publishedYear ?? 0) - (left.publishedYear ?? 0);
   });
 }
-
 

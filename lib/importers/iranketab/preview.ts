@@ -11,7 +11,6 @@ export function buildAdminIranKetabPreview(extraction: IranKetabExtractionEnvelo
   if (!extraction.book.originalTitle) missing.add("عنوان اصلی");
   if (!extraction.book.authors.length) missing.add("نویسنده");
   const editions = extraction.editions.map(edition => {
-    if (!edition.translators.length) missing.add(`مترجم نسخه ${edition.sourceEditionCode}`);
     if (!edition.isbn10 && !edition.isbn13) missing.add(`شابک نسخه ${edition.sourceEditionCode}`);
     const coverCandidate = extraction.diagnostics.coverCandidatesByEdition[edition.sourceEditionCode]?.find(candidate => isTrustedCoverUrl(candidate.url))?.url ?? null;
     if (!coverCandidate) missing.add(`کاور نسخه ${edition.sourceEditionCode}`);

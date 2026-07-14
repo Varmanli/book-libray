@@ -31,3 +31,12 @@ test("completed technical details and edition cards are collapsed by default", (
   assert.match(source, /aria-expanded=\{isOpen\}/);
   assert.match(source, /const \[open, setOpen\] = useState<number \| null>\(null\)/);
 });
+
+test("contributor import is a distinct persisted workflow step before commit", () => {
+  const ui = readFileSync(path.join(process.cwd(), "app/admin/books/import-links/IranKetabImporterUi.tsx"), "utf8");
+  const session = readFileSync(path.join(process.cwd(), "lib/importers/iranketab/session.ts"), "utf8");
+  assert.match(ui, /ایمپورت نویسندگان، مترجمان و ناشران/);
+  assert.match(source, /iranketab-contributor-step/);
+  assert.match(session, /CONTRIBUTOR_STEP_STARTED/);
+  assert.match(session, /CONTRIBUTOR_STEP_COMPLETED/);
+});

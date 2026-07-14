@@ -41,11 +41,35 @@ const enumStatements = [
      WHEN duplicate_object THEN NULL;
    END $$;`,
   `DO $$ BEGIN
-     CREATE TYPE "IranKetabImportStatus" AS ENUM ('CREATED','EXTRACTING','PREVIEW_READY','DRAFT_REVIEW','COVER_PREPARATION','READY_TO_COMMIT','COMMITTING','SUCCESS','FAILED','CANCELLED');
+     CREATE TYPE "IranKetabImportStatus" AS ENUM ('CREATED','EXTRACTING','PREVIEW_READY','DRAFT_REVIEW','COVER_PREPARATION','IMPORTING_REFERENCES','READY_TO_COMMIT','COMMITTING','SUCCESS','FAILED','CANCELLED');
    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN
-     CREATE TYPE "IranKetabImportEventType" AS ENUM ('SESSION_CREATED','EXTRACTION_STARTED','EXTRACTION_COMPLETED','DRAFT_SAVED','COVER_PREPARATION_STARTED','COVER_PREPARATION_COMPLETED','COMMIT_STARTED','COMMIT_COMPLETED','COMMIT_FAILED');
+     CREATE TYPE "IranKetabImportEventType" AS ENUM ('SESSION_CREATED','EXTRACTION_STARTED','EXTRACTION_COMPLETED','DRAFT_SAVED','COVER_PREPARATION_STARTED','COVER_PREPARATION_COMPLETED','CONTRIBUTOR_STEP_STARTED','CONTRIBUTOR_PROFILE_FETCH_STARTED','CONTRIBUTOR_PROFILE_FETCH_COMPLETED','CONTRIBUTOR_MATCHED','CONTRIBUTOR_CREATED','CONTRIBUTOR_UPDATED','CONTRIBUTOR_IGNORED','CONTRIBUTOR_IMAGE_STAGED','CONTRIBUTOR_FAILED','CONTRIBUTOR_STEP_COMPLETED','COMMIT_STARTED','COMMIT_COMPLETED','COMMIT_FAILED');
    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN CREATE TYPE "CatalogBookContributorRole" AS ENUM ('AUTHOR','TRANSLATOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+];
+
+const contributorStatements = [
+  `CREATE TABLE IF NOT EXISTS "CatalogBookContributor" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "role" "CatalogBookContributorRole" NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text, CONSTRAINT "CatalogBookContributor_unique" UNIQUE("catalog_book_id","reference_item_id","role"))`,
+  `CREATE TABLE IF NOT EXISTS "BookEditionPublisher" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "book_edition_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text, CONSTRAINT "BookEditionPublisher_unique" UNIQUE("book_edition_id","reference_item_id"))`,
+  `CREATE INDEX IF NOT EXISTS "CatalogBookContributor_catalog_idx" ON "CatalogBookContributor" ("catalog_book_id")`,
+  `CREATE INDEX IF NOT EXISTS "CatalogBookContributor_reference_idx" ON "CatalogBookContributor" ("reference_item_id")`,
+  `CREATE INDEX IF NOT EXISTS "BookEditionPublisher_edition_idx" ON "BookEditionPublisher" ("book_edition_id")`,
+  `CREATE INDEX IF NOT EXISTS "BookEditionPublisher_reference_idx" ON "BookEditionPublisher" ("reference_item_id")`,
+];
+
+// PostgreSQL enum labels are added outside the table-repair transaction. This
+// is intentional: a newly-added label must be committed before verification
+// inserts use it during the same prestart run.
+const importerEnumValueStatements = [
+  `ALTER TYPE "IranKetabImportStatus" ADD VALUE IF NOT EXISTS 'IMPORTING_REFERENCES'`,
+  ...[
+    'CONTRIBUTOR_STEP_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_STARTED',
+    'CONTRIBUTOR_PROFILE_FETCH_COMPLETED', 'CONTRIBUTOR_MATCHED',
+    'CONTRIBUTOR_CREATED', 'CONTRIBUTOR_UPDATED', 'CONTRIBUTOR_IGNORED',
+    'CONTRIBUTOR_IMAGE_STAGED', 'CONTRIBUTOR_FAILED',
+    'CONTRIBUTOR_STEP_COMPLETED',
+  ].map((value) => `ALTER TYPE "IranKetabImportEventType" ADD VALUE IF NOT EXISTS '${value}'`),
 ];
 
 const importerTableStatements = [
@@ -227,6 +251,16 @@ async function repairImporterSchema(pool) {
   ]) await pool.query(statement);
 }
 
+async function repairContributorSchema(pool) {
+  for (const statement of contributorStatements) await pool.query(statement);
+  for (const statement of [
+    `DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  ]) await pool.query(statement);
+}
+
 async function verifyImporterSchema(pool) {
   const expected = {
     IranKetabImportSession: {
@@ -252,6 +286,33 @@ async function verifyImporterSchema(pool) {
   for (const name of ['IranKetabImportSession_admin_idx','IranKetabImportSession_status_idx','IranKetabImportSession_created_idx','IranKetabImportSession_canonical_idx','IranKetabImportEvent_session_idx','IranKetabImportEvent_created_idx','IranKetabImportEvent_type_idx']) if (!indexes.rows.some((row) => row.indexname === name)) failures.push(`index ${name}`);
   if (failures.length) throw new Error(`IranKetab importer schema verification failed: ${failures.join(', ')}`);
   log('IranKetab importer schema verification passed.');
+}
+
+async function verifyImporterEnumValues(pool) {
+  const expected = [
+    'CONTRIBUTOR_STEP_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_STARTED',
+    'CONTRIBUTOR_PROFILE_FETCH_COMPLETED', 'CONTRIBUTOR_MATCHED',
+    'CONTRIBUTOR_CREATED', 'CONTRIBUTOR_UPDATED', 'CONTRIBUTOR_IGNORED',
+    'CONTRIBUTOR_IMAGE_STAGED', 'CONTRIBUTOR_FAILED',
+    'CONTRIBUTOR_STEP_COMPLETED',
+  ];
+  const result = await pool.query(`SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_type.oid = pg_enum.enumtypid WHERE pg_type.typname = 'IranKetabImportEventType'`);
+  const actual = new Set(result.rows.map((row) => row.enumlabel));
+  const missing = expected.filter((value) => !actual.has(value));
+  if (missing.length) throw new Error(`IranKetabImportEventType enum verification failed: ${missing.join(', ')}`);
+  await pool.query('BEGIN');
+  try {
+    const [session] = (await pool.query(`SELECT id FROM "IranKetabImportSession" LIMIT 1`)).rows;
+    const [admin] = (await pool.query(`SELECT id FROM "User" LIMIT 1`)).rows;
+    const sessionId = session?.id ?? (await pool.query(`INSERT INTO "IranKetabImportSession" (admin_id, source_url, canonical_source_url, status) VALUES ($1, 'https://iranketab.ir/verification', 'https://iranketab.ir/verification', 'IMPORTING_REFERENCES') RETURNING id`, [admin?.id])).rows[0]?.id;
+    if (!sessionId) throw new Error('No admin available for importer enum insert verification.');
+    for (const value of expected) await pool.query(`INSERT INTO "IranKetabImportEvent" (session_id, type, metadata) VALUES ($1, $2, '{}'::jsonb)`, [sessionId, value]);
+    await pool.query('ROLLBACK');
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    throw error;
+  }
+  log(`IranKetabImportEventType verification passed for ${expected.length} contributor values; rollback insert test passed.`);
 }
 
 async function repairFeaturedBookIntegrity(pool) {
@@ -518,7 +579,9 @@ async function main() {
     for (const statement of enumStatements) {
       await pool.query(statement);
     }
+    for (const statement of importerEnumValueStatements) await pool.query(statement);
     await repairImporterSchema(pool);
+    await repairContributorSchema(pool);
 
     await runStatements(pool, "Book", bookStatements);
     await runStatements(pool, "BookEdition", bookEditionStatements);
@@ -535,6 +598,7 @@ async function main() {
     await repairQuoteIntegrity(pool);
     await verifyQuoteSchema(pool);
     await verifyImporterSchema(pool);
+    await verifyImporterEnumValues(pool);
     await repairFeaturedBookIntegrity(pool);
 
     log("production database repair completed.");

@@ -61,6 +61,7 @@ export type ImportReferenceInput =
   description?: string | null;
   shortDescription?: string | null;
   imageUrl?: string | null;
+  bannerImageUrl?: string | null;
   imageFilename?: string | null;
   website?: string | null;
   country?: ImportReferenceInput | null;
@@ -87,6 +88,7 @@ export type NormalizedReferenceInput = {
   description?: string | null;
   shortDescription?: string | null;
   imageUrl?: string | null;
+  bannerImageUrl?: string | null;
   imageFilename?: string | null;
   website?: string | null;
   countryName?: string | null;
@@ -315,6 +317,7 @@ export function normalizeReferenceInput(
     description: trimNullable(input.description),
     shortDescription: trimNullable(input.shortDescription),
     imageUrl: trimNullable(input.imageUrl),
+    bannerImageUrl: trimNullable(input.bannerImageUrl),
     imageFilename: trimNullable(input.imageFilename),
     website: trimNullable(input.website),
     countryName: trimNullable(
@@ -370,7 +373,12 @@ function findReferenceMatch(
     if (bySlug) return bySlug;
   }
 
-  // TODO: add source-based matching when the schema gains source fields.
+  if (input.sourceUrl) {
+    const bySourceUrl = rows.find(
+      (row) => row.type === type && row.sourceUrl && normalizeSourceUrl(row.sourceUrl) === normalizeSourceUrl(input.sourceUrl!),
+    );
+    if (bySourceUrl) return bySourceUrl;
+  }
 
   const byName = rows.find(
     (row) =>
@@ -390,6 +398,17 @@ function findReferenceMatch(
   return null;
 }
 
+function normalizeSourceUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase();
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return value.trim().toLowerCase();
+  }
+}
+
 function buildReferencePatch(
   existing: ReferenceRow,
   input: NormalizedReferenceInput,
@@ -405,6 +424,7 @@ function buildReferencePatch(
     patch.shortDescription = input.shortDescription;
   }
   if (!existing.coverImage && input.imageUrl) patch.coverImage = input.imageUrl;
+  if (!existing.bannerImage && input.bannerImageUrl) patch.bannerImage = input.bannerImageUrl;
   if (!existing.imageFilename && input.imageFilename) {
     patch.imageFilename = input.imageFilename;
   }

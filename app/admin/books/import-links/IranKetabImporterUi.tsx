@@ -9,6 +9,7 @@ import {
   ScanSearch,
   ShieldCheck,
   UploadCloud,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +23,11 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 const steps = [
-  { label: "لینک کتاب", icon: Link2 },
-  { label: "استخراج اطلاعات", icon: FileSearch },
-  { label: "تطبیق و بررسی", icon: ScanSearch },
-  { label: "آماده‌سازی کاورها", icon: UploadCloud },
-  { label: "ثبت نهایی", icon: BookCheck },
+  { label: "دریافت اطلاعات کتاب", icon: FileSearch },
+  { label: "بررسی و تطبیق اطلاعات", icon: ScanSearch },
+  { label: "آماده‌سازی تصاویر کتاب", icon: UploadCloud },
+  { label: "ایمپورت نویسندگان، مترجمان و ناشران", icon: Users },
+  { label: "ثبت نهایی کتاب", icon: BookCheck },
 ];
 export function ImportStepper({ current }: { current: number }) {
   return (
