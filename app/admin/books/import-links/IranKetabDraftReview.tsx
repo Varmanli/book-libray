@@ -475,7 +475,7 @@ export default function IranKetabDraftReview({
           </CardTitle>
           <CardDescription>
             {validation.valid
-              ? "تصمیم‌ها در مرورگر نگهداری می‌شوند؛ مرحله انتقال هنوز اجرا نشده است."
+              ? "تصمیم‌ ها در مرورگر نگهداری می‌شوند؛ مرحله انتقال هنوز اجرا نشده است."
               : "موارد زیر باید پیش از مرحله بعد حل شوند."}
           </CardDescription>
         </CardHeader>
