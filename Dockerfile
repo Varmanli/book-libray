@@ -2,32 +2,58 @@
 
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
 
-# -----------------------------------------------------------------------------
-# deps: install dependencies reproducibly
-# -----------------------------------------------------------------------------
+# =============================================================================
+# IranKetab extractor dependencies
+# =============================================================================
 FROM ${NODE_IMAGE} AS extractor-deps
 
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/package-lock.json ./packages/iranketab-extractor/
+COPY packages/iranketab-extractor/package.json \
+     packages/iranketab-extractor/package-lock.json \
+     ./packages/iranketab-extractor/
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefix packages/iranketab-extractor \
-  --fetch-retries=5 \
-  --fetch-retry-factor=2 \
-  --fetch-retry-mintimeout=10000 \
-  --fetch-retry-maxtimeout=120000
+    npm ci \
+      --prefix packages/iranketab-extractor \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=120000
 
+
+# =============================================================================
+# IranKetab extractor build
+# =============================================================================
 FROM ${NODE_IMAGE} AS extractor-builder
 
 WORKDIR /app
-COPY --from=extractor-deps /app/packages/iranketab-extractor/node_modules ./packages/iranketab-extractor/node_modules
-COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/tsconfig.json ./packages/iranketab-extractor/
-COPY packages/iranketab-extractor/src ./packages/iranketab-extractor/src
-RUN npm run build --prefix packages/iranketab-extractor
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=extractor-deps \
+     /app/packages/iranketab-extractor/node_modules \
+     ./packages/iranketab-extractor/node_modules
+
+COPY packages/iranketab-extractor/package.json \
+     packages/iranketab-extractor/tsconfig.json \
+     ./packages/iranketab-extractor/
+
+COPY packages/iranketab-extractor/src \
+     ./packages/iranketab-extractor/src
+
+RUN echo "=== EXTRACTOR BUILD START ===" \
+ && date -u \
+ && npm run build --prefix packages/iranketab-extractor \
+ && date -u \
+ && echo "=== EXTRACTOR BUILD END ==="
+
+
+# =============================================================================
+# Root dependencies
+# =============================================================================
 FROM ${NODE_IMAGE} AS deps
 
 WORKDIR /app
@@ -35,8 +61,13 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
-COPY packages/iranketab-extractor/package.json ./packages/iranketab-extractor/
-COPY --from=extractor-builder /app/packages/iranketab-extractor/dist ./packages/iranketab-extractor/dist
+
+COPY packages/iranketab-extractor/package.json \
+     ./packages/iranketab-extractor/package.json
+
+COPY --from=extractor-builder \
+     /app/packages/iranketab-extractor/dist \
+     ./packages/iranketab-extractor/dist
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci \
@@ -46,9 +77,9 @@ RUN --mount=type=cache,target=/root/.npm \
       --fetch-retry-maxtimeout=120000
 
 
-# -----------------------------------------------------------------------------
-# builder: typecheck + build
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Next.js production build
+# =============================================================================
 FROM ${NODE_IMAGE} AS builder
 
 WORKDIR /app
@@ -57,32 +88,38 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/iranketab-extractor/dist ./packages/iranketab-extractor/dist
+
+COPY --from=extractor-builder \
+     /app/packages/iranketab-extractor/dist \
+     ./packages/iranketab-extractor/dist
+
 COPY . .
 
-# NEXT_PUBLIC_* values are public and can be safely inlined at build time.
-# DATABASE_URL must NOT be passed here.
+# These values are public and are inlined into the frontend bundle.
+# Never pass DATABASE_URL or other secrets as build arguments.
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BASE_URL
 
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
-RUN echo "=== TYPECHECK START ===" \
- && date -u \
- && npm run typecheck \
- && date -u \
- && echo "=== TYPECHECK END ==="
+# `next build` already performs production TypeScript validation.
+# Keep `npm run typecheck` in CI/local validation instead of running it twice.
 RUN echo "=== NEXT BUILD START ===" \
  && date -u \
  && npm run build \
  && date -u \
  && echo "=== NEXT BUILD END ==="
 
+# Fail clearly if standalone output was not generated.
+RUN test -f /app/.next/standalone/server.js \
+ && test -d /app/.next/static \
+ && echo "Standalone output verified."
 
-# -----------------------------------------------------------------------------
-# runner: production runtime image
-# -----------------------------------------------------------------------------
+
+# =============================================================================
+# Production runtime
+# =============================================================================
 FROM ${NODE_IMAGE} AS runner
 
 WORKDIR /app
@@ -92,37 +129,63 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3005
 ENV HOSTNAME=0.0.0.0
 
-RUN addgroup -g 1001 -S nodejs \
-  && adduser -S nextjs -u 1001
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 nextjs
 
-# The standalone output contains the traced production dependencies (including
-# sharp/libvips and pg). Avoid a second npm install in the runtime stage: it
-# duplicates dependencies, increases image size, and makes an otherwise-built
-# image depend on another registry download.
-COPY package.json package-lock.json ./
+# Copy the standalone server and its traced production dependencies.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/.next/standalone \
+     ./
 
-# Keep migration/schema files in the deployment artifact. Migrations are run as
-# an explicit release step, never implicitly by the image build.
-COPY --from=builder /app/drizzle.config.* ./
-COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/lib ./lib
-COPY --from=builder /app/db ./db
-COPY --from=builder /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/.next/static \
+     ./.next/static
 
-# next-pwa writes generated service worker files into public/ during build.
-COPY --from=builder /app/public ./public
+# next-pwa may generate service-worker files during build.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/public \
+     ./public
 
-# Next standalone output.
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Runtime database/prestart resources.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/drizzle \
+     ./drizzle
 
-# Entrypoint runs database schema sync before starting the Next.js server.
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/db \
+     ./db
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/lib \
+     ./lib
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/scripts \
+     ./scripts
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/drizzle.config.* \
+     ./
+
+# Keep package metadata because the prestart script currently uses npm scripts.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/package.json \
+     ./package.json
+
+COPY --chown=nextjs:nodejs \
+     docker-entrypoint.sh \
+     ./docker-entrypoint.sh
+
+RUN chmod 0755 ./docker-entrypoint.sh \
+ && test -f ./server.js \
+ && test -f ./scripts/prestart-production.mjs
 
 USER nextjs
 
 EXPOSE 3005
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["npm", "run", "start:next"]
+
+# Standalone output must be started directly.
+# Do not use `next start`; the full Next CLI is not installed in this image.
+CMD ["node", "server.js"]
