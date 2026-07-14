@@ -192,6 +192,15 @@ export default function IranKetabDraftReview({
     committing,
     success: Boolean(commitResult),
   });
+  const canContinue =
+    !checking &&
+    !preparing &&
+    !committing &&
+    readiness !== "BLOCKED_BY_CONFLICT" &&
+    readiness !== "INVALID_DRAFT" &&
+    readiness !== "REQUIRES_CATALOG_DECISION" &&
+    readiness !== "REQUIRES_ENTITY_RESOLUTION" &&
+    readiness !== "REQUIRES_EDITION_RESOLUTION";
   const warningCount = validation.issues.length + serverIssues.length;
 
   function focusTarget(selector: string, editionIndex?: number) {
@@ -437,14 +446,6 @@ export default function IranKetabDraftReview({
                       مشاهده موارد
                     </Button>
                   ) : null}
-                  <WorkflowActionSummary readiness={readiness}
-                    unresolvedCount={unresolvedEntities.length}
-                    blockingCount={blockingConflicts.length}
-                    failedCoverCount={failedCovers.length}
-                    disabled={preparing || checking || committing}
-                    onAction={runPrimaryAction}
-                    compact
-                  />
                 </div>
               </div>
             </div>,
@@ -1184,6 +1185,34 @@ export default function IranKetabDraftReview({
             </ul>
           </CardContent>
         </Card>
+      ) : null}
+      {readiness !== "SUCCESS" ? (
+        <div className="sticky bottom-0 z-20 -mx-3 border-t border-border/70 bg-background/90 px-3 py-3 shadow-[0_-12px_30px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur-xl sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs leading-6 text-muted-foreground">
+              <span className="font-bold text-foreground">اقدام بعدی: </span>
+              {workflowReadinessLabel(readiness)}
+              {!canContinue && readiness !== "COMMITTING" ? " — ابتدا موارد لازم را بررسی کنید." : ""}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 rounded-xl px-5"
+                onClick={() => focusTarget('[data-workflow-summary="true"]')}
+              >
+                بازگشت و ویرایش اطلاعات
+              </Button>
+              <WorkflowActionSummary readiness={readiness}
+                unresolvedCount={unresolvedEntities.length}
+                blockingCount={blockingConflicts.length}
+                failedCoverCount={failedCovers.length}
+                disabled={!canContinue}
+                onAction={runPrimaryAction}
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );
