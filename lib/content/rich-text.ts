@@ -49,3 +49,22 @@ export function sanitizeRichTextHtml(value: string | null | undefined) {
     ALLOWED_ATTR,
   });
 }
+
+/** Plain-text representation used for validation, previews, copy, and share. */
+export function richTextToPlainText(value: string | null | undefined) {
+  if (!value?.trim()) return "";
+
+  return sanitizeRichTextHtml(value)
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p>|<\/blockquote>|<\/li>|<\/h[23]>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, "")
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}

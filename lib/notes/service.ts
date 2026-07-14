@@ -9,6 +9,7 @@ import {
   PublishedBookNoteLike,
   User,
 } from "@/db/schema";
+import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
 
 export class NoteError extends Error {
   constructor(message: string, public status = 400, public code?: string) {
@@ -206,7 +207,17 @@ export async function listPublishedNotesForBook(opts: {
       PublishedBookNoteLike,
       eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
     )
-    .where(or(...filters))
+    .where(
+      and(
+        or(...filters),
+        opts.viewerId
+          ? or(
+              eq(User.profileVisibility, "PUBLIC"),
+              eq(User.id, opts.viewerId),
+            )
+          : eq(User.profileVisibility, "PUBLIC"),
+      ),
+    )
     .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
     .orderBy(desc(PublishedBookNote.createdAt))
     .limit(100);
@@ -315,7 +326,7 @@ export async function createPublishedNote(
       catalogBookId: input.catalogBookId,
       bookEditionId: input.scope === "edition" ? input.bookEditionId ?? null : null,
       scope: input.scope,
-      content: input.content,
+      content: sanitizeRichTextHtml(input.content),
     })
     .returning({ id: PublishedBookNote.id });
 
@@ -329,7 +340,7 @@ export async function updatePublishedNote(
 ): Promise<{ id: string }> {
   const [updated] = await db
     .update(PublishedBookNote)
-    .set({ content, updatedAt: new Date() })
+    .set({ content: sanitizeRichTextHtml(content), updatedAt: new Date() })
     .where(and(eq(PublishedBookNote.id, noteId), eq(PublishedBookNote.userId, userId)))
     .returning({ id: PublishedBookNote.id });
 

@@ -76,6 +76,8 @@ export default function QuoteCard({
   )}`;
 
   const quoteText = quote.content?.trim() || "";
+  const hasImage = Boolean(quote.imageKey);
+  const fallbackText = `تکه‌ای تصویری از کتاب «${quote.bookTitle}»`;
 
   const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
 
@@ -147,7 +149,7 @@ export default function QuoteCard({
 
     const shareData = {
       title: quote.bookTitle,
-      text: `«${quoteText}» — ${quote.bookTitle}`,
+      text: quoteText ? `«${quoteText}» — ${quote.bookTitle}` : fallbackText,
       url,
     };
 
@@ -170,13 +172,13 @@ export default function QuoteCard({
   }
 
   function openFullQuote() {
-    if (isLongQuote) {
+    if (isLongQuote || hasImage) {
       setContentOpen(true);
     }
   }
 
   function handleQuoteKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!isLongQuote || (event.key !== "Enter" && event.key !== " ")) {
+    if ((!isLongQuote && !hasImage) || (event.key !== "Enter" && event.key !== " ")) {
       return;
     }
 
@@ -214,8 +216,11 @@ export default function QuoteCard({
 
         <QuoteContent
           quoteText={quoteText}
+          imageKey={quote.imageKey}
+          bookTitle={quote.bookTitle}
           page={quote.page}
           isLongQuote={isLongQuote}
+          canOpen={isLongQuote || hasImage}
           onOpen={openFullQuote}
           onKeyDown={handleQuoteKeyDown}
         />
@@ -228,6 +233,7 @@ export default function QuoteCard({
           manage={manage}
           onLike={handleLike}
           onCopy={handleCopy}
+          canCopy={Boolean(quoteText)}
           onShare={handleShare}
         />
       </article>
@@ -291,22 +297,28 @@ function QuoteCardHeader({
 
 function QuoteContent({
   quoteText,
+  imageKey,
+  bookTitle,
   page,
   isLongQuote,
+  canOpen,
   onOpen,
   onKeyDown,
 }: {
   quoteText: string;
+  imageKey: string | null;
+  bookTitle: string;
   page: number | null;
   isLongQuote: boolean;
+  canOpen: boolean;
   onOpen: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }) {
   return (
     <div
-      role={isLongQuote ? "button" : undefined}
-      tabIndex={isLongQuote ? 0 : undefined}
-      aria-label={isLongQuote ? "مشاهده متن کامل تکه کتاب" : undefined}
+      role={canOpen ? "button" : undefined}
+      tabIndex={canOpen ? 0 : undefined}
+      aria-label={canOpen ? "مشاهده کامل تکه کتاب" : undefined}
       onClick={onOpen}
       onKeyDown={onKeyDown}
       className={cn(
@@ -314,9 +326,9 @@ function QuoteContent({
         "rounded-[1.55rem] border border-white/[0.055]",
         "bg-background/35 backdrop-blur-sm",
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
-        isLongQuote &&
+        canOpen &&
           "cursor-pointer transition-colors duration-300 hover:bg-background/45",
-        isLongQuote &&
+        canOpen &&
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
       )}
     >
@@ -346,7 +358,19 @@ function QuoteContent({
       />
 
       <div className="relative z-10 flex min-h-[285px] w-full flex-1 flex-col px-7 py-9 sm:min-h-[310px] sm:px-10 sm:py-11">
-        <div className="flex min-h-0 flex-1 items-center justify-center">
+        {imageKey ? (
+          <div className="relative mb-5 flex max-h-56 min-h-40 w-full items-center justify-center overflow-hidden rounded-2xl bg-black/15 ring-1 ring-border/50">
+            <BookCoverImage
+              src={imageKey}
+              alt={`تصویر تکه‌ای از کتاب «${bookTitle}»`}
+              width={700}
+              height={900}
+              className="h-auto max-h-56 w-auto max-w-full object-contain"
+            />
+          </div>
+        ) : null}
+
+        {quoteText ? <div className="flex min-h-0 flex-1 items-center justify-center">
           <div className="mx-auto w-full max-w-[34rem]">
             <p
               className={cn(
@@ -362,7 +386,7 @@ function QuoteContent({
               {quoteText}
             </p>
           </div>
-        </div>
+        </div> : null}
 
         {(isLongQuote || page) && (
           <div className="mt-5 flex min-h-8 shrink-0 items-center justify-between gap-3">
@@ -403,6 +427,7 @@ function QuoteCardFooter({
   manage,
   onLike,
   onCopy,
+  canCopy,
   onShare,
 }: {
   liked: boolean;
@@ -412,6 +437,7 @@ function QuoteCardFooter({
   manage?: CardManage;
   onLike: () => void;
   onCopy: () => void;
+  canCopy: boolean;
   onShare: () => void;
 }) {
   return (
@@ -425,8 +451,9 @@ function QuoteCardFooter({
 
       <div className="flex items-center gap-0.5 rounded-2xl border border-border/45 bg-background/25 p-1 backdrop-blur-sm">
         <IconAction
-          label="کپی تکه"
+          label={canCopy ? "کپی تکه" : "تکه تصویری متنی برای کپی ندارد"}
           onClick={onCopy}
+          disabled={!canCopy}
           active={copied}
           icon={
             copied ? (
@@ -734,6 +761,19 @@ function QuoteReadingDialog({
         </div>
 
         <div className="max-h-[75vh] overflow-y-auto p-4 sm:p-7">
+          {quote.imageKey ? (
+            <div className="mb-5 flex max-h-[70dvh] w-full items-start justify-center overflow-auto rounded-[1.65rem] border border-border/50 bg-black/15 p-3">
+              <BookCoverImage
+                src={quote.imageKey}
+                alt={`تصویر تکه‌ای از کتاب «${quote.bookTitle}»`}
+                width={1200}
+                height={1600}
+                className="h-auto max-h-none w-auto max-w-full object-contain"
+              />
+            </div>
+          ) : null}
+
+          {quoteText ? (
           <div
             className={cn(
               "relative overflow-hidden rounded-[1.65rem]",
@@ -765,6 +805,7 @@ function QuoteReadingDialog({
               {quoteText}
             </p>
           </div>
+          ) : null}
 
           {showBook ? (
             <Link
@@ -795,16 +836,19 @@ export function IconAction({
   onClick,
   active,
   tone = "default",
+  disabled = false,
 }: {
   label: string;
   icon: ReactNode;
   onClick: () => void;
   active?: boolean;
   tone?: "default" | "primary" | "danger";
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={(event) => {
         event.stopPropagation();
         onClick();
@@ -816,6 +860,7 @@ export function IconAction({
         "text-muted-foreground transition-all duration-200",
         "hover:-translate-y-0.5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        "disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0",
         active && "bg-primary/12 text-primary",
         tone === "primary" && "text-primary hover:bg-primary/10",
         tone === "danger" &&

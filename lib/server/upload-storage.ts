@@ -1,6 +1,6 @@
 import type { ImageUploadFolder } from "@/lib/upload";
-import { StorageError, uploadImageToS3 } from "@/lib/server/s3";
-import { uploadImageToLocal } from "@/lib/server/local-upload";
+import { deleteImageFromS3, StorageError, uploadImageToS3 } from "@/lib/server/s3";
+import { deleteImageFromLocal, uploadImageToLocal } from "@/lib/server/local-upload";
 
 export type UploadDriver = "s3" | "local";
 
@@ -10,6 +10,27 @@ export interface SaveUploadResult {
   driver: UploadDriver;
   /** اگر درایورِ اصلی S3 بود ولی به‌خاطر خطا به محلی برگشتیم. */
   fellBack: boolean;
+}
+
+export async function deleteImageUpload(key: string): Promise<void> {
+  if (configuredDriver() === "local") {
+    await deleteImageFromLocal(key);
+    return;
+  }
+  try {
+    await deleteImageFromS3(key);
+  } catch (error) {
+    const isConnectionIssue =
+      error instanceof StorageError &&
+      (error.code === "STORAGE_TIMEOUT" ||
+        error.code === "STORAGE_UNREACHABLE" ||
+        error.code === "STORAGE_CONFIG");
+    if (isConnectionIssue && localFallbackEnabled()) {
+      await deleteImageFromLocal(key);
+      return;
+    }
+    throw error;
+  }
 }
 
 /** درایورِ پیکربندی‌شده (پیش‌فرض S3). */

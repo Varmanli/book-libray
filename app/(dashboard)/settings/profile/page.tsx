@@ -60,7 +60,8 @@ export default function ProfileSettingsPage() {
   const [bannerUploading, setBannerUploading] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [bannerSaving, setBannerSaving] = useState(false);
-  const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PRIVATE");
+  const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
+  const [initialVisibility, setInitialVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [initialUsername, setInitialUsername] = useState<string>("");
   const [usernameState, setUsernameState] = useState<UsernameState>("idle");
 
@@ -95,7 +96,9 @@ export default function ProfileSettingsPage() {
             image: p.image ?? null,
             bannerImage: p.bannerImage ?? null,
           });
-          setVisibility(p.profileVisibility ?? "PRIVATE");
+          const loadedVisibility = p.profileVisibility ?? "PUBLIC";
+          setVisibility(loadedVisibility);
+          setInitialVisibility(loadedVisibility);
           setInitialUsername(p.username ?? "");
         } else {
           toast.error("خطا در بارگذاری پروفایل");
@@ -230,7 +233,6 @@ export default function ProfileSettingsPage() {
         telegram: data.telegram.trim() || null,
         image: data.image,
         bannerImage: data.bannerImage,
-        visibility,
       };
       if (trimmedUsername && trimmedUsername !== initialUsername.toLowerCase()) {
         payload.username = trimmedUsername;
@@ -250,6 +252,21 @@ export default function ProfileSettingsPage() {
         }
         toast.error(result.error || "ذخیره ناموفق بود");
         return;
+      }
+      if (visibility !== initialVisibility) {
+        const visibilityRes = await fetch("/api/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          cache: "no-store",
+          body: JSON.stringify({ visibility }),
+        });
+        const visibilityResult = await visibilityRes.json();
+        if (!visibilityRes.ok) {
+          toast.error(visibilityResult.error || "ذخیره حریم خصوصی ناموفق بود");
+          return;
+        }
+        setInitialVisibility(visibilityResult.profile.profileVisibility);
       }
       toast.success(result.message || "پروفایل ذخیره شد");
       setInitialUsername(result.profile?.username ?? trimmedUsername);

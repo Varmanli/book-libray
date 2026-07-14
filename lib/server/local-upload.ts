@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 import type { ImageUploadFolder } from "@/lib/upload";
@@ -36,3 +36,15 @@ export async function uploadImageToLocal(params: {
 }
 
 export { UPLOAD_ROOT };
+
+export async function deleteImageFromLocal(key: string): Promise<void> {
+  const target = resolve(UPLOAD_ROOT, key);
+  if (target !== UPLOAD_ROOT && !target.startsWith(UPLOAD_ROOT + sep)) {
+    throw new Error("Invalid upload path.");
+  }
+  try {
+    await unlink(target);
+  } catch (error) {
+    if ((error as { code?: string }).code !== "ENOENT") throw error;
+  }
+}

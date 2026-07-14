@@ -63,6 +63,7 @@ export async function registerUser(input: {
       passwordHash: hashed,
       authProvider: "password",
       username,
+      profileVisibility: "PUBLIC",
     })
     .returning({
       id: User.id,
@@ -292,6 +293,7 @@ export async function findOrCreateGoogleUser(input: {
         authProvider: "google",
         googleId: input.googleId,
         username,
+        profileVisibility: "PUBLIC",
       })
       .returning({
         id: User.id,

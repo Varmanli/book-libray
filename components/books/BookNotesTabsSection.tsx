@@ -20,11 +20,12 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/content/RichTextEditor";
 import NoteCard from "@/components/profile/NoteCard";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import type { PublicNote } from "@/lib/notes/service";
+import { richTextToPlainText } from "@/lib/content/rich-text";
 
 type NoteTab = "book" | "edition";
 
@@ -93,7 +94,7 @@ export default function BookNotesTabsSection({
 
   async function submit() {
     const text = content.trim();
-    if (!text || busy) return;
+    if (!richTextToPlainText(text) || busy) return;
 
     setBusy(true);
     try {
@@ -413,14 +414,17 @@ function NoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden rounded-[1.75rem] border-border bg-card p-0 shadow-2xl sm:max-w-lg">
-        <div className="relative border-b border-border/70 px-5 py-5">
+      <DialogContent
+        dir="rtl"
+        className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none grid-cols-none flex-col gap-0 overflow-hidden rounded-none border-border bg-card p-0 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:w-[min(860px,calc(100vw-48px))] sm:max-w-[860px] sm:rounded-[1.75rem]"
+      >
+        <div className="relative shrink-0 border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5">
           <div className="relative flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-300/20">
               <Sparkles className="h-5 w-5" />
             </span>
 
-            <div>
+            <div className="min-w-0 pl-8">
               <DialogTitle className="text-base font-black text-foreground">
                 {editing ? "ویرایش یادداشت" : "افزودن یادداشت"}
               </DialogTitle>
@@ -433,25 +437,27 @@ function NoteDialog({
           </div>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
           {!editing ? (
             <div className="rounded-2xl border border-border/70 bg-background/35 px-4 py-3 text-xs font-bold text-muted-foreground">
               ثبت یادداشت برای: <span className="text-foreground">{scopeLabel}</span>
             </div>
           ) : null}
 
-          <Textarea
+          <RichTextEditor
+            variant="note"
             value={content}
-            onChange={(event) => onContentChange(event.target.value)}
+            onChange={onContentChange}
             placeholder={
               scope === "edition"
                 ? "برداشتت از این نسخه یا ترجمه..."
                 : "برداشتت از خود کتاب..."
             }
-            className="min-h-44 resize-none rounded-2xl border-border bg-background/45 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
+            ariaLabel={editing ? "متن ویرایش یادداشت" : "متن یادداشت جدید"}
+            className="min-h-0 flex-1"
           />
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border/60 pt-3 sm:pt-4">
             <Button
               type="button"
               variant="ghost"
@@ -465,7 +471,7 @@ function NoteDialog({
             <Button
               type="button"
               onClick={onSubmit}
-              disabled={busy || !content.trim()}
+              disabled={busy || !richTextToPlainText(content)}
               className="h-10 rounded-xl px-4 font-bold disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? (

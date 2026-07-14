@@ -19,10 +19,28 @@ export const IMAGE_UPLOAD_FOLDERS = [
   "blog",
   "references",
   "settings",
+  "quotes",
   "temp",
 ] as const;
 
 export type ImageUploadFolder = (typeof IMAGE_UPLOAD_FOLDERS)[number];
+
+export const QUOTE_MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+export const QUOTE_MAX_UPLOAD_KB = QUOTE_MAX_UPLOAD_BYTES / 1024;
+
+export const IMAGE_UPLOAD_POLICIES: Record<
+  ImageUploadFolder,
+  { maxInputBytes: number }
+> = Object.fromEntries(
+  IMAGE_UPLOAD_FOLDERS.map((folder) => [
+    folder,
+    { maxInputBytes: folder === "quotes" ? QUOTE_MAX_UPLOAD_BYTES : MAX_UPLOAD_BYTES },
+  ]),
+) as Record<ImageUploadFolder, { maxInputBytes: number }>;
+
+export function getImageUploadPolicy(folder: ImageUploadFolder) {
+  return IMAGE_UPLOAD_POLICIES[folder];
+}
 
 // فاوآیکون: علاوه بر فرمت‌های تصویرِ معمول، ‎.ico هم مجاز است.
 export const FAVICON_ACCEPTED_TYPES = [
@@ -40,6 +58,9 @@ export const UPLOAD_FAILED_MESSAGE = "آپلود تصویر ناموفق بود.
 export const UPLOAD_SUCCESS_MESSAGE = "تصویر با موفقیت آپلود شد.";
 
 export function formatUploadSizeLabel(maxSizeKb: number): string {
+  if (maxSizeKb >= 1024 && maxSizeKb % 1024 === 0) {
+    return `${(maxSizeKb / 1024).toLocaleString("fa-IR")} مگابایت`;
+  }
   return `${maxSizeKb.toLocaleString("fa-IR")} کیلوبایت`;
 }
 

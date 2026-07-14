@@ -176,6 +176,27 @@
       "when": 1783442000000,
       "tag": "0024_quote_catalog_edition_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784016000000,
+      "tag": "0025_public_profile_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784017000000,
+      "tag": "0026_quote_image",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1784018000000,
+      "tag": "0027_admin_content_timestamps",
+      "breakpoints": true
     }
   ]
 }

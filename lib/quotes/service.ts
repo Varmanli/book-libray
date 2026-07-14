@@ -11,6 +11,7 @@ import {
 export interface PublicQuote {
   id: string;
   content: string;
+  imageKey: string | null;
   page: number | null;
   bookId: string;
   bookSlug?: string | null;
@@ -62,6 +63,7 @@ export async function getPublicQuotesByUsername(
     .select({
       id: Quote.id,
       content: Quote.content,
+      imageKey: Quote.imageKey,
       page: Quote.page,
       bookId: Quote.bookId,
       bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
@@ -78,7 +80,7 @@ export async function getPublicQuotesByUsername(
     .innerJoin(Book, eq(Quote.bookId, Book.id))
     .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
     .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
-    .where(eq(Book.userId, user.id))
+    .where(eq(Quote.userId, user.id))
     .groupBy(Quote.id, Book.id, CatalogBook.id)
     .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.id))
     .limit(30);
@@ -100,9 +102,8 @@ export async function getPublicQuotesByUsername(
 /**
  * Latest public quotes/snippets for homepage usage. The homepage reuses the
  * same card contract as the book detail page (`PublicQuote`) so the exact same
- * UI can be rendered without a parallel card/view model. Quotes themselves do
- * not have a `createdAt` column yet, so ordering uses newest quote id first as
- * the current proxy. Visibility is aligned with the public book page: only
+ * UI can be rendered without a parallel card/view model. Visibility is aligned
+ * with the public book page: only
  * quotes attached to publicly reachable books are included.
  */
 export async function getLatestPublicQuotes(
@@ -112,6 +113,7 @@ export async function getLatestPublicQuotes(
     .select({
       id: Quote.id,
       content: Quote.content,
+      imageKey: Quote.imageKey,
       page: Quote.page,
       bookId: Book.id,
       bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
@@ -127,11 +129,12 @@ export async function getLatestPublicQuotes(
     })
     .from(Quote)
     .innerJoin(Book, eq(Quote.bookId, Book.id))
-    .innerJoin(User, eq(Book.userId, User.id))
+    .innerJoin(User, eq(Quote.userId, User.id))
     .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
     .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
     .where(
       and(
+        eq(User.profileVisibility, "PUBLIC"),
         or(
           sql`${Book.catalogBookId} is null`,
           eq(CatalogBook.status, "APPROVED")
@@ -139,7 +142,7 @@ export async function getLatestPublicQuotes(
       )
     )
     .groupBy(Quote.id, Book.id, CatalogBook.id, User.id)
-    .orderBy(desc(Quote.id))
+    .orderBy(desc(Quote.createdAt), desc(Quote.id))
     .limit(limit);
 
   if (process.env.NODE_ENV !== "production") {
@@ -163,6 +166,7 @@ export async function getLatestPublicQuotes(
       return {
         id: row.id,
         content: row.content,
+        imageKey: row.imageKey,
         page: row.page,
         bookId: row.bookId,
         bookTitle: row.bookTitle,

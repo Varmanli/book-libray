@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,11 +21,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUploader } from "@/components/upload/ImageUploader";
 import { Carousel } from "@/components/ui/Carousel";
 import QuoteCard from "@/components/profile/QuoteCard";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
+import { normalizeMediaUrl } from "@/lib/book/cover";
 
 export default function BookQuotesSection({
   subjectBookId,
@@ -52,6 +54,10 @@ export default function BookQuotesSection({
   const [editing, setEditing] = useState<PublicQuote | null>(null);
   const [content, setContent] = useState("");
   const [page, setPage] = useState("");
+  const [imageKey, setImageKey] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const unsavedImageKeys = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
 
   const hasQuotes = quotes.length > 0;
@@ -62,6 +68,8 @@ export default function BookQuotesSection({
     setEditing(null);
     setContent("");
     setPage("");
+    setImageKey(null);
+    setImagePreview(null);
     setOpen(true);
   }
 
@@ -69,6 +77,8 @@ export default function BookQuotesSection({
     setEditing(quote);
     setContent(quote.content);
     setPage(quote.page ? String(quote.page) : "");
+    setImageKey(quote.imageKey);
+    setImagePreview(normalizeMediaUrl(quote.imageKey));
     setOpen(true);
   }
 
@@ -94,7 +104,7 @@ export default function BookQuotesSection({
     const text = content.trim();
     const normalizedPage = page ? Number(page) : null;
 
-    if (!text || busy) return;
+    if ((!text && !imageKey) || busy || uploading) return;
 
     setBusy(true);
 
@@ -106,6 +116,7 @@ export default function BookQuotesSection({
           body: JSON.stringify({
             content: text,
             page: normalizedPage,
+            imageKey,
           }),
         });
 
@@ -124,6 +135,7 @@ export default function BookQuotesSection({
             content: text,
             page: normalizedPage ?? undefined,
             bookId,
+            imageKey,
           }),
         });
 
@@ -134,6 +146,7 @@ export default function BookQuotesSection({
         toast.success("تکه منتشر شد");
       }
 
+      unsavedImageKeys.current.clear();
       setOpen(false);
       router.refresh();
     } catch (error) {
@@ -141,6 +154,40 @@ export default function BookQuotesSection({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function cleanupImage(key: string) {
+    try {
+      await fetch("/api/upload/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+    } catch {
+      // Best-effort cleanup; the persisted quote is never rolled back.
+    } finally {
+      unsavedImageKeys.current.delete(key);
+    }
+  }
+
+  function handleImageKeyChange(nextKey: string) {
+    const previousKey = imageKey;
+    if (
+      previousKey &&
+      unsavedImageKeys.current.has(previousKey) &&
+      previousKey !== nextKey
+    ) {
+      void cleanupImage(previousKey);
+    }
+    if (nextKey) unsavedImageKeys.current.add(nextKey);
+    setImageKey(nextKey || null);
+  }
+
+  function handleDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen && !busy) {
+      for (const key of unsavedImageKeys.current) void cleanupImage(key);
+    }
+    setOpen(nextOpen);
   }
 
   async function remove(id: string) {
@@ -212,7 +259,7 @@ export default function BookQuotesSection({
               </span>
 
               <div>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-black text-foreground sm:text-xl">
                     تکه‌های کتاب
                   </h2>
@@ -256,7 +303,7 @@ export default function BookQuotesSection({
           ) : variant === "preview" ? (
             <div className="relative">
               <Carousel
-                className="py-1 ps-10 pe-10 sm:ps-11 sm:pe-11 lg:ps-12 lg:pe-12"
+                className="py-1"
                 ariaLabel="تکه‌های کتاب"
                 slideClassName="basis-full md:basis-1/2 xl:basis-1/3"
                 containerClassName="gap-4 lg:gap-5"
@@ -277,9 +324,15 @@ export default function BookQuotesSection({
         content={content}
         page={page}
         busy={busy}
-        onOpenChange={setOpen}
+        imageKey={imageKey}
+        imagePreview={imagePreview}
+        uploading={uploading}
+        onOpenChange={handleDialogOpenChange}
         onContentChange={setContent}
         onPageChange={setPage}
+        onImagePreviewChange={(value) => setImagePreview(value || null)}
+        onImageKeyChange={handleImageKeyChange}
+        onUploadStateChange={setUploading}
         onSubmit={submit}
       />
     </section>
@@ -341,9 +394,15 @@ function QuoteDialog({
   content,
   page,
   busy,
+  imageKey,
+  imagePreview,
+  uploading,
   onOpenChange,
   onContentChange,
   onPageChange,
+  onImagePreviewChange,
+  onImageKeyChange,
+  onUploadStateChange,
   onSubmit,
 }: {
   open: boolean;
@@ -351,14 +410,20 @@ function QuoteDialog({
   content: string;
   page: string;
   busy: boolean;
+  imageKey: string | null;
+  imagePreview: string | null;
+  uploading: boolean;
   onOpenChange: (open: boolean) => void;
   onContentChange: (value: string) => void;
   onPageChange: (value: string) => void;
+  onImagePreviewChange: (value: string) => void;
+  onImageKeyChange: (key: string) => void;
+  onUploadStateChange: (uploading: boolean) => void;
   onSubmit: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden rounded-[1.75rem] border-border bg-card p-0 shadow-2xl sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-24px)] overflow-y-auto rounded-[1.75rem] border-border bg-card p-0 shadow-2xl sm:max-w-2xl">
         <div className="relative border-b border-border/70 px-5 py-5">
           <div
             aria-hidden="true"
@@ -396,6 +461,20 @@ function QuoteDialog({
             className="min-h-40 resize-none rounded-2xl border-border bg-background/45 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
           />
 
+          <div className="rounded-2xl border border-border/70 bg-background/30 p-3">
+            <ImageUploader
+              value={imagePreview}
+              onChange={onImagePreviewChange}
+              onKeyChange={onImageKeyChange}
+              onUploadStateChange={onUploadStateChange}
+              folder="quotes"
+              variant="document"
+              label="افزودن تصویر از صفحه کتاب"
+              description="فرمت‌های JPEG، PNG و WebP تا حجم ۸ مگابایت پذیرفته می‌شوند."
+              disabled={busy}
+            />
+          </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <label className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-border bg-background/45 px-3 sm:w-auto">
               <span className="text-xs font-medium text-muted-foreground">
@@ -418,7 +497,7 @@ function QuoteDialog({
                 type="button"
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                disabled={busy}
+                disabled={busy || uploading}
                 className="h-10 rounded-xl px-4 text-foreground hover:bg-white/[0.05]"
               >
                 بستن
@@ -427,7 +506,7 @@ function QuoteDialog({
               <Button
                 type="button"
                 onClick={onSubmit}
-                disabled={busy || !content.trim()}
+                disabled={busy || uploading || (!content.trim() && !imageKey)}
                 className={cn(
                   "h-10 rounded-xl px-4 font-bold",
                   "disabled:cursor-not-allowed disabled:opacity-40",

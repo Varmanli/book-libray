@@ -33,6 +33,7 @@ export interface DashboardPendingSubmission {
 export interface DashboardQuotePreview {
   id: string;
   content: string;
+  imageKey: string | null;
   page: number | null;
   bookId: string;
   bookSlug: string | null;
@@ -123,8 +124,7 @@ export async function getUserDashboardData(
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(Quote)
-        .innerJoin(Book, eq(Quote.bookId, Book.id))
-        .where(eq(Book.userId, userId))
+        .where(eq(Quote.userId, userId))
         .then((rows) => rows[0]?.count ?? 0),
       db
         .select({ count: sql<number>`count(*)::int` })
@@ -163,11 +163,12 @@ export async function getUserDashboardData(
         .where(eq(Book.userId, userId))
         .orderBy(desc(Book.createdAt))
         .limit(8),
-      // تکه‌ها زمان ندارند؛ تازگی را تقریبی از روی زمان ساخت کتاب می‌گیریم.
+      // جدیدترین تکه‌های خود کاربر.
       db
         .select({
           id: Quote.id,
           content: Quote.content,
+          imageKey: Quote.imageKey,
           page: Quote.page,
           bookId: Quote.bookId,
           bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
@@ -176,8 +177,8 @@ export async function getUserDashboardData(
         .from(Quote)
         .innerJoin(Book, eq(Quote.bookId, Book.id))
         .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
-        .where(eq(Book.userId, userId))
-        .orderBy(desc(Book.createdAt))
+        .where(eq(Quote.userId, userId))
+        .orderBy(desc(Quote.createdAt))
         .limit(3),
       db
         .select({

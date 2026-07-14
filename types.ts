@@ -22,6 +22,7 @@ export type BookType = {
 export type QuoteType = {
   id: string;
   content: string;
+  imageKey?: string | null;
   page?: number | null;
   bookId: string;
 };

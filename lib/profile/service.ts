@@ -113,8 +113,6 @@ export async function updateProfile(
   if (input.image !== undefined) set.image = input.image;
   if (input.bannerImage !== undefined)
     set.profileBannerImage = input.bannerImage;
-  if (input.visibility !== undefined) set.profileVisibility = input.visibility;
-
   try {
     await db.update(User).set(set).where(eq(User.id, userId));
   } catch (err) {
@@ -133,6 +131,28 @@ export async function updateProfile(
     }
     throw err;
   }
+
+  const profile = await getMyProfile(userId);
+  if (!profile) throw new ProfileError("کاربر یافت نشد", 404);
+  return profile;
+}
+
+/**
+ * Changes only profile visibility (plus the normal audit timestamp).
+ * Keeping this separate from the general profile update prevents stale form
+ * data from overwriting profile fields and makes relation changes impossible.
+ */
+export async function updateProfileVisibility(
+  userId: string,
+  visibility: "PUBLIC" | "PRIVATE"
+): Promise<MyProfile> {
+  const [updated] = await db
+    .update(User)
+    .set({ profileVisibility: visibility, updatedAt: new Date() })
+    .where(eq(User.id, userId))
+    .returning({ id: User.id });
+
+  if (!updated) throw new ProfileError("کاربر یافت نشد", 404);
 
   const profile = await getMyProfile(userId);
   if (!profile) throw new ProfileError("کاربر یافت نشد", 404);

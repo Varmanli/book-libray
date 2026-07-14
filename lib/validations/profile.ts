@@ -66,7 +66,10 @@ export const updateProfileSchema = z.object({
     isAllowedPersistedImageUrl,
     "مسیر محلی /uploads/ برای تصویر مجاز نیست.",
   ),
-  visibility: z.enum(["PUBLIC", "PRIVATE"]).optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const updateProfileVisibilitySchema = z.object({
+  visibility: z.enum(["PUBLIC", "PRIVATE"]),
+});

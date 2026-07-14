@@ -1,146 +1,106 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { Quote, Book } from "@/db/schema";
-import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 
-// Helper to get ID from URL
-function getIdFromUrl(req: NextRequest) {
-  const parts = req.nextUrl.pathname.split("/");
-  return parts[parts.length - 1];
+import { db } from "@/db";
+import { Quote } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth/session";
+import {
+  isOwnedQuoteImageKey,
+  normalizeQuoteImageKey,
+  normalizeQuoteText,
+} from "@/lib/quotes/image";
+import { deleteImageUpload } from "@/lib/server/upload-storage";
+
+async function ownedQuote(id: string, userId: string) {
+  const [row] = await db
+    .select({ quote: Quote, ownerId: Quote.userId })
+    .from(Quote)
+    .where(eq(Quote.id, id));
+  if (!row) return { error: "تکه پیدا نشد", status: 404 } as const;
+  if (row.ownerId !== userId) return { error: "دسترسی غیرمجاز", status: 403 } as const;
+  return row;
 }
 
-// GET: Get a specific quote
-export async function GET(req: NextRequest) {
+async function cleanupImage(key: string | null, userId: string) {
+  if (!key || !isOwnedQuoteImageKey(key, userId)) return;
   try {
-    const id = getIdFromUrl(req);
-
-    const [quote] = await db.select().from(Quote).where(eq(Quote.id, id));
-
-    if (!quote) {
-      return NextResponse.json({ error: "نقل قول پیدا نشد" }, { status: 404 });
-    }
-
-    return NextResponse.json({ quote });
-  } catch (err) {
-    console.error("❌ خطا در دریافت نقل قول:", err);
-    return NextResponse.json(
-      { error: "خطا در دریافت نقل قول" },
-      { status: 500 }
-    );
+    await deleteImageUpload(key);
+  } catch (error) {
+    console.error("[quotes] image cleanup failed", { key, error });
   }
 }
 
-// PUT: Update a quote
-export async function PUT(req: NextRequest) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [quote] = await db.select().from(Quote).where(eq(Quote.id, id));
+  if (!quote) return NextResponse.json({ error: "تکه پیدا نشد" }, { status: 404 });
+  return NextResponse.json({ quote });
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    const { id } = await params;
+    const existing = await ownedQuote(id, user.id);
+    if ("error" in existing) return NextResponse.json({ error: existing.error }, { status: existing.status });
+
+    const body = (await req.json()) as Record<string, unknown>;
+    const content = normalizeQuoteText(body.content);
+    // An omitted imageKey means "keep the current image". Removal must be
+    // explicit (`imageKey: null`) so partial clients cannot discard media.
+    const imageKey = Object.prototype.hasOwnProperty.call(body, "imageKey")
+      ? normalizeQuoteImageKey(body.imageKey)
+      : existing.quote.imageKey;
+    const page = typeof body.page === "number" && Number.isInteger(body.page) && body.page > 0
+      ? body.page
+      : null;
+
+    if (!content && !imageKey) {
+      return NextResponse.json({ error: "حذف تنها محتوای تکه مجاز نیست" }, { status: 422 });
+    }
+    if (imageKey && !isOwnedQuoteImageKey(imageKey, user.id)) {
+      return NextResponse.json({ error: "تصویر انتخاب‌شده معتبر نیست" }, { status: 403 });
+    }
+    if (imageKey && imageKey !== existing.quote.imageKey) {
+      const [alreadyAttached] = await db
+        .select({ id: Quote.id })
+        .from(Quote)
+        .where(eq(Quote.imageKey, imageKey))
+        .limit(1);
+      if (alreadyAttached) {
+        return NextResponse.json({ error: "این تصویر قبلاً به تکه دیگری متصل شده است" }, { status: 409 });
+      }
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    const userId = decoded.id;
-
-    const id = getIdFromUrl(req);
-    const body = await req.json();
-    const { content, page } = body;
-
-    if (!content) {
-      return NextResponse.json(
-        { error: "محتوای نقل قول ضروری است" },
-        { status: 400 }
-      );
-    }
-
-    // Get the quote and verify ownership through book
     const [quote] = await db
-      .select({
-        quote: Quote,
-        book: Book,
-      })
-      .from(Quote)
-      .innerJoin(Book, eq(Quote.bookId, Book.id))
-      .where(eq(Quote.id, id));
-
-    if (!quote) {
-      return NextResponse.json({ error: "نقل قول پیدا نشد" }, { status: 404 });
-    }
-
-    if (quote.book.userId !== userId) {
-      return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
-    }
-
-    const [updatedQuote] = await db
       .update(Quote)
-      .set({
-        content,
-        page: page || null,
-      })
+      .set({ content, imageKey, page, updatedAt: new Date() })
       .where(eq(Quote.id, id))
       .returning();
-
-    return NextResponse.json({
-      quote: updatedQuote,
-      message: "نقل قول با موفقیت بروزرسانی شد",
-    });
-  } catch (err) {
-    console.error("❌ خطا در بروزرسانی نقل قول:", err);
-    return NextResponse.json(
-      { error: "خطا در بروزرسانی نقل قول" },
-      { status: 500 }
-    );
+    if (existing.quote.imageKey && existing.quote.imageKey !== imageKey) {
+      await cleanupImage(existing.quote.imageKey, user.id);
+    }
+    return NextResponse.json({ quote, message: "تکه با موفقیت بروزرسانی شد" });
+  } catch (error) {
+    console.error("❌ خطا در بروزرسانی تکه:", error);
+    return NextResponse.json({ error: "خطا در بروزرسانی تکه" }, { status: 500 });
   }
 }
 
-// DELETE: Delete a quote
-export async function DELETE(req: NextRequest) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    const userId = decoded.id;
-
-    const id = getIdFromUrl(req);
-
-    // Get the quote and verify ownership through book
-    const [quote] = await db
-      .select({
-        quote: Quote,
-        book: Book,
-      })
-      .from(Quote)
-      .innerJoin(Book, eq(Quote.bookId, Book.id))
-      .where(eq(Quote.id, id));
-
-    if (!quote) {
-      return NextResponse.json({ error: "نقل قول پیدا نشد" }, { status: 404 });
-    }
-
-    if (quote.book.userId !== userId) {
-      return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
-    }
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    const { id } = await params;
+    const existing = await ownedQuote(id, user.id);
+    if ("error" in existing) return NextResponse.json({ error: existing.error }, { status: existing.status });
 
     await db.delete(Quote).where(eq(Quote.id, id));
-
-    return NextResponse.json({ message: "نقل قول با موفقیت حذف شد" });
-  } catch (err) {
-    console.error("❌ خطا در حذف نقل قول:", err);
-    return NextResponse.json({ error: "خطا در حذف نقل قول" }, { status: 500 });
+    await cleanupImage(existing.quote.imageKey, user.id);
+    return NextResponse.json({ message: "تکه با موفقیت حذف شد" });
+  } catch (error) {
+    console.error("❌ خطا در حذف تکه:", error);
+    return NextResponse.json({ error: "خطا در حذف تکه" }, { status: 500 });
   }
 }
-
-
-
-
-
-
-
-

@@ -16,6 +16,8 @@ import {
   Languages,
   Newspaper,
   PenTool,
+  Quote as QuoteIcon,
+  NotebookPen,
   Plus,
   Settings,
   Tags,
@@ -150,6 +152,16 @@ export const ADMIN_NAV: AdminNavEntry[] = [
       label: "محتوا",
       icon: LayoutTemplate,
       children: [
+        {
+          href: "/admin/quotes",
+          label: "تکه‌های کتاب",
+          icon: QuoteIcon,
+        },
+        {
+          href: "/admin/notes",
+          label: "یادداشت‌ها",
+          icon: NotebookPen,
+        },
         {
           href: "/admin/home-content",
           label: "محتوای صفحه اصلی",

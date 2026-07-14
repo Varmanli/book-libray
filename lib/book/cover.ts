@@ -44,13 +44,13 @@ export function normalizeMediaUrl(input?: string | null): string | null {
   if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith("/")) {
     const key = normalizePath(raw);
-    if (/^(blog|books|authors|avatars|references|publishers|translators|settings)\//i.test(key)) {
+    if (/^(blog|books|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(key)) {
       return `${storagePublicBase()}/${key}`;
     }
     return raw;
   }
   if (raw.startsWith("uploads/")) return `/${normalizePath(raw)}`;
-  if (/^(blog|books|authors|avatars|references|publishers|translators|settings)\//i.test(raw)) {
+  if (/^(blog|books|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(raw)) {
     return `${storagePublicBase()}/${normalizePath(raw)}`;
   }
 

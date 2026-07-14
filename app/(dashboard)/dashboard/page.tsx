@@ -17,6 +17,7 @@ import {
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import BookPreviewCard from "@/components/panel/BookPreviewCard";
+import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getUserDashboardData } from "@/lib/dashboard/service";
@@ -175,8 +176,19 @@ export default async function DashboardPage() {
                         href={`/book/${encodeURIComponent(quote.bookSlug || quote.bookId)}`}
                         className="block rounded-xl border border-border/60 bg-background/40 p-3 transition hover:border-primary/30"
                       >
+                        {quote.imageKey ? (
+                          <div className="mb-2 flex max-h-32 justify-center overflow-hidden rounded-lg bg-black/10">
+                            <BookCoverImage
+                              src={quote.imageKey}
+                              alt={`تصویر تکه‌ای از کتاب «${quote.bookTitle}»`}
+                              width={280}
+                              height={360}
+                              className="h-auto max-h-32 w-auto max-w-full object-contain"
+                            />
+                          </div>
+                        ) : null}
                         <p className="line-clamp-2 text-sm leading-6 text-foreground">
-                          «{quote.content}»
+                          {quote.content ? `«${quote.content}»` : "تکه‌ای تصویری از کتاب"}
                         </p>
                         <p className="mt-1.5 truncate text-xs text-muted-foreground">
                           {quote.bookTitle}

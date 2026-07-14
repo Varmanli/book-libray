@@ -4,6 +4,7 @@ import { Agent as HttpAgent } from "node:http";
 
 import {
   HeadBucketCommand,
+  DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -224,6 +225,15 @@ export async function uploadImageToS3(params: {
   });
 
   return { key, url: getPublicUrl(key) };
+}
+
+export async function deleteImageFromS3(key: string): Promise<void> {
+  const client = getClient();
+  try {
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  } catch (err) {
+    throw toStorageError(err, "DeleteObject");
+  }
 }
 
 /**

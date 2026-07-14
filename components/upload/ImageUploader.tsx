@@ -16,8 +16,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   ACCEPT_ATTR,
-  DEFAULT_MAX_UPLOAD_KB,
   FAVICON_ACCEPT_ATTR,
+  getImageUploadPolicy,
   type ImageUploadFolder,
   UPLOAD_FAILED_MESSAGE,
   UPLOAD_SUCCESS_MESSAGE,
@@ -25,7 +25,7 @@ import {
   validateImageFile,
 } from "@/lib/upload";
 
-type UploadVariant = "cover" | "avatar" | "banner" | "square" | "wide";
+type UploadVariant = "cover" | "avatar" | "banner" | "square" | "wide" | "document";
 type UploadKind = "image" | "favicon";
 
 interface ImageUploaderProps {
@@ -47,6 +47,8 @@ interface ImageUploaderProps {
   /** اکشن‌ها به‌صورت یک پیل شناور روی گوشه‌ی تصویر نمایش داده شوند (مناسب بنر). */
   overlayActions?: boolean;
   className?: string;
+  /** شناسه مالک مقصد؛ فقط مسیر ادمین اجازه استفاده از آن را می‌دهد. */
+  targetOwnerId?: string;
 }
 
 type UploadResponse = { key: string; url: string };
@@ -67,13 +69,15 @@ function uploadImage(
   file: File,
   folder: ImageUploadFolder,
   onProgress: (value: number) => void,
-  kind: UploadKind = "image"
+  kind: UploadKind = "image",
+  targetOwnerId?: string,
 ) {
   return new Promise<UploadResponse>((resolve, reject) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", folder);
     if (kind !== "image") formData.append("kind", kind);
+    if (targetOwnerId) formData.append("targetOwnerId", targetOwnerId);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/upload/image");
@@ -120,6 +124,8 @@ function frameShape(variant: UploadVariant) {
       return "aspect-[2/3] w-32 rounded-xl sm:w-36";
     case "wide":
       return "aspect-video w-full rounded-2xl";
+    case "document":
+      return "min-h-48 max-h-80 w-full rounded-2xl";
     default:
       return "aspect-square w-full max-w-48 rounded-2xl";
   }
@@ -145,14 +151,16 @@ export function ImageUploader({
   onUploadStateChange,
   folder = "temp",
   label,
+  description,
   aspect,
   variant,
-  maxSizeKb = DEFAULT_MAX_UPLOAD_KB,
+  maxSizeKb,
   kind = "image",
   disabled = false,
   required = false,
   overlayActions = false,
   className,
+  targetOwnerId,
 }: ImageUploaderProps) {
   const isFavicon = kind === "favicon";
   const acceptAttr = isFavicon ? FAVICON_ACCEPT_ATTR : ACCEPT_ATTR;
@@ -171,7 +179,9 @@ export function ImageUploader({
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(value ?? null);
   const [loadError, setLoadError] = React.useState(false);
 
-  const maxSizeBytes = maxSizeKb * 1024;
+  const resolvedMaxSizeKb =
+    maxSizeKb ?? getImageUploadPolicy(folder).maxInputBytes / 1024;
+  const maxSizeBytes = resolvedMaxSizeKb * 1024;
 
   React.useEffect(() => {
     setPreviewUrl(value ?? null);
@@ -221,7 +231,7 @@ export function ImageUploader({
     setProgress(0);
 
     try {
-      const data = await uploadImage(file, folder, setProgress, kind);
+      const data = await uploadImage(file, folder, setProgress, kind, targetOwnerId);
       setLoadError(false);
       setPreviewUrl(data.url);
       onChange(data.url);
@@ -229,8 +239,12 @@ export function ImageUploader({
       setProgress(100);
       toast.success(UPLOAD_SUCCESS_MESSAGE);
     } catch (uploadError) {
-      const message =
+      const rawMessage =
         uploadError instanceof Error ? uploadError.message : UPLOAD_FAILED_MESSAGE;
+      const message =
+        folder === "quotes" && rawMessage === UPLOAD_FAILED_MESSAGE
+          ? "بهینه‌سازی یا بارگذاری تصویر انجام نشد. لطفاً دوباره تلاش کنید."
+          : rawMessage;
       setError(message);
       setProgress(0);
       toast.error(message);
@@ -282,7 +296,10 @@ export function ImageUploader({
         <img
           src={previewUrl}
           alt={label || "پیش‌نمایش تصویر"}
-          className="h-full w-full object-cover"
+          className={cn(
+            "h-full w-full",
+            resolvedVariant === "document" ? "object-contain p-2" : "object-cover",
+          )}
           onError={() => setLoadError(true)}
           onLoad={() => setLoadError(false)}
         />
@@ -313,7 +330,11 @@ export function ImageUploader({
         {uploading ? (
           <span className="flex items-center gap-1.5">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {progress}%
+            {progress >= 100
+              ? folder === "quotes"
+                ? "در حال بهینه‌سازی تصویر..."
+                : "در حال ذخیره تصویر..."
+              : `${progress}%`}
           </span>
         ) : (
           <span className="flex items-center gap-1.5">
@@ -364,7 +385,15 @@ export function ImageUploader({
         ) : (
           <UploadCloud className="h-4 w-4" />
         )}
-        {uploading ? "در حال آپلود" : previewUrl ? "تغییر" : "انتخاب"}
+        {uploading
+          ? progress >= 100
+            ? folder === "quotes"
+              ? "در حال بهینه‌سازی"
+              : "در حال ذخیره"
+            : "در حال آپلود"
+          : previewUrl
+            ? "تغییر"
+            : "انتخاب"}
       </Button>
 
       {previewUrl ? (
@@ -400,6 +429,10 @@ export function ImageUploader({
     </label>
   ) : null;
 
+  const descriptionEl = description ? (
+    <p className="text-xs leading-6 text-muted-foreground">{description}</p>
+  ) : null;
+
   const fileInput = (
     <input
       ref={inputRef}
@@ -425,6 +458,7 @@ export function ImageUploader({
           {actionButtons}
         </div>
         {errorEl}
+        {descriptionEl}
       </div>
     );
   }
@@ -440,6 +474,7 @@ export function ImageUploader({
           {overlayPill}
         </div>
         {errorEl}
+        {descriptionEl}
       </div>
     );
   }
@@ -452,6 +487,7 @@ export function ImageUploader({
       {frame}
       <div className="flex flex-wrap items-center gap-2">{actionButtons}</div>
       {errorEl}
+      {descriptionEl}
     </div>
   );
 }

@@ -11,7 +11,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
 
-RUN npm ci
+RUN npm ci \
+  --fetch-retries=5 \
+  --fetch-retry-factor=2 \
+  --fetch-retry-mintimeout=10000 \
+  --fetch-retry-maxtimeout=120000
 
 
 # -----------------------------------------------------------------------------
@@ -54,18 +58,14 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs \
   && adduser -S nextjs -u 1001
 
-# Install dependencies needed at runtime.
-# IMPORTANT:
-# We intentionally install devDependencies too because db:push often depends on
-# drizzle-kit, which is usually in devDependencies.
-#
-# Later, after production is stable, you can optimize this by moving the exact
-# migration/sync tool to dependencies and changing this to:
-# RUN npm ci --omit=dev && npm cache clean --force
+# The standalone output contains the traced production dependencies (including
+# sharp/libvips and pg). Avoid a second npm install in the runtime stage: it
+# duplicates dependencies, increases image size, and makes an otherwise-built
+# image depend on another registry download.
 COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
 
-# Copy files needed by db:push / Drizzle / database schema sync.
+# Keep migration/schema files in the deployment artifact. Migrations are run as
+# an explicit release step, never implicitly by the image build.
 COPY --from=builder /app/drizzle.config.* ./
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/lib ./lib

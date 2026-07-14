@@ -91,11 +91,12 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     try {
       await options.onConfirm();
       settle(true);
+      setOpen(false);
     } catch {
-      settle(false);
+      // خطای mutation داخل onConfirm نمایش داده می‌شود؛ دیالوگ باز می‌ماند تا
+      // کاربر بتواند دوباره تلاش کند یا خودش آن را ببندد.
     } finally {
       setLoading(false);
-      setOpen(false);
     }
   };
 

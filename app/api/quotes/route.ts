@@ -1,69 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { Quote } from "@/db/schema";
-import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 
-// POST: Create a new quote
+import { db } from "@/db";
+import { Book, Quote } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth/session";
+import {
+  isOwnedQuoteImageKey,
+  normalizeQuoteImageKey,
+  normalizeQuoteText,
+} from "@/lib/quotes/image";
+
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+
+    const body = (await req.json()) as Record<string, unknown>;
+    const content = normalizeQuoteText(body.content);
+    const imageKey = normalizeQuoteImageKey(body.imageKey);
+    const bookId = typeof body.bookId === "string" ? body.bookId : "";
+    const page = typeof body.page === "number" && Number.isInteger(body.page) && body.page > 0
+      ? body.page
+      : null;
+
+    if (!content && !imageKey) {
+      return NextResponse.json({ error: "متن یا تصویر تکه لازم است" }, { status: 422 });
+    }
+    if (!bookId) return NextResponse.json({ error: "شناسه کتاب لازم است" }, { status: 400 });
+    if (imageKey && !isOwnedQuoteImageKey(imageKey, user.id)) {
+      return NextResponse.json({ error: "تصویر انتخاب‌شده معتبر نیست" }, { status: 403 });
+    }
+    if (imageKey) {
+      const [alreadyAttached] = await db
+        .select({ id: Quote.id })
+        .from(Quote)
+        .where(eq(Quote.imageKey, imageKey))
+        .limit(1);
+      if (alreadyAttached) {
+        return NextResponse.json({ error: "این تصویر قبلاً به تکه دیگری متصل شده است" }, { status: 409 });
+      }
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    const userId = decoded.id;
+    const [book] = await db.select({ id: Book.id, catalogBookId: Book.catalogBookId, editionId: Book.editionId }).from(Book).where(eq(Book.id, bookId));
+    if (!book) return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
 
-    const body = await req.json();
-    const { content, page, bookId } = body;
-
-    if (!content || !bookId) {
-      return NextResponse.json(
-        { error: "محتوای نقل قول و شناسه کتاب ضروری است" },
-        { status: 400 }
-      );
-    }
-
-    // Verify the book belongs to the user
-    const { Book } = await import("@/db/schema");
-    const [book] = await db.select().from(Book).where(eq(Book.id, bookId));
-
-    if (!book) {
-      return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
-    }
-
-    if (book.userId !== userId) {
-      return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
-    }
-
-    const [newQuote] = await db
-      .insert(Quote)
-      .values({
-        content,
-        page: page || null,
-        bookId,
-      })
-      .returning();
-
-    return NextResponse.json({
-      quote: newQuote,
-      message: "نقل قول با موفقیت اضافه شد",
-    });
-  } catch (err) {
-    console.error("❌ خطا در ایجاد نقل قول:", err);
-    return NextResponse.json(
-      { error: "خطا در ایجاد نقل قول" },
-      { status: 500 }
-    );
+    const [quote] = await db.insert(Quote).values({ userId: user.id, content, imageKey, page, bookId, catalogBookId: book.catalogBookId, bookEditionId: book.editionId }).returning();
+    return NextResponse.json({ quote, message: "تکه با موفقیت اضافه شد" });
+  } catch (error) {
+    console.error("❌ خطا در ایجاد تکه:", error);
+    return NextResponse.json({ error: "خطا در ایجاد تکه" }, { status: 500 });
   }
 }
-
-
-
-
-
-
-

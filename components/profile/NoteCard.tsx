@@ -23,8 +23,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import BookCoverImage from "@/components/books/BookCoverImage";
+import RichTextContent from "@/components/content/RichTextContent";
 import type { PublicNote } from "@/lib/notes/service";
 import { AuthorChip, type CardManage } from "@/components/profile/QuoteCard";
+import { richTextToPlainText } from "@/lib/content/rich-text";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
 // These thresholds are purely presentational: a six-line preview should show a
@@ -52,7 +54,7 @@ export default function NoteCard({
   const [contentOpen, setContentOpen] = useState(false);
 
   const bookHref = `/book/${encodeURIComponent(note.bookSlug || note.bookId)}`;
-  const noteText = note.content?.trim() || "";
+  const noteText = richTextToPlainText(note.content);
   const wordCount = noteText.split(/\s+/).filter(Boolean).length;
   const isLongNote =
     noteText.length > LONG_NOTE_CHAR_LIMIT || wordCount > LONG_NOTE_WORD_LIMIT;
@@ -208,14 +210,14 @@ export default function NoteCard({
           <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
           <NotebookPen className="pointer-events-none absolute right-4 top-5 h-4.5 w-4.5 text-sky-300/25 sm:right-5" />
 
-          <p
+          <RichTextContent
+            content={note.content}
             className={cn(
-              "relative z-10 whitespace-pre-line pr-7 text-[0.9375rem] font-medium leading-8 text-foreground sm:text-base sm:leading-8",
+              "relative z-10 break-words pr-7 text-right text-[0.9375rem] font-medium leading-8 text-foreground [overflow-wrap:anywhere] sm:text-base sm:leading-8",
+              "[&_a]:break-all [&_a]:text-primary [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-r-2 [&_blockquote]:border-sky-300/35 [&_blockquote]:pr-3 [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pr-6 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pr-6",
               isLongNote && "line-clamp-6",
             )}
-          >
-            {noteText}
-          </p>
+          />
 
           {isLongNote ? (
             <button
@@ -436,9 +438,10 @@ function NoteContentDialog({
             <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
             <NotebookPen className="pointer-events-none absolute right-5 top-5 h-6 w-6 text-sky-300/25" />
 
-            <p className="relative z-10 whitespace-pre-line pr-9 text-sm font-medium leading-8 text-foreground sm:text-base sm:leading-9">
-              {noteText}
-            </p>
+            <RichTextContent
+              content={note.content}
+              className="relative z-10 break-words pr-9 text-right text-sm font-medium leading-8 text-foreground [overflow-wrap:anywhere] sm:text-base sm:leading-9 [&_a]:break-all [&_a]:text-primary [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-r-2 [&_blockquote]:border-sky-300/35 [&_blockquote]:bg-sky-400/[0.06] [&_blockquote]:py-2 [&_blockquote]:pr-4 [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pr-7 [&_p]:my-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pr-7"
+            />
           </div>
 
           <Link

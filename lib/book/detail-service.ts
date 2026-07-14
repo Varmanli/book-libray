@@ -441,6 +441,7 @@ async function loadPublicQuotes(
     .select({
       id: Quote.id,
       content: Quote.content,
+      imageKey: Quote.imageKey,
       page: Quote.page,
       bookId: Quote.bookId,
       authorUsername: User.username,
@@ -451,17 +452,25 @@ async function loadPublicQuotes(
     })
     .from(Quote)
     .innerJoin(Book, eq(Quote.bookId, Book.id))
-    .innerJoin(User, eq(Book.userId, User.id))
+    .innerJoin(User, eq(Quote.userId, User.id))
     .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
-    .where(inArray(Quote.bookId, siblingIds))
+    .where(
+      and(
+        inArray(Quote.bookId, siblingIds),
+        viewerId
+          ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
+          : eq(User.profileVisibility, "PUBLIC"),
+      ),
+    )
     .groupBy(Quote.id, User.id)
-    .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.id));
+    .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.createdAt));
 
   const rows = await (limit ? query.limit(limit) : query);
 
   return rows.map((row) => ({
     id: row.id,
     content: row.content,
+    imageKey: row.imageKey,
     page: row.page,
     bookId: row.bookId,
     bookSlug: subject.slug,

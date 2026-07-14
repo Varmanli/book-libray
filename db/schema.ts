@@ -7,6 +7,7 @@ import {
   timestamp,
   pgEnum,
   unique,
+  uniqueIndex,
   index,
   boolean,
   jsonb,
@@ -29,7 +30,7 @@ export const PurchasePriority = pgEnum("PurchasePriority", [
   "NOT_IMPORTANT", // فعلا مهم نیست
 ]);
 
-// نمایانی پروفایل کاربر (پیش‌فرض خصوصی برای حفظ حریم خصوصی)
+// نمایانی پروفایل کاربر (حساب‌های جدید به‌صورت عمومی ساخته می‌شوند)
 export const ProfileVisibility = pgEnum("ProfileVisibility", [
   "PUBLIC",
   "PRIVATE",
@@ -124,7 +125,7 @@ export const User = pgTable("User", {
   linkedin: text("linkedin"),
   telegram: varchar("telegram", { length: 100 }),
   profileVisibility: ProfileVisibility("profile_visibility")
-    .default("PRIVATE")
+    .default("PUBLIC")
     .notNull(),
   role: UserRole("role").default("USER").notNull(),
   sessionVersion: integer("session_version").default(0).notNull(),
@@ -402,22 +403,36 @@ export const Book = pgTable("Book", {
 });
 
 // ---------------- Quote ----------------
-export const Quote = pgTable("Quote", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  content: text("content").notNull(),
-  page: integer("page"),
-  catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
-    onDelete: "set null",
+export const Quote = pgTable(
+  "Quote",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    imageKey: text("image_key"),
+    page: integer("page"),
+    catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
+      onDelete: "set null",
+    }),
+    bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
+      onDelete: "set null",
+    }),
+    bookId: varchar("book_id")
+      .notNull()
+      .references(() => Book.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    imageKeyUnique: uniqueIndex("Quote_image_key_unique").on(table.imageKey),
+    bookIdx: index("Quote_book_id_idx").on(table.bookId),
+    userIdx: index("Quote_user_id_idx").on(table.userId),
+    createdAtIdx: index("Quote_created_at_idx").on(table.createdAt),
+    updatedAtIdx: index("Quote_updated_at_idx").on(table.updatedAt),
   }),
-  bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
-    onDelete: "set null",
-  }),
-  bookId: varchar("book_id")
-    .notNull()
-    .references(() => Book.id, { onDelete: "cascade" }),
-});
+);
 
 // ---------------- QuoteLike (پسند نقل‌قول؛ هر کاربر یک‌بار) ----------------
 // مدل افزایشی و کم‌هزینه: شمار پسندها از روی تعداد ردیف‌ها محاسبه می‌شود و
@@ -468,7 +483,12 @@ export const PublishedBookNote = pgTable("PublishedBookNote", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+}, (table) => ({
+  userIdx: index("PublishedBookNote_user_id_idx").on(table.userId),
+  bookIdx: index("PublishedBookNote_book_id_idx").on(table.bookId),
+  createdAtIdx: index("PublishedBookNote_created_at_idx").on(table.createdAt),
+  updatedAtIdx: index("PublishedBookNote_updated_at_idx").on(table.updatedAt),
+}));
 
 // ---------------- PublishedBookNoteLike (پسند یادداشت عمومی؛ مثل QuoteLike) ----------------
 export const PublishedBookNoteLike = pgTable(
@@ -647,6 +667,7 @@ export const Wishlist = pgTable("Wishlist", {
 export const UserRelations = relations(User, ({ many }) => ({
   accounts: many(Account),
   books: many(Book),
+  quotes: many(Quote),
   sessions: many(Session),
   wishlist: many(Wishlist),
   passwordResetTokens: many(PasswordResetToken),
@@ -708,6 +729,7 @@ export const BookRelations = relations(Book, ({ one, many }) => ({
 }));
 
 export const QuoteRelations = relations(Quote, ({ one, many }) => ({
+  user: one(User, { fields: [Quote.userId], references: [User.id] }),
   book: one(Book, { fields: [Quote.bookId], references: [Book.id] }),
   catalogBook: one(CatalogBook, {
     fields: [Quote.catalogBookId],
