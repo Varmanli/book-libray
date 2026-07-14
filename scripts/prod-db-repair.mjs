@@ -121,11 +121,16 @@ const publishedBookNoteStatements = [
 ];
 
 const quoteStatements = [
-  // Added nullable first; repairQuoteIntegrity backfills and validates ownership
-  // before enforcing the authoritative NOT NULL contract.
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "id" varchar DEFAULT gen_random_uuid()',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "content" text',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "page" integer',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "book_id" varchar',
   'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "user_id" varchar',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "image_key" text',
   'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar',
   'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "book_edition_id" varchar',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "created_at" timestamp',
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "updated_at" timestamp',
 ];
 
 const publishedBookNoteLikeStatements = [
@@ -246,6 +251,12 @@ async function repairQuoteIntegrity(pool) {
   await pool.query("BEGIN");
   try {
     await pool.query(`
+      UPDATE "Quote"
+      SET "created_at" = COALESCE("created_at", NOW()),
+          "updated_at" = COALESCE("updated_at", "created_at", NOW())
+      WHERE "created_at" IS NULL OR "updated_at" IS NULL
+    `);
+    await pool.query(`
     UPDATE "Quote" q
     SET "user_id" = b."user_id"
     FROM "Book" b
@@ -268,6 +279,15 @@ async function repairQuoteIntegrity(pool) {
       ALTER TABLE "Quote" ALTER COLUMN "user_id" SET NOT NULL
     `);
     await pool.query(`
+      ALTER TABLE "Quote" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
+      ALTER TABLE "Quote" ALTER COLUMN "content" SET NOT NULL;
+      ALTER TABLE "Quote" ALTER COLUMN "book_id" SET NOT NULL;
+      ALTER TABLE "Quote" ALTER COLUMN "created_at" SET DEFAULT NOW();
+      ALTER TABLE "Quote" ALTER COLUMN "created_at" SET NOT NULL;
+      ALTER TABLE "Quote" ALTER COLUMN "updated_at" SET DEFAULT NOW();
+      ALTER TABLE "Quote" ALTER COLUMN "updated_at" SET NOT NULL;
+    `);
+    await pool.query(`
       DO $$ BEGIN
         ALTER TABLE "Quote" ADD CONSTRAINT "Quote_user_id_User_id_fk"
           FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
@@ -276,6 +296,28 @@ async function repairQuoteIntegrity(pool) {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS "Quote_user_id_idx" ON "Quote" ("user_id")
     `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS "Quote_book_id_idx" ON "Quote" ("book_id")
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS "Quote_created_at_idx" ON "Quote" ("created_at")
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS "Quote_updated_at_idx" ON "Quote" ("updated_at")
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Quote_image_key_unique"
+      ON "Quote" ("image_key")
+    `);
+
+    for (const statement of [
+      `DO $$ BEGIN
+         ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_id_Book_id_fk"
+         FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    ]) {
+      await pool.query(statement);
+    }
 
     await pool.query(`
     UPDATE "Quote" q SET "catalog_book_id" = NULL
@@ -314,6 +356,59 @@ async function repairQuoteIntegrity(pool) {
     await pool.query("ROLLBACK");
     throw error;
   }
+}
+
+async function verifyQuoteSchema(pool) {
+  const columns = await pool.query(`
+    SELECT column_name, data_type, is_nullable, column_default
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'Quote'
+  `);
+  const expectedColumns = {
+    id: ['character varying', 'NO', 'gen_random_uuid()'],
+    content: ['text', 'NO', null],
+    image_key: ['text', 'YES', null],
+    page: ['integer', 'YES', null],
+    book_id: ['character varying', 'NO', null],
+    user_id: ['character varying', 'NO', null],
+    catalog_book_id: ['character varying', 'YES', null],
+    book_edition_id: ['character varying', 'YES', null],
+    created_at: ['timestamp without time zone', 'NO', 'now()'],
+    updated_at: ['timestamp without time zone', 'NO', 'now()'],
+  };
+  const actualColumns = new Map(columns.rows.map((row) => [row.column_name, row]));
+  const failures = [];
+  for (const [name, [type, nullable, defaultValue]] of Object.entries(expectedColumns)) {
+    const actual = actualColumns.get(name);
+    if (!actual || actual.data_type !== type || actual.is_nullable !== nullable ||
+        (defaultValue && actual.column_default !== defaultValue)) {
+      failures.push(`${name}=${JSON.stringify(actual ?? null)}`);
+    }
+  }
+
+  const constraints = await pool.query(`
+    SELECT conname, pg_get_constraintdef(oid) AS definition
+    FROM pg_constraint
+    WHERE conrelid = 'public."Quote"'::regclass
+  `);
+  const requiredConstraints = {
+    Quote_book_id_Book_id_fk: 'FOREIGN KEY (book_id) REFERENCES "Book"(id) ON DELETE CASCADE',
+    Quote_user_id_User_id_fk: 'FOREIGN KEY (user_id) REFERENCES "User"(id) ON DELETE CASCADE',
+    Quote_catalog_book_id_CatalogBook_id_fk: 'FOREIGN KEY (catalog_book_id) REFERENCES "CatalogBook"(id) ON DELETE SET NULL',
+    Quote_book_edition_id_BookEdition_id_fk: 'FOREIGN KEY (book_edition_id) REFERENCES "BookEdition"(id) ON DELETE SET NULL',
+  };
+  const actualConstraints = new Map(constraints.rows.map((row) => [row.conname, row.definition]));
+  for (const [name, definition] of Object.entries(requiredConstraints)) {
+    if (!actualConstraints.get(name)?.replaceAll('"public".', '')) failures.push(`constraint ${name}`);
+  }
+
+  const indexes = await pool.query(`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='Quote'`);
+  const actualIndexes = new Set(indexes.rows.map((row) => row.indexname));
+  for (const name of ['Quote_image_key_unique', 'Quote_book_id_idx', 'Quote_user_id_idx', 'Quote_created_at_idx', 'Quote_updated_at_idx']) {
+    if (!actualIndexes.has(name)) failures.push(`index ${name}`);
+  }
+  if (failures.length) throw new Error(`Quote schema verification failed: ${failures.join(', ')}`);
+  log('Quote schema verification passed.');
 }
 
 async function main() {
@@ -355,6 +450,7 @@ async function main() {
     );
     await runStatements(pool, "HomeFeaturedBook", homeFeaturedBookStatements);
     await repairQuoteIntegrity(pool);
+    await verifyQuoteSchema(pool);
     await repairFeaturedBookIntegrity(pool);
 
     log("production database repair completed.");
