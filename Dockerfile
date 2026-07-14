@@ -38,6 +38,14 @@ COPY package.json package-lock.json ./
 COPY packages/iranketab-extractor/package.json ./packages/iranketab-extractor/
 COPY --from=extractor-builder /app/packages/iranketab-extractor/dist ./packages/iranketab-extractor/dist
 
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=120000
+
+
 # -----------------------------------------------------------------------------
 # builder: typecheck + build
 # -----------------------------------------------------------------------------
