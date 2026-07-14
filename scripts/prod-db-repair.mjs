@@ -40,6 +40,52 @@ const enumStatements = [
    EXCEPTION
      WHEN duplicate_object THEN NULL;
    END $$;`,
+  `DO $$ BEGIN
+     CREATE TYPE "IranKetabImportStatus" AS ENUM ('CREATED','EXTRACTING','PREVIEW_READY','DRAFT_REVIEW','COVER_PREPARATION','READY_TO_COMMIT','COMMITTING','SUCCESS','FAILED','CANCELLED');
+   EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `DO $$ BEGIN
+     CREATE TYPE "IranKetabImportEventType" AS ENUM ('SESSION_CREATED','EXTRACTION_STARTED','EXTRACTION_COMPLETED','DRAFT_SAVED','COVER_PREPARATION_STARTED','COVER_PREPARATION_COMPLETED','COMMIT_STARTED','COMMIT_COMPLETED','COMMIT_FAILED');
+   EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+];
+
+const importerTableStatements = [
+  `CREATE TABLE IF NOT EXISTS "IranKetabImportSession" (
+    "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "admin_id" varchar NOT NULL,
+    "source_url" text NOT NULL,
+    "canonical_source_url" text NOT NULL,
+    "source_name" text DEFAULT 'iranketab' NOT NULL,
+    "status" "IranKetabImportStatus" DEFAULT 'CREATED' NOT NULL,
+    "started_at" timestamp,
+    "completed_at" timestamp,
+    "draft_version" integer DEFAULT 1 NOT NULL,
+    "catalog_id" varchar,
+    "draft" jsonb,
+    "extraction" jsonb,
+    "extraction_fingerprint" text,
+    "prepared_covers" jsonb,
+    "result_summary" jsonb,
+    "error_code" text,
+    "error_message" text,
+    "retryable" boolean DEFAULT false NOT NULL,
+    "metadata" jsonb,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "updated_at" timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS "IranKetabImportEvent" (
+    "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "session_id" varchar NOT NULL,
+    "type" "IranKetabImportEventType" NOT NULL,
+    "metadata" jsonb,
+    "created_at" timestamp DEFAULT now() NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportSession_admin_idx" ON "IranKetabImportSession" ("admin_id")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportSession_status_idx" ON "IranKetabImportSession" ("status")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportSession_created_idx" ON "IranKetabImportSession" ("created_at")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportSession_canonical_idx" ON "IranKetabImportSession" ("canonical_source_url")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_session_idx" ON "IranKetabImportEvent" ("session_id")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_created_idx" ON "IranKetabImportEvent" ("created_at")`,
+  `CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_type_idx" ON "IranKetabImportEvent" ("type")`,
 ];
 
 const bookStatements = [
@@ -170,6 +216,42 @@ async function runStatements(pool, tableName, statements) {
   }
 
   return true;
+}
+
+async function repairImporterSchema(pool) {
+  for (const statement of importerTableStatements) await pool.query(statement);
+  for (const statement of [
+    `DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_admin_id_User_id_fk" FOREIGN KEY ("admin_id") REFERENCES "User"("id") ON DELETE RESTRICT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_catalog_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    `DO $$ BEGIN ALTER TABLE "IranKetabImportEvent" ADD CONSTRAINT "IranKetabImportEvent_session_id_IranKetabImportSession_id_fk" FOREIGN KEY ("session_id") REFERENCES "IranKetabImportSession"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  ]) await pool.query(statement);
+}
+
+async function verifyImporterSchema(pool) {
+  const expected = {
+    IranKetabImportSession: {
+      id: ['character varying', 'NO', 'gen_random_uuid()'], admin_id: ['character varying', 'NO', null], source_url: ['text','NO',null], canonical_source_url: ['text','NO',null], source_name: ['text','NO',"'iranketab'::text"], status: ['USER-DEFINED','NO',"'CREATED'::\"IranKetabImportStatus\""], started_at: ['timestamp without time zone','YES',null], completed_at: ['timestamp without time zone','YES',null], draft_version: ['integer','NO','1'], catalog_id: ['character varying','YES',null], draft: ['jsonb','YES',null], extraction: ['jsonb','YES',null], extraction_fingerprint: ['text','YES',null], prepared_covers: ['jsonb','YES',null], result_summary: ['jsonb','YES',null], error_code: ['text','YES',null], error_message: ['text','YES',null], retryable: ['boolean','NO','false'], metadata: ['jsonb','YES',null], created_at: ['timestamp without time zone','NO','now()'], updated_at: ['timestamp without time zone','NO','now()']
+    },
+    IranKetabImportEvent: { id: ['character varying','NO','gen_random_uuid()'], session_id: ['character varying','NO',null], type: ['USER-DEFINED','NO',null], metadata: ['jsonb','YES',null], created_at: ['timestamp without time zone','NO','now()'] }
+  };
+  const failures = [];
+  for (const [table, fields] of Object.entries(expected)) {
+    const result = await pool.query(`SELECT column_name,data_type,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [table]);
+    const rows = new Map(result.rows.map((row) => [row.column_name, row]));
+    for (const [column, [type, nullable, defaultValue]] of Object.entries(fields)) {
+      const row = rows.get(column);
+      const actualType = row?.data_type === 'USER-DEFINED' ? row.udt_name : row?.data_type;
+      if (!row || (type === 'USER-DEFINED' ? actualType !== (column === 'status' ? 'IranKetabImportStatus' : 'IranKetabImportEventType') : actualType !== type) || row.is_nullable !== nullable || (defaultValue && !row.column_default.includes(defaultValue))) failures.push(`${table}.${column}`);
+    }
+  }
+  const enums = await pool.query(`SELECT typname FROM pg_type WHERE typname IN ('IranKetabImportStatus','IranKetabImportEventType')`);
+  if (enums.rowCount !== 2) failures.push('importer enums');
+  const constraints = await pool.query(`SELECT conname FROM pg_constraint WHERE conrelid IN ('public."IranKetabImportSession"'::regclass,'public."IranKetabImportEvent"'::regclass)`);
+  for (const name of ['IranKetabImportSession_admin_id_User_id_fk','IranKetabImportSession_catalog_id_CatalogBook_id_fk','IranKetabImportEvent_session_id_IranKetabImportSession_id_fk']) if (!constraints.rows.some((row) => row.conname === name)) failures.push(`constraint ${name}`);
+  const indexes = await pool.query(`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename IN ('IranKetabImportSession','IranKetabImportEvent')`);
+  for (const name of ['IranKetabImportSession_admin_idx','IranKetabImportSession_status_idx','IranKetabImportSession_created_idx','IranKetabImportSession_canonical_idx','IranKetabImportEvent_session_idx','IranKetabImportEvent_created_idx','IranKetabImportEvent_type_idx']) if (!indexes.rows.some((row) => row.indexname === name)) failures.push(`index ${name}`);
+  if (failures.length) throw new Error(`IranKetab importer schema verification failed: ${failures.join(', ')}`);
+  log('IranKetab importer schema verification passed.');
 }
 
 async function repairFeaturedBookIntegrity(pool) {
@@ -436,6 +518,7 @@ async function main() {
     for (const statement of enumStatements) {
       await pool.query(statement);
     }
+    await repairImporterSchema(pool);
 
     await runStatements(pool, "Book", bookStatements);
     await runStatements(pool, "BookEdition", bookEditionStatements);
@@ -451,6 +534,7 @@ async function main() {
     await runStatements(pool, "HomeFeaturedBook", homeFeaturedBookStatements);
     await repairQuoteIntegrity(pool);
     await verifyQuoteSchema(pool);
+    await verifyImporterSchema(pool);
     await repairFeaturedBookIntegrity(pool);
 
     log("production database repair completed.");
