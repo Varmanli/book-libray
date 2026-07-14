@@ -10,8 +10,13 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
+COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/package-lock.json ./packages/iranketab-extractor/
+COPY packages/iranketab-extractor/tsconfig.json ./packages/iranketab-extractor/tsconfig.json
+COPY packages/iranketab-extractor/src ./packages/iranketab-extractor/src
 
-RUN npm ci \
+RUN npm ci --prefix packages/iranketab-extractor \
+  && npm run build --prefix packages/iranketab-extractor \
+  && npm ci \
   --fetch-retries=5 \
   --fetch-retry-factor=2 \
   --fetch-retry-mintimeout=10000 \

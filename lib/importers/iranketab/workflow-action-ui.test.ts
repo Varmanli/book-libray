@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+const source = readFileSync(path.join(process.cwd(), "app/admin/books/import-links/IranKetabDraftReview.tsx"), "utf8");
+
+test("top workflow control and mobile-safe bottom spacing remain rendered", () => {
+  assert.match(source, /data-testid="import-workflow-top-control"/);
+  assert.match(source, /createPortal/);
+  assert.match(source, /pb-40 sm:pb-32/);
+});
+
+test("blocking actions have focusable workflow targets", () => {
+  for (const marker of ["data-workflow-catalog", "data-workflow-entity-unresolved", "data-workflow-edition", "data-workflow-conflict", "data-workflow-cover-errors"]) assert.match(source, new RegExp(marker));
+  assert.match(source, /scrollIntoView/);
+  assert.match(source, /focus\(\{ preventScroll: true \}\)/);
+});
+
+test("every required workflow action is visible in the shared action model", () => {
+  for (const label of ["تکمیل انتخاب کتاب", "تکمیل مراجع حل‌نشده", "تکمیل تصمیم نسخه‌ها", "بررسی تعارض‌ها", "بررسی خطاهای پیش‌نویس", "آماده‌سازی کاورها", "تلاش مجدد برای کاورهای ناموفق", "بررسی خطاهای کاور", "ثبت نهایی کتاب و نسخه‌ها", "در حال ثبت کتاب، نسخه‌ها و کاورها..."]) assert.match(source, new RegExp(label));
+});
+
+test("only one primary next-step control is mounted", () => {
+  const calls = source.match(/<WorkflowActionSummary readiness=/g) ?? [];
+  assert.equal(calls.length, 1);
+});
+
+test("completed technical details and edition cards are collapsed by default", () => {
+  assert.match(source, /<details className=/);
+  assert.match(source, /aria-expanded=\{isOpen\}/);
+  assert.match(source, /const \[open, setOpen\] = useState<number \| null>\(null\)/);
+});

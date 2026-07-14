@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "app/api/admin/books/import-links/**/*.ts",
+    "app/admin/books/import-links/IranKetabPreviewClient.tsx",
+    "app/admin/books/import-history/**/*.tsx",
+    "app/api/admin/books/import-history/**/*.ts",
+    "lib/importers/iranketab/**/*.ts",
+    "lib/books/import/isbn.ts",
+    "lib/books/import/normalize.ts",
+    "lib/reference/normalize.ts",
+    "lib/reference/service.ts",
+    "tests/integration/iranketab-phase6.integration.test.ts"
+  ]
+}

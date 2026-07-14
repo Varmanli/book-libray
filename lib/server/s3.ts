@@ -4,6 +4,8 @@ import { Agent as HttpAgent } from "node:http";
 
 import {
   HeadBucketCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
   DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -174,6 +176,7 @@ export async function uploadImageToS3(params: {
   filename: string;
   folder: ImageUploadFolder;
   objectKey?: string;
+  metadata?: Record<string, string>;
 }) {
   const client = getClient();
   const key =
@@ -204,6 +207,7 @@ export async function uploadImageToS3(params: {
         // بدون این ACL، آبجکت‌ها روی آروان به‌صورت خصوصی ذخیره می‌شوند و
         // URL عمومی با خطای 403 برمی‌گردد؛ در نتیجه تصویر در UI رندر نمی‌شود.
         ACL: "public-read",
+        Metadata: params.metadata,
       }),
     );
   } catch (err) {
@@ -234,6 +238,18 @@ export async function deleteImageFromS3(key: string): Promise<void> {
   } catch (err) {
     throw toStorageError(err, "DeleteObject");
   }
+}
+
+export type StoredImageMetadata = { key: string; sizeBytes: number; contentType: string | null; etag: string | null; metadata: Record<string, string> };
+export async function headImageInS3(key: string): Promise<StoredImageMetadata | null> {
+  const client = getClient();
+  try { const result = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key })); return { key, sizeBytes: Number(result.ContentLength ?? 0), contentType: result.ContentType ?? null, etag: result.ETag ?? null, metadata: result.Metadata ?? {} }; }
+  catch (error) { const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode; if (status === 404) return null; throw toStorageError(error, "HeadObject"); }
+}
+export async function copyImageInS3(input: { sourceKey: string; destinationKey: string; contentType?: string; metadata?: Record<string, string> }): Promise<void> {
+  const client = getClient();
+  try { await client.send(new CopyObjectCommand({ Bucket: bucket, Key: input.destinationKey, CopySource: `${bucket}/${encodeURIComponent(input.sourceKey).replace(/%2F/g, "/")}`, ACL: "public-read", ContentType: input.contentType, Metadata: input.metadata, MetadataDirective: input.contentType || input.metadata ? "REPLACE" : "COPY", CacheControl: "public, max-age=31536000, immutable" })); }
+  catch (error) { throw toStorageError(error, "CopyObject"); }
 }
 
 /**

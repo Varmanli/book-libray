@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 import type { ImageUploadFolder } from "@/lib/upload";
@@ -17,6 +17,7 @@ export async function uploadImageToLocal(params: {
   filename: string;
   folder: ImageUploadFolder;
   objectKey?: string;
+  metadata?: Record<string, string>;
 }): Promise<{ key: string; url: string }> {
   const key =
     params.objectKey && params.objectKey.trim()
@@ -48,3 +49,5 @@ export async function deleteImageFromLocal(key: string): Promise<void> {
     if ((error as { code?: string }).code !== "ENOENT") throw error;
   }
 }
+export async function headImageInLocal(key: string) { const target = resolve(UPLOAD_ROOT, key); if (target !== UPLOAD_ROOT && !target.startsWith(UPLOAD_ROOT + sep)) throw new Error("Invalid upload path."); try { const info = await stat(target); return { key, sizeBytes: info.size, contentType: key.endsWith(".webp") ? "image/webp" : null, etag: null, metadata: {} }; } catch (error) { if ((error as { code?: string }).code === "ENOENT") return null; throw error; } }
+export async function copyImageInLocal(sourceKey: string, destinationKey: string) { const source = resolve(UPLOAD_ROOT, sourceKey); const destination = resolve(UPLOAD_ROOT, destinationKey); if (!source.startsWith(UPLOAD_ROOT + sep) || !destination.startsWith(UPLOAD_ROOT + sep)) throw new Error("Invalid upload path."); await mkdir(dirname(destination), { recursive: true }); await copyFile(source, destination); }

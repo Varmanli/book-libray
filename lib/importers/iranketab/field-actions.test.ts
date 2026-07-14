@@ -1,0 +1,4 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { applyExplicitFields, resolveFieldAction } from "./field-actions";
+test("explicit field actions preserve curated values and omit no-op updates", () => { assert.equal(resolveFieldAction({ action: "KEEP_EXISTING", current: "curated", source: "source" }), undefined); assert.equal(resolveFieldAction({ action: "FILL_IF_EMPTY", current: "curated", source: "source" }), undefined); assert.equal(resolveFieldAction({ action: "FILL_IF_EMPTY", current: " ", source: "source" }), "source"); assert.equal(resolveFieldAction({ action: "USE_CUSTOM", current: "curated", source: "source", custom: "custom" }), "custom"); assert.deepEqual(applyExplicitFields({ subtitle: "curated", language: "" }, [{ field: "subtitle", action: "KEEP_EXISTING" }, { field: "language", action: "FILL_IF_EMPTY" }], { subtitle: "source", language: "fa" }), { language: "fa" }); });

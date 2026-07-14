@@ -42,15 +42,21 @@ export function normalizeMediaUrl(input?: string | null): string | null {
   if (/^\/?_next\/image(?:\?|\/|$)/i.test(raw)) return null;
 
   if (/^https?:\/\//i.test(raw)) return raw;
+
+  // Compatibility for IranKetab rows written before canonical object-key
+  // persistence. These objects live in Arvan, never in local public/uploads.
+  if (/^\/uploads\/covers\/iranketab-[^/]+\.webp(?:\?.*)?$/i.test(raw)) {
+    raw = raw.replace(/^\/uploads\//i, "");
+  }
   if (raw.startsWith("/")) {
     const key = normalizePath(raw);
-    if (/^(blog|books|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(key)) {
+    if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(key)) {
       return `${storagePublicBase()}/${key}`;
     }
     return raw;
   }
   if (raw.startsWith("uploads/")) return `/${normalizePath(raw)}`;
-  if (/^(blog|books|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(raw)) {
+  if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(raw)) {
     return `${storagePublicBase()}/${normalizePath(raw)}`;
   }
 

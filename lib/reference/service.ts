@@ -5,6 +5,7 @@ import { ReferenceItem } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
 import { normalizeCoverImage } from "@/lib/book/cover";
 import { hasMultiValueSeparator, splitMultiValueText } from "@/lib/book/genres";
+import { normalizeReferenceName } from "@/lib/reference/normalize";
 import type {
   ReferenceTypeValue,
   UpdateReferenceInput,
@@ -161,25 +162,7 @@ function trimNullable(value: string | null | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
-function normalizeDigits(value: string): string {
-  return value
-    .replace(/[٠-٩]/g, (char) => String(char.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (char) => String(char.charCodeAt(0) - 1776));
-}
-
-export function normalizeReferenceName(value: string): string {
-  return normalizeDigits(value)
-    .replace(/ي/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/ة/g, "ه")
-    .replace(/[‐‑‒–—]/g, "-")
-    .replace(/[ـ]/g, "")
-    .replace(/[“”"'`]+/g, "")
-    .replace(/[،,؛;:(){}\[\]]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLocaleLowerCase("en-US");
-}
+export { normalizeReferenceName } from "@/lib/reference/normalize";
 
 function cacheKey(type: ReferenceTypeValue, key: string) {
   return `${type}:${key}`;

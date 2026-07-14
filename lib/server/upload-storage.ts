@@ -1,6 +1,6 @@
 import type { ImageUploadFolder } from "@/lib/upload";
-import { deleteImageFromS3, StorageError, uploadImageToS3 } from "@/lib/server/s3";
-import { deleteImageFromLocal, uploadImageToLocal } from "@/lib/server/local-upload";
+import { copyImageInS3, deleteImageFromS3, headImageInS3, StorageError, type StoredImageMetadata, uploadImageToS3 } from "@/lib/server/s3";
+import { copyImageInLocal, deleteImageFromLocal, headImageInLocal, uploadImageToLocal } from "@/lib/server/local-upload";
 
 export type UploadDriver = "s3" | "local";
 
@@ -32,6 +32,8 @@ export async function deleteImageUpload(key: string): Promise<void> {
     throw error;
   }
 }
+export async function headImageUpload(key: string): Promise<StoredImageMetadata | null> { return configuredDriver() === "local" ? headImageInLocal(key) : headImageInS3(key); }
+export async function copyImageUpload(input: { sourceKey: string; destinationKey: string; contentType?: string; metadata?: Record<string, string> }): Promise<void> { if (configuredDriver() === "local") return copyImageInLocal(input.sourceKey, input.destinationKey); return copyImageInS3(input); }
 
 /** درایورِ پیکربندی‌شده (پیش‌فرض S3). */
 function configuredDriver(): UploadDriver {
@@ -66,6 +68,7 @@ export async function saveImageUpload(params: {
   filename: string;
   folder: ImageUploadFolder;
   objectKey?: string;
+  metadata?: Record<string, string>;
 }): Promise<SaveUploadResult> {
   const driver = configuredDriver();
 

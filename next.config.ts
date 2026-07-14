@@ -12,8 +12,6 @@ function resolveImageHosts(): string[] {
   const hosts = new Set<string>([
     ARVAN_STORAGE_HOST,
     "qafaseh-prod.s3.ir-thr-at1.liara.space",
-    "www.iranketab.ir",
-    "iranketab.ir",
   ]);
 
   const candidates = [
@@ -39,6 +37,7 @@ function resolveImageHosts(): string[] {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  transpilePackages: ["@ghafaseh/iranketab-extractor"],
 
   images: {
     remotePatterns: [
@@ -57,6 +56,16 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "iranketab.ir",
+        pathname: "/Images/ProductImages/**",
+      },
+      ...["www.iranketab.ir", "iranketab.ir", "img.iranketab.ir"].map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
+        pathname: "/Files/AttachFiles/**",
+      })),
+      {
+        protocol: "https",
+        hostname: "img.iranketab.ir",
         pathname: "/Images/ProductImages/**",
       },
     ],

@@ -3,6 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
+const importerMigration = readFileSync(
+  "drizzle/0028_iranketab_import_sessions.sql",
+  "utf8",
+);
+const journal = JSON.parse(
+  readFileSync("drizzle/meta/_journal.json", "utf8"),
+) as { entries: Array<{ idx: number; tag: string }> };
 
 test("quote timestamp and owner migration backfills before NOT NULL", () => {
   const update = migration.indexOf('UPDATE "Quote"');
@@ -16,4 +23,20 @@ test("quote migration is additive and carries query indexes", () => {
   assert.match(migration, /Quote_user_id_idx/);
   assert.match(migration, /Quote_created_at_idx/);
   assert.match(migration, /PublishedBookNote_updated_at_idx/);
+});
+
+test("IranKetab session migration follows the journal without a duplicate sequence", () => {
+  const indexes = journal.entries.map((entry) => entry.idx);
+  const tags = journal.entries.map((entry) => entry.tag);
+  assert.equal(new Set(indexes).size, indexes.length);
+  assert.equal(new Set(tags).size, tags.length);
+  assert.deepEqual(indexes, indexes.map((_, index) => index));
+  assert.equal(tags.at(-1), "0028_iranketab_import_sessions");
+});
+
+test("IranKetab session migration is additive and defines recovery indexes", () => {
+  assert.doesNotMatch(importerMigration, /DROP\s|TRUNCATE\s|DELETE\s+FROM/i);
+  assert.match(importerMigration, /IranKetabImportSession_admin_idx/);
+  assert.match(importerMigration, /IranKetabImportSession_canonical_idx/);
+  assert.match(importerMigration, /IranKetabImportEvent_session_idx/);
 });

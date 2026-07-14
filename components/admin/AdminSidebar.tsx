@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Languages,
+  SearchCheck,
   Newspaper,
   PenTool,
   Quote as QuoteIcon,
@@ -95,6 +96,16 @@ export const ADMIN_NAV: AdminNavEntry[] = [
         {
           href: "/admin/books/import",
           label: "ورود گروهی کتاب‌ها",
+          icon: FileText,
+        },
+        {
+          href: "/admin/books/import-links",
+          label: "ورود از ایران‌کتاب",
+          icon: SearchCheck,
+        },
+        {
+          href: "/admin/books/import-history",
+          label: "تاریخچه ورود ایران‌کتاب",
           icon: FileText,
         },
         {
@@ -277,7 +288,7 @@ function NavLink({
         <Icon className={cn(nested ? "h-3.5 w-3.5" : "h-4 w-4")} />
       </span>
 
-      <span className="truncate">{item.label}</span>
+      <span className="min-w-0 break-words leading-5">{item.label}</span>
     </Link>
   );
 }
@@ -331,7 +342,7 @@ function NavGroup({
             <Icon className="h-4 w-4" />
           </span>
 
-          <span className="truncate">{group.label}</span>
+          <span className="min-w-0 break-words leading-5">{group.label}</span>
         </span>
 
         <ChevronDown

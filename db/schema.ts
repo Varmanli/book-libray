@@ -46,10 +46,7 @@ export const ApprovalStatus = pgEnum("ApprovalStatus", [
   "REJECTED",
 ]);
 
-export const BlogPostStatus = pgEnum("BlogPostStatus", [
-  "DRAFT",
-  "PUBLISHED",
-]);
+export const BlogPostStatus = pgEnum("BlogPostStatus", ["DRAFT", "PUBLISHED"]);
 
 export const NoteScope = pgEnum("NoteScope", ["book", "edition"]);
 
@@ -97,6 +94,29 @@ export const ExternalLinkType = pgEnum("ExternalLinkType", [
   "ebook",
   "audiobook",
   "unknown",
+]);
+export const IranKetabImportStatus = pgEnum("IranKetabImportStatus", [
+  "CREATED",
+  "EXTRACTING",
+  "PREVIEW_READY",
+  "DRAFT_REVIEW",
+  "COVER_PREPARATION",
+  "READY_TO_COMMIT",
+  "COMMITTING",
+  "SUCCESS",
+  "FAILED",
+  "CANCELLED",
+]);
+export const IranKetabImportEventType = pgEnum("IranKetabImportEventType", [
+  "SESSION_CREATED",
+  "EXTRACTION_STARTED",
+  "EXTRACTION_COMPLETED",
+  "DRAFT_SAVED",
+  "COVER_PREPARATION_STARTED",
+  "COVER_PREPARATION_COMPLETED",
+  "COMMIT_STARTED",
+  "COMMIT_COMPLETED",
+  "COMMIT_FAILED",
 ]);
 
 // ---------------- User ----------------
@@ -173,7 +193,7 @@ export const ReferenceItem = pgTable(
   (t) => ({
     // اسلاگ یکتا در هر نوع (نویسنده و ناشر هم‌نام مجازند).
     typeSlugUnique: unique("ReferenceItem_type_slug_unique").on(t.type, t.slug),
-  })
+  }),
 );
 
 // ---------------- PasswordResetToken ----------------
@@ -212,10 +232,10 @@ export const VerificationCode = pgTable(
   (t) => ({
     emailPurposeIdx: index("VerificationCode_email_purpose_idx").on(
       t.email,
-      t.purpose
+      t.purpose,
     ),
     expiresAtIdx: index("VerificationCode_expires_at_idx").on(t.expiresAt),
-  })
+  }),
 );
 
 // ---------------- Account ----------------
@@ -406,7 +426,9 @@ export const Book = pgTable("Book", {
 export const Quote = pgTable(
   "Quote",
   {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     userId: varchar("user_id")
       .notNull()
       .references(() => User.id, { onDelete: "cascade" }),
@@ -434,6 +456,74 @@ export const Quote = pgTable(
   }),
 );
 
+export const IranKetabImportSession = pgTable(
+  "IranKetabImportSession",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    adminId: varchar("admin_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "restrict" }),
+    sourceUrl: text("source_url").notNull(),
+    canonicalSourceUrl: text("canonical_source_url").notNull(),
+    sourceName: text("source_name").default("iranketab").notNull(),
+    status: IranKetabImportStatus("status").default("CREATED").notNull(),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    draftVersion: integer("draft_version").default(1).notNull(),
+    catalogId: varchar("catalog_id").references(() => CatalogBook.id, {
+      onDelete: "set null",
+    }),
+    draft: jsonb("draft").$type<Record<string, unknown> | null>(),
+    extraction: jsonb("extraction").$type<Record<string, unknown> | null>(),
+    extractionFingerprint: text("extraction_fingerprint"),
+    preparedCovers: jsonb("prepared_covers").$type<
+      Record<string, unknown>[] | null
+    >(),
+    resultSummary: jsonb("result_summary").$type<Record<
+      string,
+      unknown
+    > | null>(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    retryable: boolean("retryable").default(false).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    adminIdx: index("IranKetabImportSession_admin_idx").on(t.adminId),
+    statusIdx: index("IranKetabImportSession_status_idx").on(t.status),
+    createdIdx: index("IranKetabImportSession_created_idx").on(t.createdAt),
+    canonicalIdx: index("IranKetabImportSession_canonical_idx").on(
+      t.canonicalSourceUrl,
+    ),
+  }),
+);
+
+export const IranKetabImportEvent = pgTable(
+  "IranKetabImportEvent",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id")
+      .notNull()
+      .references(() => IranKetabImportSession.id, { onDelete: "cascade" }),
+    type: IranKetabImportEventType("type").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    sessionIdx: index("IranKetabImportEvent_session_idx").on(t.sessionId),
+    createdIdx: index("IranKetabImportEvent_created_idx").on(t.createdAt),
+    typeIdx: index("IranKetabImportEvent_type_idx").on(t.type),
+  }),
+);
+
 // ---------------- QuoteLike (پسند نقل‌قول؛ هر کاربر یک‌بار) ----------------
 // مدل افزایشی و کم‌هزینه: شمار پسندها از روی تعداد ردیف‌ها محاسبه می‌شود و
 // قید یکتایی (quote_id, user_id) از پسند تکراری جلوگیری می‌کند.
@@ -455,40 +545,46 @@ export const QuoteLike = pgTable(
   (t) => ({
     uniqueQuoteUser: unique("QuoteLike_quote_user_unique").on(
       t.quoteId,
-      t.userId
+      t.userId,
     ),
-  })
+  }),
 );
 
 // ---------------- PublishedBookNote (یادداشت عمومیِ منتشرشده درباره‌ی کتاب) ----------------
 // جدا از review/توضیحات خصوصیِ ردیف Book؛ فقط یادداشت‌هایی که کاربر آگاهانه
 // منتشر می‌کند اینجا ذخیره می‌شوند و در پروفایل عمومی دیده می‌شوند (تابع حریم
 // خصوصی پروفایل). وجود ردیف یعنی «منتشرشده».
-export const PublishedBookNote = pgTable("PublishedBookNote", {
-  id: varchar("id")
-    .primaryKey()
-    .notNull()
-    .default(sql`gen_random_uuid()`),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => User.id, { onDelete: "cascade" }),
-  bookId: varchar("book_id").references(() => Book.id, { onDelete: "cascade" }),
-  catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
-    onDelete: "cascade",
+export const PublishedBookNote = pgTable(
+  "PublishedBookNote",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "cascade" }),
+    bookId: varchar("book_id").references(() => Book.id, {
+      onDelete: "cascade",
+    }),
+    catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
+      onDelete: "cascade",
+    }),
+    bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
+      onDelete: "set null",
+    }),
+    scope: NoteScope("scope").default("book").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("PublishedBookNote_user_id_idx").on(table.userId),
+    bookIdx: index("PublishedBookNote_book_id_idx").on(table.bookId),
+    createdAtIdx: index("PublishedBookNote_created_at_idx").on(table.createdAt),
+    updatedAtIdx: index("PublishedBookNote_updated_at_idx").on(table.updatedAt),
   }),
-  bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
-    onDelete: "set null",
-  }),
-  scope: NoteScope("scope").default("book").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-}, (table) => ({
-  userIdx: index("PublishedBookNote_user_id_idx").on(table.userId),
-  bookIdx: index("PublishedBookNote_book_id_idx").on(table.bookId),
-  createdAtIdx: index("PublishedBookNote_created_at_idx").on(table.createdAt),
-  updatedAtIdx: index("PublishedBookNote_updated_at_idx").on(table.updatedAt),
-}));
+);
 
 // ---------------- PublishedBookNoteLike (پسند یادداشت عمومی؛ مثل QuoteLike) ----------------
 export const PublishedBookNoteLike = pgTable(
@@ -509,9 +605,9 @@ export const PublishedBookNoteLike = pgTable(
   (t) => ({
     uniqueNoteUser: unique("PublishedBookNoteLike_note_user_unique").on(
       t.noteId,
-      t.userId
+      t.userId,
     ),
-  })
+  }),
 );
 
 // ---------------- HomeFeaturedBook (کتاب‌های پیشنهادیِ انتخابیِ ادمین برای صفحه‌ی اصلی) ----------------
@@ -681,7 +777,7 @@ export const PasswordResetTokenRelations = relations(
       fields: [PasswordResetToken.userId],
       references: [User.id],
     }),
-  })
+  }),
 );
 
 export const CatalogBookRelations = relations(CatalogBook, ({ many }) => ({
@@ -767,7 +863,7 @@ export const PublishedBookNoteRelations = relations(
       references: [BookEdition.id],
     }),
     likes: many(PublishedBookNoteLike),
-  })
+  }),
 );
 
 export const PublishedBookNoteLikeRelations = relations(
@@ -781,7 +877,7 @@ export const PublishedBookNoteLikeRelations = relations(
       fields: [PublishedBookNoteLike.userId],
       references: [User.id],
     }),
-  })
+  }),
 );
 
 export const AccountRelations = relations(Account, ({ one }) => ({

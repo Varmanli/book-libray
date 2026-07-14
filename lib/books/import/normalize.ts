@@ -4,6 +4,7 @@ import {
 } from "@/lib/reference/service";
 import { splitMultiValueText } from "@/lib/book/genres";
 import { isLocalUploadPath } from "@/lib/storage/image-url";
+import { normalizeIsbn as normalizeImportIsbn } from "@/lib/books/import/isbn";
 import type {
   ImportStatus,
   NormalizedImportBook,
@@ -206,9 +207,7 @@ export function normalizePositiveInt(value: unknown): number | null {
 }
 
 export function normalizeIsbn(value: unknown): string | null {
-  const stringValue = cleanString(value);
-  if (!stringValue) return null;
-  return stringValue.replace(/[\s\-‌‏‎\u200c\u200f\u200e]+/g, "");
+  return normalizeImportIsbn(value);
 }
 
 export function canPersistCoverUrl(coverUrl: string | null): boolean {
