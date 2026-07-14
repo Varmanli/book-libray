@@ -3,6 +3,12 @@ node_modules
 out
 dist
 coverage
+tmp
+temp
+test-results
+playwright-report
+Dockerfile*
+docker-compose*
 
 # env files — never bake real secrets into the image
 .env

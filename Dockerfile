@@ -1,8 +1,33 @@
+# syntax=docker/dockerfile:1.7
+
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
 
 # -----------------------------------------------------------------------------
 # deps: install dependencies reproducibly
 # -----------------------------------------------------------------------------
+FROM ${NODE_IMAGE} AS extractor-deps
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/package-lock.json ./packages/iranketab-extractor/
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefix packages/iranketab-extractor \
+  --fetch-retries=5 \
+  --fetch-retry-factor=2 \
+  --fetch-retry-mintimeout=10000 \
+  --fetch-retry-maxtimeout=120000
+
+FROM ${NODE_IMAGE} AS extractor-builder
+
+WORKDIR /app
+COPY --from=extractor-deps /app/packages/iranketab-extractor/node_modules ./packages/iranketab-extractor/node_modules
+COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/tsconfig.json ./packages/iranketab-extractor/
+COPY packages/iranketab-extractor/src ./packages/iranketab-extractor/src
+RUN npm run build --prefix packages/iranketab-extractor
+
 FROM ${NODE_IMAGE} AS deps
 
 WORKDIR /app
@@ -10,17 +35,15 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
-COPY packages/iranketab-extractor/package.json packages/iranketab-extractor/package-lock.json ./packages/iranketab-extractor/
-COPY packages/iranketab-extractor/tsconfig.json ./packages/iranketab-extractor/tsconfig.json
-COPY packages/iranketab-extractor/src ./packages/iranketab-extractor/src
+COPY packages/iranketab-extractor/package.json ./packages/iranketab-extractor/
+COPY --from=extractor-builder /app/packages/iranketab-extractor/dist ./packages/iranketab-extractor/dist
 
-RUN npm ci --prefix packages/iranketab-extractor \
-  && npm run build --prefix packages/iranketab-extractor \
-  && npm ci \
-  --fetch-retries=5 \
-  --fetch-retry-factor=2 \
-  --fetch-retry-mintimeout=10000 \
-  --fetch-retry-maxtimeout=120000
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=120000
 
 
 # -----------------------------------------------------------------------------
@@ -45,8 +68,16 @@ ARG NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
-RUN npx tsc --noEmit
-RUN npm run build
+RUN echo "=== TYPECHECK START ===" \
+ && date -u \
+ && npm run typecheck \
+ && date -u \
+ && echo "=== TYPECHECK END ==="
+RUN echo "=== NEXT BUILD START ===" \
+ && date -u \
+ && npm run build \
+ && date -u \
+ && echo "=== NEXT BUILD END ==="
 
 
 # -----------------------------------------------------------------------------

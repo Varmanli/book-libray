@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "start:next": "next start",
     "prestart:prod": "node scripts/prestart-production.mjs",
