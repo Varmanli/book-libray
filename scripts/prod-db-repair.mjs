@@ -121,6 +121,9 @@ const publishedBookNoteStatements = [
 ];
 
 const quoteStatements = [
+  // Added nullable first; repairQuoteIntegrity backfills and validates ownership
+  // before enforcing the authoritative NOT NULL contract.
+  'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "user_id" varchar',
   'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar',
   'ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "book_edition_id" varchar',
 ];
@@ -231,7 +234,7 @@ async function repairFeaturedBookIntegrity(pool) {
 
 async function repairQuoteIntegrity(pool) {
   const requiredTables = await Promise.all(
-    ["Quote", "Book", "CatalogBook", "BookEdition"].map((table) =>
+    ["Quote", "Book", "User", "CatalogBook", "BookEdition"].map((table) =>
       tableExists(pool, table),
     ),
   );
@@ -240,17 +243,51 @@ async function repairQuoteIntegrity(pool) {
     return;
   }
 
-  await pool.query(`
+  await pool.query("BEGIN");
+  try {
+    await pool.query(`
+    UPDATE "Quote" q
+    SET "user_id" = b."user_id"
+    FROM "Book" b
+    WHERE q."book_id" = b."id" AND q."user_id" IS NULL
+  `);
+
+    const unresolved = await pool.query(`
+      SELECT count(*)::int AS count
+      FROM "Quote" q
+      LEFT JOIN "Book" b ON b."id" = q."book_id"
+      WHERE q."user_id" IS NULL OR b."id" IS NULL OR b."user_id" IS NULL
+    `);
+    if (unresolved.rows[0].count > 0) {
+      throw new Error(
+        `Quote ownership audit failed: ${unresolved.rows[0].count} row(s) cannot be mapped from Quote.book_id to Book.user_id`,
+      );
+    }
+
+    await pool.query(`
+      ALTER TABLE "Quote" ALTER COLUMN "user_id" SET NOT NULL
+    `);
+    await pool.query(`
+      DO $$ BEGIN
+        ALTER TABLE "Quote" ADD CONSTRAINT "Quote_user_id_User_id_fk"
+          FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS "Quote_user_id_idx" ON "Quote" ("user_id")
+    `);
+
+    await pool.query(`
     UPDATE "Quote" q SET "catalog_book_id" = NULL
     WHERE q."catalog_book_id" IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM "CatalogBook" cb WHERE cb."id" = q."catalog_book_id")
-  `);
-  await pool.query(`
+    `);
+    await pool.query(`
     UPDATE "Quote" q SET "book_edition_id" = NULL
     WHERE q."book_edition_id" IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM "BookEdition" be WHERE be."id" = q."book_edition_id")
-  `);
-  await pool.query(`
+    `);
+    await pool.query(`
     UPDATE "Quote" q
     SET
       "catalog_book_id" = COALESCE(q."catalog_book_id", b."catalog_book_id"),
@@ -258,9 +295,9 @@ async function repairQuoteIntegrity(pool) {
     FROM "Book" b
     WHERE q."book_id" = b."id"
       AND (q."catalog_book_id" IS NULL OR q."book_edition_id" IS NULL)
-  `);
+    `);
 
-  for (const statement of [
+    for (const statement of [
     `DO $$ BEGIN
        ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_CatalogBook_id_fk"
        FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL;
@@ -269,8 +306,13 @@ async function repairQuoteIntegrity(pool) {
        ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_BookEdition_id_fk"
        FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL;
      EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  ]) {
-    await pool.query(statement);
+    ]) {
+      await pool.query(statement);
+    }
+    await pool.query("COMMIT");
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
   }
 }
 
