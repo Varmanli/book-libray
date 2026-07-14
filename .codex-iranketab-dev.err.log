@@ -1,2 +1,30 @@
  ⚠ Port 3000 is in use by an unknown process, using available port 3002 instead.
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: invalid code lengths set
+ ⨯ ./node_modules/@tiptap/pm/state/index.ts:1:1
+Module not found: Can't resolve 'prosemirror-state'
+> 1 | export * from 'prosemirror-state'
+    | ^
+  2 |
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./node_modules/@tiptap/extension-link/dist/index.js
+./components/content/RichTextEditor.tsx
+./components/admin/AdminRichTextEditor.tsx
+./app/admin/books/import-links/IranKetabDraftReview.tsx
+./app/admin/books/import-links/IranKetabPreviewClient.tsx
+ ⨯ ./node_modules/@tiptap/pm/state/index.ts:1:1
+Module not found: Can't resolve 'prosemirror-state'
+> 1 | export * from 'prosemirror-state'
+    | ^
+  2 |
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./node_modules/@tiptap/extension-link/dist/index.js
+./components/content/RichTextEditor.tsx
+./components/admin/AdminRichTextEditor.tsx
+./app/admin/books/import-links/IranKetabDraftReview.tsx
+./app/admin/books/import-links/IranKetabPreviewClient.tsx

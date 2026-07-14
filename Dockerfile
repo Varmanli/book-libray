@@ -34,6 +34,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/iranketab-extractor/dist ./packages/iranketab-extractor/dist
 COPY . .
 
 # NEXT_PUBLIC_* values are public and can be safely inlined at build time.
