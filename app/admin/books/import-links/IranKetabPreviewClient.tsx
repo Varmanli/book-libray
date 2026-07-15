@@ -25,6 +25,7 @@ import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor"
 import type { IranKetabMatchAnalysis } from "@/lib/importers/iranketab/match-analysis";
 import {
   ImportStepper,
+  ImportStickySummary,
   InitialGuide,
   RecoverableCard,
   RecentHistory,
@@ -379,6 +380,32 @@ export default function IranKetabPreviewClient() {
             </div>
           ) : (
             <div className="space-y-6 p-3 sm:p-5 lg:p-7">
+              <ImportStickySummary
+                title={result ? result.preview.catalog.title : "شروع دریافت اطلاعات"}
+                status={loading ? "در حال دریافت" : result ? "پیش‌نمایش آماده" : "آماده شروع"}
+                stats={result ? [
+                  { label: "کل نسخه‌ها", value: result.analysis.summary.totalExtractedEditions },
+                  { label: "جدید", value: result.analysis.summary.newEditions, tone: "success" },
+                  { label: "موجود", value: result.analysis.summary.exactEditionMatches },
+                  { label: "حذف/تعارض", value: result.analysis.summary.conflictingEditions, tone: result.analysis.summary.conflictingEditions ? "danger" : "default" },
+                  { label: "هشدارها", value: result.analysis.warnings.length, tone: result.analysis.warnings.length ? "warning" : "default" },
+                  { label: "خطاهای مسدودکننده", value: result.analysis.conflicts.filter((item) => item.blocksImport).length, tone: result.analysis.conflicts.some((item) => item.blocksImport) ? "danger" : "default" },
+                ] : [
+                  { label: "کل موارد", value: 0 },
+                  { label: "جدید", value: 0 },
+                  { label: "موجود", value: 0 },
+                  { label: "حذف‌شده", value: 0 },
+                  { label: "هشدارها", value: error ? 1 : 0, tone: error ? "warning" : "default" },
+                  { label: "خطاها", value: error ? 1 : 0, tone: error ? "danger" : "default" },
+                ]}
+                secondary={result ? <span className="hidden text-xs text-muted-foreground sm:inline">منبع: <span dir="ltr">{result.preview.catalog.canonicalUrl}</span></span> : null}
+                action={
+                  <Button type="button" size="sm" onClick={() => submit()} disabled={loading || !url.trim()} className="rounded-xl">
+                    {loading ? <LoaderCircle className="size-4 animate-spin" /> : <SearchCheck className="size-4" />}
+                    {result ? "دریافت مجدد" : "بررسی اطلاعات"}
+                  </Button>
+                }
+              />
               {!result && recoverable ? (
                 <RecoverableCard
                   session={recoverable}

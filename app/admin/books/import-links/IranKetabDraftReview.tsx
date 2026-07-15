@@ -381,7 +381,8 @@ export default function IranKetabDraftReview({
         ? createPortal(
             <div
               data-testid="import-workflow-top-control"
-              className="overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/[0.10] via-card to-card p-4 shadow-sm shadow-primary/5 sm:p-5"
+              className="sticky top-2 z-40 overflow-hidden rounded-2xl border border-primary/20 bg-card/95 p-3 shadow-lg shadow-foreground/[0.06] backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:p-4"
+              aria-live="polite"
             >
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="space-y-2.5">

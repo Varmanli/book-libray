@@ -126,3 +126,17 @@ test("dedupe keeps the more complete established edition", () => {
   assert.equal(result.editions.length, 1);
   assert.equal(result.editions[0]?.sourceEditionCode, "2");
 });
+
+test("one source book with one edition produces one candidate variant", () => {
+  const edition = { ...({ titleOverride: "عنوان", translators: [], publisher: { name: "ناشر", slug: "nasher" }, isbn10: null, isbn13: null, publishedYear: 1400, pageCount: 100, coverFilename: "a.jpg", coverUrl: null, editionDescription: null, status: "approved", sourceName: "iranketab", sourceUrl: "https://example.test#pts=125903", sourceEditionCode: "125903" } as GhafasehEdition) };
+  const result = dedupeIranKetabEditions([edition], [{ sourceEditionCode: "125903", titleRaw: "عنوان", titleOverride: "عنوان", publisher: "ناشر", translators: [], isbn13: null, pageCount: 100, publishedYear: 1400, votes: 0, rating: null, selected: true, duplicateKey: "x" }]);
+  assert.equal(result.editions.length, 1);
+  assert.equal(result.editions[0]?.sourceEditionCode, "125903");
+});
+
+test("a repeated source edition code is reported and emitted once", () => {
+  const base: GhafasehEdition = { titleOverride: "عنوان", translators: [], publisher: { name: "ناشر", slug: "nasher" }, isbn10: null, isbn13: null, publishedYear: null, pageCount: null, coverFilename: "a.jpg", coverUrl: null, editionDescription: null, status: "approved", sourceName: "iranketab", sourceUrl: "https://example.test#pts=125903", sourceEditionCode: "125903" };
+  const result = dedupeIranKetabEditions([base, { ...base, coverFilename: "b.jpg" }], []);
+  assert.equal(result.editions.length, 1);
+  assert.ok(result.needsReview.some((item) => item.includes("125903")));
+});

@@ -351,7 +351,7 @@ export function initializeIranKetabDraft(
         coverAction,
       };
     }),
-    entities: [
+    entities: dedupeDraftEntities([
       ...authors,
       ...genres,
       ...(country ? [country] : []),
@@ -361,7 +361,7 @@ export function initializeIranKetabDraft(
           ? [resolve("PUBLISHER", item.publisher.name)]
           : []),
       ]),
-    ],
+    ]),
     unresolvedIssues: analysis.conflicts.map((item) => ({
       id: item.id,
       message: item.message,
@@ -369,6 +369,18 @@ export function initializeIranKetabDraft(
     })),
     readiness: "INVALID_DRAFT",
   };
+}
+
+function dedupeDraftEntities<T extends { action: string; entityType: string; extractedName: string; entityId?: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.action === "REUSE_EXISTING"
+      ? `${item.entityType}:id:${item.entityId}`
+      : `${item.entityType}:name:${item.extractedName.trim().toLocaleLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function validateIranKetabDraft(

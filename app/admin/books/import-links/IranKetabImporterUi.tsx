@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   BookCheck,
   Check,
@@ -23,19 +24,20 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 const steps = [
-  { label: "دریافت اطلاعات کتاب", icon: FileSearch },
-  { label: "بررسی و تطبیق اطلاعات", icon: ScanSearch },
-  { label: "آماده‌سازی تصاویر کتاب", icon: UploadCloud },
-  { label: "ایمپورت نویسندگان، مترجمان و ناشران", icon: Users },
-  { label: "ثبت نهایی کتاب", icon: BookCheck },
+  { label: "دریافت اطلاعات", icon: FileSearch },
+  { label: "بررسی داده‌ها", icon: ScanSearch },
+  { label: "تطبیق موجودی", icon: Users },
+  { label: "بررسی نسخه‌ها", icon: UploadCloud },
+  { label: "آمادگی پیش‌نویس", icon: ShieldCheck },
+  { label: "ثبت نهایی", icon: BookCheck },
 ];
 export function ImportStepper({ current }: { current: number }) {
   return (
     <nav
       aria-label="مراحل ورود کتاب"
-      className="overflow-x-auto rounded-2xl border bg-card/60 p-3"
+      className="overflow-x-auto rounded-2xl border bg-card/70 p-2 shadow-sm"
     >
-      <ol className="flex min-w-[640px] items-center gap-2">
+      <ol className="flex min-w-[720px] items-center gap-1">
         {steps.map((step, index) => {
           const complete = index < current;
           const active = index === current;
@@ -48,7 +50,7 @@ export function ImportStepper({ current }: { current: number }) {
             >
               <div
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors",
+                  "flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] font-bold transition-colors sm:text-xs",
                   active
                     ? "bg-primary/12 text-primary ring-1 ring-primary/20"
                     : complete
@@ -58,7 +60,7 @@ export function ImportStepper({ current }: { current: number }) {
               >
                 <span
                   className={cn(
-                    "grid size-7 shrink-0 place-items-center rounded-lg",
+                    "grid size-6 shrink-0 place-items-center rounded-lg",
                     active || complete
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted",
@@ -86,6 +88,60 @@ export function ImportStepper({ current }: { current: number }) {
         })}
       </ol>
     </nav>
+  );
+}
+
+export type WorkflowStat = {
+  label: string;
+  value: string | number;
+  tone?: "default" | "success" | "warning" | "danger";
+};
+
+export function ImportStats({ stats }: { stats: WorkflowStat[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {stats.map((stat) => (
+        <div key={stat.label} className="rounded-xl border bg-background/70 px-3 py-2">
+          <div className="text-[11px] text-muted-foreground">{stat.label}</div>
+          <div className={cn(
+            "mt-0.5 text-lg font-black tabular-nums",
+            stat.tone === "success" && "text-emerald-600 dark:text-emerald-400",
+            stat.tone === "warning" && "text-amber-600 dark:text-amber-400",
+            stat.tone === "danger" && "text-destructive",
+          )}>{typeof stat.value === "number" ? stat.value.toLocaleString("fa-IR") : stat.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ImportStickySummary({
+  title,
+  status,
+  stats,
+  action,
+  secondary,
+  disabledReason,
+}: {
+  title: string;
+  status?: string;
+  stats: WorkflowStat[];
+  action?: ReactNode;
+  secondary?: ReactNode;
+  disabledReason?: string;
+}) {
+  return (
+    <section className="sticky top-2 z-30 rounded-2xl border border-primary/20 bg-card/95 p-3 shadow-lg shadow-foreground/[0.06] backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:p-4" aria-label="خلاصه و اقدامات فرآیند">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="truncate text-sm font-black sm:text-base">{title}</h2>
+          {status ? <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">{status}</span> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">{secondary}{action}</div>
+      </div>
+      <ImportStats stats={stats} />
+      {disabledReason ? <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">{disabledReason}</p> : null}
+    </section>
   );
 }
 

@@ -9,12 +9,31 @@ export function dedupeNormalizedEditions(
     preferredSourceEditionCode?: string;
   } = {}
 ): EditionCleanupResult {
+  const bySourceCode = new Map<string, GhafasehEdition>();
+  const duplicateSourceCodes = new Set<string>();
+  editions.forEach((edition, inputIndex) => {
+    const previous = bySourceCode.get(edition.sourceEditionCode);
+    if (previous) {
+      duplicateSourceCodes.add(edition.sourceEditionCode);
+      console.warn(JSON.stringify({
+        event: "iranketab.duplicate_source_edition_before_physical_deduplication",
+        sourceEditionCode: edition.sourceEditionCode,
+        objects: [
+          { inputIndex: editions.indexOf(previous), ...previous },
+          { inputIndex, ...edition },
+        ],
+      }));
+      return;
+    }
+    bySourceCode.set(edition.sourceEditionCode, edition);
+  });
+  const uniqueEditions = [...bySourceCode.values()];
   const groups = new Map<string, GhafasehEdition[]>();
   const parsedByCode = new Map(
     parsedEditions.map((edition) => [edition.sourceEditionCode, edition] as const)
   );
 
-  for (const edition of editions) {
+  for (const edition of uniqueEditions) {
     const key = [
       normalizePersianText(edition.titleOverride),
       edition.publisher.slug,
@@ -54,7 +73,9 @@ export function dedupeNormalizedEditions(
     editions: finalEditions,
     deduplications,
     warnings,
-    needsReview: []
+    needsReview: duplicateSourceCodes.size
+      ? [`Duplicate source edition codes: ${[...duplicateSourceCodes].join(", ")}`]
+      : []
   };
 }
 
@@ -108,7 +129,5 @@ function countMetadata(edition: GhafasehEdition): number {
     edition.translators.length > 0 ? edition.translators[0]?.name : null
   ].filter(Boolean).length;
 }
-
-
 
 
