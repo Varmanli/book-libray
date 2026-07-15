@@ -1,9 +1,10 @@
-import { and, eq, ilike, or } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
 import {
   normalizeBookGroupingKey,
+  normalizeBookTitle,
   normalizeIsbn,
 } from "@/lib/books/import/normalize";
 import type {
@@ -19,10 +20,9 @@ export async function findExistingBookMatches(
 
   for (const book of books) {
     const title = book.title.trim();
-    const firstAuthor = (book.authors[0]?.name ?? "").trim();
-    const key = normalizeBookGroupingKey(title, firstAuthor, book.originalTitle);
+    const key = normalizeBookGroupingKey(book.title);
 
-    const [exact] = await db
+    const rows = await db
       .select({
         id: CatalogBook.id,
         title: CatalogBook.title,
@@ -30,43 +30,16 @@ export async function findExistingBookMatches(
         originalTitle: CatalogBook.originalTitle,
       })
       .from(CatalogBook)
-      .where(
-        and(
-          ilike(CatalogBook.title, title),
-          ilike(CatalogBook.author, `%${firstAuthor}%`),
-        ),
-      )
-      .limit(1);
+      .where(ilike(CatalogBook.title, title)).limit(100);
+
+    const exact = rows.find((row) => normalizeBookTitle(row.title) === normalizeBookTitle(book.title));
 
     if (exact) {
       matches.set(key, {
         ...exact,
         matchType:
-          book.originalTitle && exact.originalTitle && book.originalTitle !== exact.originalTitle
-            ? "possible_existing_book"
-            : "existing_book",
+          "existing_book",
       });
-      continue;
-    }
-
-    const [possible] = await db
-      .select({
-        id: CatalogBook.id,
-        title: CatalogBook.title,
-        author: CatalogBook.author,
-        originalTitle: CatalogBook.originalTitle,
-      })
-      .from(CatalogBook)
-      .where(
-        or(
-          ilike(CatalogBook.title, title),
-          book.originalTitle ? ilike(CatalogBook.originalTitle, book.originalTitle) : eq(CatalogBook.id, "__none__"),
-        ),
-      )
-      .limit(1);
-
-    if (possible) {
-      matches.set(key, { ...possible, matchType: "possible_existing_book" });
     }
   }
 

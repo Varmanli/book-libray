@@ -216,14 +216,22 @@ export function canPersistCoverUrl(coverUrl: string | null): boolean {
 
 export function normalizeBookGroupingKey(
   title: string,
-  firstAuthor: string,
-  originalTitle?: string | null,
+  _firstAuthor?: string,
+  _originalTitle?: string | null,
 ): string {
-  return [
-    title.trim().toLowerCase(),
-    firstAuthor.trim().toLowerCase(),
-    (originalTitle ?? "").trim().toLowerCase(),
-  ].join("::");
+  return normalizeBookTitle(title);
+}
+
+/** Formatting-only title normalization used for identity decisions. */
+export function normalizeBookTitle(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\u200E\u200F\uFEFF]/g, "")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLocaleLowerCase();
 }
 
 export function joinPeople(values: Array<string | NormalizedImportReference>): string {

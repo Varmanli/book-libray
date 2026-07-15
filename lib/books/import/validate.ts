@@ -62,13 +62,9 @@ function getEditionIdentityKey(
   if (isbn10) return `isbn10:${isbn10}`;
 
   return [
-    normalizeBookGroupingKey(
-      book.title,
-      book.authors[0]?.name ?? "",
-      book.originalTitle,
-    ),
-    (edition.publisher?.name ?? "").trim().toLowerCase(),
-    (edition.translators[0]?.name ?? "").trim().toLowerCase(),
+    // Title is the only book-level identity component. Publisher and
+    // translator describe an edition and must never join different books.
+    normalizeBookGroupingKey(book.title),
     edition.publishedYear ?? "",
     edition.pageCount ?? "",
     (edition.titleOverride ?? "").trim().toLowerCase(),
