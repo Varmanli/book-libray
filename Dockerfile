@@ -132,6 +132,9 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
+# Used by the container healthcheck and for the required in-container probe.
+RUN apk add --no-cache curl
+
 # Copy the standalone server and its traced production dependencies.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/.next/standalone \
@@ -167,10 +170,16 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/drizzle.config.* \
      ./
 
-# Keep package metadata because the prestart script currently uses npm scripts.
+# Keep package metadata and the installed runtime dependencies because the
+# production repair script imports pg and the requested startup command uses
+# the Next CLI.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/package.json \
      ./package.json
+
+COPY --from=deps --chown=nextjs:nodejs \
+     /app/node_modules \
+     ./node_modules
 
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
@@ -178,14 +187,19 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
- && test -f ./scripts/prestart-production.mjs
+ && test -f ./scripts/prod-db-repair.mjs \
+ && test -x ./node_modules/.bin/next \
+ && node -e "require('pg'); console.log('Runtime dependencies verified.')"
 
 USER nextjs
 
 EXPOSE 3005
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
+
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
-# Standalone output must be started directly.
-# Do not use `next start`; the full Next CLI is not installed in this image.
-CMD ["node", "server.js"]
+# Coolify may override PORT at runtime. The entrypoint runs the repair first,
+# then this command keeps Next in the foreground.
+CMD ["./node_modules/.bin/next", "start", "-H", "0.0.0.0"]

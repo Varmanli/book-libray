@@ -7,21 +7,10 @@ function log(message) {
 }
 
 function logError(message, error) {
-  console.error(`[prod-db-repair] ${message}`, error);
-}
-
-function isStrictMode() {
-  return (
-    process.env.DB_REPAIR_STRICT === "true" ||
-    process.env.FEATURED_REPAIR_STRICT === "true"
-  );
-}
-
-function maybeExitFailure() {
-  if (isStrictMode()) {
-    process.exit(1);
-  }
-  process.exit(0);
+  const details = error instanceof Error
+    ? `${error.name}: ${error.message}${error.code ? ` (code=${error.code})` : ""}${error.detail ? ` detail=${error.detail}` : ""}${error.hint ? ` hint=${error.hint}` : ""}`
+    : String(error);
+  console.error(`[prod-db-repair] ${message} ${details}`);
 }
 
 const enumStatements = [
@@ -564,7 +553,6 @@ async function main() {
     log(
       "DATABASE_URL is not set after loading env files. Checked .env.local, .env.production, and .env.",
     );
-    maybeExitFailure();
     return;
   }
 
@@ -604,7 +592,9 @@ async function main() {
     log("production database repair completed.");
   } catch (error) {
     logError("production database repair failed:", error);
-    maybeExitFailure();
+    // Never start the web process against a database whose repair failed.
+    // process.exitCode lets the finally block close the pool first.
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }
