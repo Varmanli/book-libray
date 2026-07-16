@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QuoteType } from "@/types";
 import toast from "react-hot-toast";
+import {
+  getQuoteDirectionProps,
+  getQuoteTextareaDirectionProps,
+} from "@/lib/text-direction";
 
 interface QuoteModalProps {
   quote: QuoteType | null;
@@ -36,7 +40,7 @@ export default function QuoteModal({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Reset form when modal opens/closes or quote changes
-  useState(() => {
+  useEffect(() => {
     if (quote && isOpen) {
       setContent(quote.content);
       setPage(quote.page || null);
@@ -48,7 +52,7 @@ export default function QuoteModal({
       setIsEditing(false);
       setIsDeleting(false);
     }
-  });
+  }, [quote, isOpen]);
 
   const handleSave = async () => {
     if (!quote || !content.trim()) return;
@@ -102,7 +106,7 @@ export default function QuoteModal({
               آیا از حذف این نقل قول اطمینان دارید؟
             </p>
             <div className="bg-gray-100 p-3 rounded-md">
-              <p className="text-sm italic">{content}</p>
+              <p {...getQuoteDirectionProps(content)} className="text-sm italic [overflow-wrap:anywhere] [white-space:pre-wrap]">{content}</p>
             </div>
           </div>
         ) : (
@@ -110,6 +114,7 @@ export default function QuoteModal({
             <div>
               <Label htmlFor="content">متن نقل قول</Label>
               <Textarea
+                {...getQuoteTextareaDirectionProps(content)}
                 id="content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -167,8 +172,6 @@ export default function QuoteModal({
     </Dialog>
   );
 }
-
-
 
 
 

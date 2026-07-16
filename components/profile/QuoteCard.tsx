@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
+import { getQuoteDirectionProps } from "@/lib/text-direction";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
 const LONG_QUOTE_CHAR_LIMIT = 220;
@@ -373,6 +374,7 @@ function QuoteContent({
         {quoteText ? <div className="flex min-h-0 flex-1 items-center justify-center">
           <div className="mx-auto w-full max-w-[34rem]">
             <p
+              {...getQuoteDirectionProps(quoteText)}
               className={cn(
                 "whitespace-pre-line text-center",
                 "text-[13px] font-medium leading-7",
@@ -789,6 +791,7 @@ function QuoteReadingDialog({
             <QuoteIcon className="pointer-events-none absolute bottom-7 left-7 h-10 w-10 rotate-180 text-primary/10" />
 
             <p
+              {...getQuoteDirectionProps(quoteText)}
               className="
     relative z-10
     whitespace-pre-line

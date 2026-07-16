@@ -23,6 +23,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getUserDashboardData } from "@/lib/dashboard/service";
 import { getLibraryPath } from "@/lib/library/paths";
 import { cn } from "@/lib/utils";
+import { getQuoteDirectionProps } from "@/lib/text-direction";
 
 export const dynamic = "force-dynamic";
 
@@ -187,7 +188,10 @@ export default async function DashboardPage() {
                             />
                           </div>
                         ) : null}
-                        <p className="line-clamp-2 text-sm leading-6 text-foreground">
+                        <p
+                          {...getQuoteDirectionProps(quote.content)}
+                          className="line-clamp-2 text-sm leading-6 text-foreground"
+                        >
                           {quote.content ? `«${quote.content}»` : "تکه‌ای تصویری از کتاب"}
                         </p>
                         <p className="mt-1.5 truncate text-xs text-muted-foreground">

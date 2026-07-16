@@ -28,6 +28,7 @@ import { useConfirm } from "@/components/common/ConfirmDialog";
 import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/book/cover";
+import { getQuoteTextareaDirectionProps } from "@/lib/text-direction";
 
 export default function BookQuotesSection({
   subjectBookId,
@@ -455,6 +456,7 @@ function QuoteDialog({
 
         <div className="space-y-4 p-5">
           <Textarea
+            {...getQuoteTextareaDirectionProps(content)}
             value={content}
             onChange={(event) => onContentChange(event.target.value)}
             placeholder="یک تکه از کتاب را نقل کن..."
