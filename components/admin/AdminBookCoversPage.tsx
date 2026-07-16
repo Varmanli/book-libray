@@ -178,7 +178,7 @@ function buildCoverListQuery(params: {
 }) {
   const search = new URLSearchParams({
     page: String(params.page),
-    pageSize: "24",
+    pageSize: "20",
     missing: String(params.onlyMissing),
     recent: String(params.recentOnly),
   });
@@ -193,6 +193,7 @@ export default function AdminBookCoversPage() {
   const [rows, setRows] = useState<AdminBookCoverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [recentImportDays, setRecentImportDays] = useState(30);
   const [q, setQ] = useState("");
@@ -243,6 +244,7 @@ export default function AdminBookCoversPage() {
       }
 
       setRows(data.items ?? []);
+      setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
       setRecentImportDays(data.recentImportDays ?? 30);
     } catch {
@@ -260,6 +262,10 @@ export default function AdminBookCoversPage() {
   useEffect(() => {
     setPage(1);
   }, [q, onlyMissing, recentOnly]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(Math.max(current, 1), Math.max(totalPages, 1)));
+  }, [totalPages]);
 
   useEffect(() => {
     singleFilesRef.current = singleFiles;
@@ -930,6 +936,10 @@ export default function AdminBookCoversPage() {
             نوسازی
           </Button>
         </div>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          {total.toLocaleString("fa-IR")} رکورد مطابق فیلترها
+        </p>
 
         {loading ? (
           <div className="mt-6 flex min-h-48 items-center justify-center rounded-[1.8rem] border border-border/70 bg-background/50">

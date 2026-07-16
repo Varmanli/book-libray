@@ -14,7 +14,7 @@ test("session lifecycle allows forward and retry transitions", () => {
 });
 test("retry classification separates temporary and data conflicts", () => {
   assert.equal(classifyRetryable("FETCH_TIMEOUT"), true);
-  assert.equal(classifyRetryable("ISBN_CONFLICT"), false);
+  assert.equal(classifyRetryable("SOURCE_EDITION_CONFLICT"), false);
 });
 test("audit metadata strips sensitive fields", () => {
   assert.deepEqual(

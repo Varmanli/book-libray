@@ -1,4 +1,7 @@
-import { BookOpenText, Quote } from "lucide-react";
+"use client";
+import { useState } from "react";
+import { BookOpenText, Loader2, Quote } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { Carousel } from "@/components/ui/Carousel";
 import QuoteCard from "@/components/profile/QuoteCard";
@@ -8,12 +11,32 @@ export default function QuotesSection({
   quotes,
   isOwner,
   canLike,
+  username,
+  initialHasMore,
 }: {
   quotes: PublicQuote[];
   isOwner: boolean;
   canLike: boolean;
+  username: string;
+  initialHasMore: boolean;
 }) {
-  const hasQuotes = quotes.length > 0;
+  const [items, setItems] = useState(quotes);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loading, setLoading] = useState(false);
+  const hasQuotes = items.length > 0;
+  async function loadMore() {
+    if (loading || !hasMore) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/profile/${encodeURIComponent(username)}/quotes?limit=10&offset=${items.length}`);
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.quotes)) throw new Error();
+      setItems((current) => [...current, ...data.quotes.filter((item: PublicQuote) => !current.some((old) => old.id === item.id))]);
+      setHasMore(Boolean(data.hasMore));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/75 shadow-[0_22px_70px_-52px_rgba(0,0,0,0.42)]">
@@ -48,7 +71,7 @@ export default function QuotesSection({
 
                 {hasQuotes ? (
                   <span className="rounded-full border border-border/70 bg-background/50 px-2.5 py-1 text-[11px] font-black text-muted-foreground backdrop-blur">
-                    {quotes.length.toLocaleString("fa-IR")} تکه
+                    {items.length.toLocaleString("fa-IR")} تکه
                   </span>
                 ) : null}
               </div>
@@ -62,17 +85,18 @@ export default function QuotesSection({
           <EmptyQuotesState isOwner={isOwner} />
         ) : (
           <div className="relative overflow-visible">
-            <Carousel
+              <Carousel
               className="px-7 sm:px-9 lg:px-10"
               ariaLabel="تکه‌های کتاب کاربر"
               slideClassName="basis-full px-1 sm:basis-1/2 lg:basis-1/3"
               containerClassName="gap-3 sm:gap-4"
-              slides={quotes.map((quote) => (
+              slides={items.map((quote) => (
                 <QuoteCard key={quote.id} quote={quote} canLike={canLike} />
               ))}
             />
           </div>
         )}
+        {hasMore ? <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loading} className="mx-auto mt-5 flex rounded-xl">{loading && <Loader2 className="h-4 w-4 animate-spin" />}مشاهده بیشتر</Button> : null}
       </div>
     </section>
   );

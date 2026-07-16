@@ -43,7 +43,7 @@ type SocialProfile = {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <PublicShell>
-      <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10 lg:py-12">
+      <main className="relative mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,rgba(128,167,150,0.16),transparent_48%)]" />
         <div className="pointer-events-none absolute inset-x-10 top-24 -z-10 h-56 rounded-full bg-primary/5 blur-3xl" />
         {children}
@@ -197,9 +197,21 @@ export default async function RootProfilePage({
           stats={stats}
         />
 
-        <QuotesSection quotes={quotes} isOwner={isOwner} canLike={!!viewer} />
+        <QuotesSection
+          quotes={quotes}
+          initialHasMore={quotesResult.found && !quotesResult.isPrivate ? quotesResult.hasMore : false}
+          username={profileUsername}
+          isOwner={isOwner}
+          canLike={!!viewer}
+        />
 
-        <NotesSection notes={notes} isOwner={isOwner} canLike={!!viewer} />
+        <NotesSection
+          notes={notes}
+          initialHasMore={notesResult.found && !notesResult.isPrivate ? notesResult.hasMore : false}
+          username={profileUsername}
+          isOwner={isOwner}
+          canLike={!!viewer}
+        />
       </div>
     </Shell>
   );

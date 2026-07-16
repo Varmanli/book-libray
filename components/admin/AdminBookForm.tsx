@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Link2, Loader2, Save } from "lucide-react";
 import toast from "react-hot-toast";
@@ -112,6 +112,17 @@ function toFormState(initial: AdminBookFormInitialValues): FormState {
       initial.publishedYear != null ? String(initial.publishedYear) : "",
     status: initial.status ?? "APPROVED",
   };
+}
+
+function comparableLinks(links: ExternalLinkDraft[]) {
+  return links.map((link, index) => ({
+    provider: link.provider,
+    type: link.type,
+    url: link.url.trim(),
+    label: link.label.trim(),
+    isActive: link.isActive,
+    sortOrder: index,
+  }));
 }
 
 interface AdminBookFormProps {
@@ -233,6 +244,27 @@ export default function AdminBookForm({
   >({});
 
   const isEdit = mode === "edit";
+
+  // Keep the comparison in the same normalized shape used by submit. This is
+  // deliberately independent of React Hook Form: this component owns its
+  // fields with useState, and cover/editor/link changes must participate too.
+  const initialSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        form: initialValues ? toFormState(initialValues) : EMPTY,
+        cover: initialValues?.coverImage ?? null,
+        links: comparableLinks(initialValues?.externalLinks ?? []),
+        regenerateSlug: false,
+      }),
+    [initialValues],
+  );
+  const currentSnapshot = JSON.stringify({
+    form,
+    cover,
+    links: comparableLinks(links),
+    regenerateSlug,
+  });
+  const isDirty = currentSnapshot !== initialSnapshot;
 
   const hasRequiredValues =
     form.title.trim() &&
@@ -622,7 +654,7 @@ export default function AdminBookForm({
             <div className="mt-5 space-y-3">
               <Button
                 onClick={submit}
-                disabled={saving || !hasRequiredValues}
+                disabled={saving || !hasRequiredValues || (isEdit && !isDirty)}
                 className="h-12 w-full rounded-2xl gap-2"
               >
                 {saving ? (

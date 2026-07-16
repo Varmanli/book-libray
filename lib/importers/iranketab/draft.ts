@@ -2,7 +2,6 @@ import { z } from "zod";
 import { normalizeIsbn } from "@/lib/books/import/isbn";
 import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor";
 import type { IranKetabMatchAnalysis } from "./match-analysis";
-import { isValidIsbn } from "./hardening";
 import { boundedArray, formatIranKetabSchemaIssues, IRANKETAB_COLLECTION_LIMITS as LIMITS } from "./collection-limits";
 
 const entityType = z.enum([
@@ -393,7 +392,6 @@ export function validateIranKetabDraft(
     issues.push(...formatIranKetabSchemaIssues(parsed.error));
   const included = draft.editions.filter((item) => item.action !== "EXCLUDE");
   if (!included.length) issues.push("حداقل یک نسخه باید انتخاب شود.");
-  const isbns = new Set<string>();
   const codes = new Set<string>();
   const reused = new Set<string>();
   const check = (items: z.infer<typeof entityDraft>[]) => {
@@ -428,15 +426,6 @@ export function validateIranKetabDraft(
         issues.push("یک نسخه موجود بیش از یک‌بار انتخاب شده است.");
       reused.add(edition.editionId);
     } else {
-      for (const value of [edition.fields.isbn10, edition.fields.isbn13]) {
-        const isbn = normalizeIsbn(value);
-        if (isbn && !isValidIsbn(isbn)) issues.push("شابک نسخه معتبر نیست.");
-        if (isbn) {
-          if (isbns.has(isbn))
-            issues.push("شابک تکراری بین نسخه‌های انتخاب‌شده وجود دارد.");
-          isbns.add(isbn);
-        }
-      }
       if (codes.has(edition.fields.sourceEditionCode))
         issues.push("کد نسخه منبع تکراری است.");
       codes.add(edition.fields.sourceEditionCode);

@@ -13,10 +13,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const page = Math.max(Number(searchParams.get("page") || "1") || 1, 1);
-  const pageSize = Math.min(
-    Math.max(Number(searchParams.get("pageSize") || "24") || 24, 1),
-    100,
-  );
+  const pageSize = 20;
 
   const result = await listAdminBookCovers({
     q: searchParams.get("q") ?? "",

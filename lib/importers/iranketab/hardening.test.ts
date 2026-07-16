@@ -38,7 +38,7 @@ test("relation diff preserves unrelated values and removes only explicit values"
   );
 });
 
-test("edition actions preserve curated fields and validate custom ISBN", () => {
+test("edition actions preserve curated fields and keep ISBN optional metadata", () => {
   const current = {
     titleOverride: "curated",
     publisher: "old",
@@ -63,7 +63,7 @@ test("edition actions preserve curated fields and validate custom ISBN", () => {
     ]),
     { publishedYear: 1401 },
   );
-  assert.throws(() =>
+  assert.doesNotThrow(() =>
     editionFieldPatch(current, source, [
       { field: "isbn13", action: "USE_CUSTOM", customValue: "9780000000000" },
     ]),

@@ -28,7 +28,7 @@ export interface PublicQuote {
 export type PublicQuotesResult =
   | { found: false }
   | { found: true; isPrivate: true }
-  | { found: true; isPrivate: false; isOwner: boolean; quotes: PublicQuote[] };
+  | { found: true; isPrivate: false; isOwner: boolean; quotes: PublicQuote[]; hasMore: boolean };
 
 /**
  * Public excerpts for a profile. Quotes have no per-row visibility flag, so they
@@ -38,7 +38,8 @@ export type PublicQuotesResult =
  */
 export async function getPublicQuotesByUsername(
   username: string,
-  viewerId?: string
+  viewerId?: string,
+  opts: { limit?: number; offset?: number } = {},
 ): Promise<PublicQuotesResult> {
   const [user] = await db
     .select({
@@ -83,13 +84,18 @@ export async function getPublicQuotesByUsername(
     .where(eq(Quote.userId, user.id))
     .groupBy(Quote.id, Book.id, CatalogBook.id)
     .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.id))
-    .limit(30);
+    .limit(Math.min(opts.limit ?? 10, 50) + 1)
+    .offset(Math.max(opts.offset ?? 0, 0));
+
+  const hasMore = rows.length > Math.min(opts.limit ?? 10, 50);
+  const visibleRows = hasMore ? rows.slice(0, -1) : rows;
 
   return {
     found: true,
     isPrivate: false,
     isOwner,
-    quotes: rows.map((r) => ({
+    hasMore,
+    quotes: visibleRows.map((r) => ({
       ...r,
       likedByViewer: Boolean(r.likedByViewer),
       authorUsername: user.username,

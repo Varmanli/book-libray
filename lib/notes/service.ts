@@ -41,7 +41,7 @@ export interface PublicNote {
 export type PublicNotesResult =
   | { found: false }
   | { found: true; isPrivate: true }
-  | { found: true; isPrivate: false; isOwner: boolean; notes: PublicNote[] };
+  | { found: true; isPrivate: false; isOwner: boolean; notes: PublicNote[]; hasMore: boolean };
 
 async function resolveOwnedLibraryRow(
   userId: string,
@@ -82,6 +82,7 @@ async function resolveOwnedLibraryRow(
 export async function getPublishedNotesByUsername(
   username: string,
   viewerId?: string,
+  opts: { limit?: number; offset?: number } = {},
 ): Promise<PublicNotesResult> {
   const [user] = await db
     .select({
@@ -140,9 +141,13 @@ export async function getPublishedNotesByUsername(
       BookEdition.id,
     )
     .orderBy(desc(PublishedBookNote.createdAt))
-    .limit(30);
+    .limit(Math.min(opts.limit ?? 10, 50) + 1)
+    .offset(Math.max(opts.offset ?? 0, 0));
 
-  const notes: PublicNote[] = rows.map((r) => ({
+  const hasMore = rows.length > Math.min(opts.limit ?? 10, 50);
+  const visibleRows = hasMore ? rows.slice(0, -1) : rows;
+
+  const notes: PublicNote[] = visibleRows.map((r) => ({
     ...r,
     scope: (r.scope ?? "book") as "book" | "edition",
     likedByViewer: Boolean(r.likedByViewer),
@@ -152,7 +157,7 @@ export async function getPublishedNotesByUsername(
     authorImage: user.image,
   }));
 
-  return { found: true, isPrivate: false, isOwner, notes };
+  return { found: true, isPrivate: false, isOwner, notes, hasMore };
 }
 
 export async function listPublishedNotesForBook(opts: {

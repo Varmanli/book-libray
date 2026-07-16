@@ -2,18 +2,16 @@ import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor";
 import { db } from "@/db";
 import { BookEdition, BookExternalLink, CatalogBook, ReferenceItem } from "@/db/schema";
-import { normalizeIsbn } from "@/lib/books/import/isbn";
 import type { AnalysisData } from "./match-analysis";
 
 /** Read-only candidate loader. It makes bounded batched selects only; no write API is imported. */
 export async function loadIranKetabAnalysisData(extraction: IranKetabExtractionEnvelope): Promise<AnalysisData> {
   const canonicalUrls = sourceVariants(extraction.source.canonicalUrl);
   const titles = unique([extraction.book.title, extraction.book.originalTitle].filter((value): value is string => Boolean(value)));
-  const isbns = unique(extraction.editions.flatMap(item => [normalizeIsbn(item.isbn10), normalizeIsbn(item.isbn13)]).filter((value): value is string => Boolean(value)));
   const codes = unique(extraction.editions.map(item => item.sourceEditionCode).filter(Boolean));
   const [catalogRows, editionRows, linkRows, referenceRows] = await Promise.all([
     db.select({ id:CatalogBook.id,title:CatalogBook.title,subtitle:CatalogBook.subtitle,originalTitle:CatalogBook.originalTitle,author:CatalogBook.author,language:CatalogBook.language,country:CatalogBook.country,firstPublishedYear:CatalogBook.firstPublishedYear,sourceName:CatalogBook.sourceName,sourceUrl:CatalogBook.sourceUrl,editionCount:sql<number>`count(${BookEdition.id})::int` }).from(CatalogBook).leftJoin(BookEdition,eq(BookEdition.catalogBookId,CatalogBook.id)).where(or(...[...canonicalUrls.map(url=>eq(CatalogBook.sourceUrl,url)),...titles.flatMap(title=>[ilike(CatalogBook.title,title),ilike(CatalogBook.originalTitle,title)])])).groupBy(CatalogBook.id).limit(20),
-    db.select({ id:BookEdition.id,catalogBookId:BookEdition.catalogBookId,catalogTitle:CatalogBook.title,titleOverride:BookEdition.titleOverride,translator:BookEdition.translator,publisher:BookEdition.publisher,isbn10:BookEdition.isbn10,isbn13:BookEdition.isbn13,publishedYear:BookEdition.publishedYear,pageCount:BookEdition.pageCount,sourceName:BookEdition.sourceName,sourceUrl:BookEdition.sourceUrl,sourceEditionCode:BookEdition.sourceEditionCode }).from(BookEdition).innerJoin(CatalogBook,eq(CatalogBook.id,BookEdition.catalogBookId)).where(or(...[...(isbns.length?[or(inArray(BookEdition.isbn10,isbns),inArray(BookEdition.isbn13,isbns))]:[]),...(codes.length?[and(eq(BookEdition.sourceName,"iranketab"),inArray(BookEdition.sourceEditionCode,codes))]:[]),...canonicalUrls.map(url=>eq(BookEdition.sourceUrl,url))])).limit(100),
+    db.select({ id:BookEdition.id,catalogBookId:BookEdition.catalogBookId,catalogTitle:CatalogBook.title,titleOverride:BookEdition.titleOverride,translator:BookEdition.translator,publisher:BookEdition.publisher,isbn10:BookEdition.isbn10,isbn13:BookEdition.isbn13,publishedYear:BookEdition.publishedYear,pageCount:BookEdition.pageCount,sourceName:BookEdition.sourceName,sourceUrl:BookEdition.sourceUrl,sourceEditionCode:BookEdition.sourceEditionCode }).from(BookEdition).innerJoin(CatalogBook,eq(CatalogBook.id,BookEdition.catalogBookId)).where(or(...(codes.length?[and(eq(BookEdition.sourceName,"iranketab"),inArray(BookEdition.sourceEditionCode,codes))]:[]),...canonicalUrls.map(url=>eq(BookEdition.sourceUrl,url)))).limit(100),
     db.select({catalogBookId:BookExternalLink.catalogBookId,editionId:BookExternalLink.editionId,url:BookExternalLink.url}).from(BookExternalLink).where(and(eq(BookExternalLink.provider,"iranketab"),inArray(BookExternalLink.url,canonicalUrls))).limit(20),
     loadReferences(extraction),
   ]);

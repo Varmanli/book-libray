@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -155,13 +156,24 @@ type RecoverableSession = {
   preparedCovers: unknown[] | null;
   metadata: { analysis?: IranKetabMatchAnalysis; preview?: Preview } | null;
 };
-function workflowStageForSession(session: Pick<RecoverableSession, "status" | "preparedCovers">) {
-  if (session.status === "IMPORTING_REFERENCES" || session.status === "READY_TO_COMMIT") return 3;
-  if (session.status === "COVER_PREPARATION" || session.preparedCovers?.length) return 2;
+function workflowStageForSession(
+  session: Pick<RecoverableSession, "status" | "preparedCovers">,
+) {
+  if (
+    session.status === "IMPORTING_REFERENCES" ||
+    session.status === "READY_TO_COMMIT"
+  )
+    return 3;
+  if (session.status === "COVER_PREPARATION" || session.preparedCovers?.length)
+    return 2;
   return 1;
 }
 
-export default function IranKetabPreviewClient() {
+export default function IranKetabPreviewClient({
+  view = "summary",
+}: {
+  view?: "summary" | "details";
+}) {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<Extract<
     PreviewResponse,
@@ -189,7 +201,24 @@ export default function IranKetabPreviewClient() {
     null,
   );
   const [restored, setRestored] = useState<RecoverableSession | null>(null);
+  const [showSamePageReview, setShowSamePageReview] = useState(false);
   useEffect(() => {
+    const savedPreview = sessionStorage.getItem("iranketab:preview");
+    if (savedPreview) {
+      try {
+        const saved = JSON.parse(savedPreview) as {
+          url: string;
+          result: Extract<PreviewResponse, { success: true }>;
+        };
+        if (saved.result?.success) {
+          setUrl(saved.url);
+          setResult(saved.result);
+          setWorkflowStage(2);
+        }
+      } catch {
+        sessionStorage.removeItem("iranketab:preview");
+      }
+    }
     const stored = sessionStorage.getItem("iranketab:last-success");
     if (stored) {
       const parsed = commitSuccessSchema.safeParse(JSON.parse(stored));
@@ -298,6 +327,11 @@ export default function IranKetabPreviewClient() {
         return;
       }
       setResult(payload);
+      setShowSamePageReview(false);
+      sessionStorage.setItem(
+        "iranketab:preview",
+        JSON.stringify({ url, result: payload }),
+      );
       setWorkflowStage(2);
       setExpanded(false);
       requestAnimationFrame(() => summaryRef.current?.focus());
@@ -314,9 +348,9 @@ export default function IranKetabPreviewClient() {
       }
     }
   }
-  async function reset() {
+  async function resetImport(force = false) {
     if (
-      draftDirty &&
+      !force && draftDirty &&
       !(await confirm({
         title: "کنار گذاشتن پیش‌نویس؟",
         description:
@@ -328,12 +362,31 @@ export default function IranKetabPreviewClient() {
       return;
     abortRef.current?.abort();
     abortRef.current = null;
+    if (result?.sessionId) {
+      void fetch(`/api/admin/books/import-links/sessions/${result.sessionId}/draft`, { method: "DELETE" });
+    }
     setLoading(false);
     setUrl("");
     setResult(null);
+    setShowSamePageReview(false);
+    sessionStorage.removeItem("iranketab:preview");
     setError(null);
+    setTerminalSuccess(null);
+    terminalSuccessRef.current = false;
+    setWorkflowStage(1);
     setExpanded(false);
     setDraftDirty(false);
+    setRestored(null);
+    setRecoverable(null);
+    sessionStorage.removeItem("iranketab:last-success");
+  }
+  async function reset() { await resetImport(false); }
+  function handleImportSuccess(success: CommitSuccess) {
+    setTerminalSuccess(success);
+    terminalSuccessRef.current = true;
+    setWorkflowStage(5);
+    sessionStorage.setItem("iranketab:last-success", JSON.stringify(success));
+    window.setTimeout(() => { void resetImport(true); }, 1800);
   }
   const editions = result?.preview.editions ?? [];
   const filtered = result
@@ -344,6 +397,158 @@ export default function IranKetabPreviewClient() {
       )
     : editions;
   const visible = expanded ? filtered : filtered.slice(0, 6);
+  const draftReview = result ? (
+    <IranKetabDraftReview
+      sessionId={result.sessionId}
+      extraction={result.extraction}
+      analysis={result.analysis}
+      onDirtyChange={setDraftDirty}
+      onStageChange={setWorkflowStage}
+      onSuccess={handleImportSuccess}
+      recoveredDraft={restored?.id === result.sessionId ? restored.draft : null}
+      recoveredPrepared={restored?.id === result.sessionId && restored.draft && restored.extractionFingerprint ? { draft: restored.draft, fingerprint: restored.extractionFingerprint, preparedCovers: restored.preparedCovers ?? [] } : null}
+    />
+  ) : null;
+  if (view === "summary") {
+    const summary = result?.analysis.summary;
+    const warnings = result?.analysis.warnings.length ?? (error ? 1 : 0);
+    const blocking =
+      result?.analysis.conflicts.filter((item) => item.blocksImport).length ??
+      (error ? 1 : 0);
+    const stats = [
+      [
+        "کل موارد شناسایی‌شده",
+        summary?.totalExtractedEditions ?? 0,
+        "تمام نسخه‌های استخراج‌شده پس از پاک‌سازی",
+      ],
+      [
+        "تعداد نسخه‌ها",
+        summary?.totalExtractedEditions ?? 0,
+        "نسخه‌هایی که برای ورود بررسی می‌شوند",
+      ],
+      ["هشدارها", warnings, "مواردی که بهتر است پیش از ثبت مرور شوند"],
+      ["خطاهای مسدودکننده", blocking, "مواردی که تا رفع‌شدن مانع ثبت هستند"],
+      [
+        "رکوردهای جدید",
+        summary?.newEditions ?? 0,
+        "نسخه‌هایی که مورد مشابه ندارند",
+      ],
+      [
+        "تطبیق‌های موجود",
+        summary?.exactEditionMatches ?? 0,
+        "نسخه‌هایی که با رکورد موجود تطبیق دارند",
+      ],
+    ] as const;
+    return (
+      <div className="w-full space-y-4 pb-8">
+        <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur sm:p-5">
+          <ImportStepper
+            current={
+              terminalSuccess ? 5 : result ? workflowStage : loading ? 0 : 0
+            }
+          />
+          <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xl font-black text-foreground">
+                {terminalSuccess
+                  ? "ورود با موفقیت انجام شد"
+                  : result
+                    ? "بررسی اولیه آماده است"
+                    : "شروع ورود از ایران‌کتاب"}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {result
+                  ? result.preview.catalog.title
+                  : "لینک کتاب را وارد کنید تا اطلاعات آن بررسی شود."}
+              </p>
+            </div>
+            {!terminalSuccess ? (
+              result ? (
+                <Button asChild className="h-11 rounded-xl">
+                  <Link href="/admin/books/import-links/details">
+                    ادامه بررسی جزئیات
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => urlInputRef.current?.focus()}
+                  disabled={loading}
+                  className="h-11 rounded-xl"
+                >
+                  بررسی اطلاعات
+                </Button>
+              )
+            ) : null}
+          </div>
+          {!result && !terminalSuccess ? (
+            <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Input
+                ref={urlInputRef}
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://www.iranketab.ir/book/..."
+                dir="ltr"
+                className="h-11 min-w-0"
+              />
+              <Button type="submit" disabled={loading || !url.trim()} className="h-11 shrink-0 px-5">
+                {loading ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <SearchCheck className="size-4" />
+                )}
+                بررسی
+              </Button>
+            </form>
+          ) : null}
+          {error ? (
+            <p className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {error.message}
+            </p>
+          ) : null}
+        </div>
+        {!terminalSuccess ? (
+          <>
+            <section className="rounded-2xl border border-border/70 bg-card/45 p-3 sm:p-4">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {stats.map(([label, value, help]) => (
+                <Card key={label} className="min-h-[108px] border-border/60 bg-card/70 shadow-none">
+                  <CardContent className="flex h-full flex-col justify-between p-3.5">
+                    <div className="flex items-baseline justify-between gap-2"><p className="text-2xl font-black tabular-nums text-foreground">
+                      {value.toLocaleString("fa-IR")}
+                    </p><p className="text-xs font-bold text-foreground/90">{label}</p></div><p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                      {help}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+              </div>
+            </section>
+            <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-end">
+              {result ? <Button type="button" onClick={() => setShowSamePageReview(true)} className="h-10 rounded-xl font-bold">بررسی کاورها</Button> : null}
+              <Button type="button" variant="outline" onClick={() => void resetImport(false)} className="h-10 rounded-xl">افزودن کتاب جدید</Button>
+              <Button
+                asChild
+                variant="outline"
+                className="h-10 rounded-xl border-primary/25 bg-primary/5 font-bold"
+                disabled={!result}
+              >
+                <Link href="/admin/books/import-links/details">
+                  مشاهده و ویرایش جزئیات
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" className="rounded-xl">
+                <Link href="/admin/books/import-history">تاریخچه ورود</Link>
+              </Button>
+            </div>
+            {showSamePageReview ? <div className="mt-4">{draftReview}</div> : null}
+          </>
+        ) : (
+          <IranKetabImportSuccess success={terminalSuccess} onRestart={reset} />
+        )}
+      </div>
+    );
+  }
   return (
     <div className="relative isolate pb-24 sm:pb-10">
       <div
@@ -354,7 +559,7 @@ export default function IranKetabPreviewClient() {
         <div className="absolute left-[-10rem] top-20 size-80 rounded-full bg-sky-500/5 blur-3xl" />
       </div>
 
-      <div className="mx-auto w-full max-w-[1500px] space-y-6">
+      <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-card/80 shadow-[0_24px_80px_-48px_hsl(var(--foreground)/0.35)] backdrop-blur-xl">
           <div className="border-b border-border/60 bg-gradient-to-l from-primary/[0.08] via-transparent to-transparent px-4 py-4 sm:px-6 lg:px-8">
             <ImportStepper
@@ -381,27 +586,98 @@ export default function IranKetabPreviewClient() {
           ) : (
             <div className="space-y-6 p-3 sm:p-5 lg:p-7">
               <ImportStickySummary
-                title={result ? result.preview.catalog.title : "شروع دریافت اطلاعات"}
-                status={loading ? "در حال دریافت" : result ? "پیش‌نمایش آماده" : "آماده شروع"}
-                stats={result ? [
-                  { label: "کل نسخه‌ها", value: result.analysis.summary.totalExtractedEditions },
-                  { label: "جدید", value: result.analysis.summary.newEditions, tone: "success" },
-                  { label: "موجود", value: result.analysis.summary.exactEditionMatches },
-                  { label: "حذف/تعارض", value: result.analysis.summary.conflictingEditions, tone: result.analysis.summary.conflictingEditions ? "danger" : "default" },
-                  { label: "هشدارها", value: result.analysis.warnings.length, tone: result.analysis.warnings.length ? "warning" : "default" },
-                  { label: "خطاهای مسدودکننده", value: result.analysis.conflicts.filter((item) => item.blocksImport).length, tone: result.analysis.conflicts.some((item) => item.blocksImport) ? "danger" : "default" },
-                ] : [
-                  { label: "کل موارد", value: 0 },
-                  { label: "جدید", value: 0 },
-                  { label: "موجود", value: 0 },
-                  { label: "حذف‌شده", value: 0 },
-                  { label: "هشدارها", value: error ? 1 : 0, tone: error ? "warning" : "default" },
-                  { label: "خطاها", value: error ? 1 : 0, tone: error ? "danger" : "default" },
-                ]}
-                secondary={result ? <span className="hidden text-xs text-muted-foreground sm:inline">منبع: <span dir="ltr">{result.preview.catalog.canonicalUrl}</span></span> : null}
+                title={
+                  result ? result.preview.catalog.title : "شروع دریافت اطلاعات"
+                }
+                status={
+                  loading
+                    ? "در حال دریافت"
+                    : result
+                      ? "پیش‌نمایش آماده"
+                      : "آماده شروع"
+                }
+                stats={
+                  result
+                    ? [
+                        {
+                          label: "کل نسخه‌ها",
+                          value: result.analysis.summary.totalExtractedEditions,
+                        },
+                        {
+                          label: "جدید",
+                          value: result.analysis.summary.newEditions,
+                          tone: "success",
+                        },
+                        {
+                          label: "موجود",
+                          value: result.analysis.summary.exactEditionMatches,
+                        },
+                        {
+                          label: "حذف/تعارض",
+                          value: result.analysis.summary.conflictingEditions,
+                          tone: result.analysis.summary.conflictingEditions
+                            ? "danger"
+                            : "default",
+                        },
+                        {
+                          label: "هشدارها",
+                          value: result.analysis.warnings.length,
+                          tone: result.analysis.warnings.length
+                            ? "warning"
+                            : "default",
+                        },
+                        {
+                          label: "خطاهای مسدودکننده",
+                          value: result.analysis.conflicts.filter(
+                            (item) => item.blocksImport,
+                          ).length,
+                          tone: result.analysis.conflicts.some(
+                            (item) => item.blocksImport,
+                          )
+                            ? "danger"
+                            : "default",
+                        },
+                      ]
+                    : [
+                        { label: "کل موارد", value: 0 },
+                        { label: "جدید", value: 0 },
+                        { label: "موجود", value: 0 },
+                        { label: "حذف‌شده", value: 0 },
+                        {
+                          label: "هشدارها",
+                          value: error ? 1 : 0,
+                          tone: error ? "warning" : "default",
+                        },
+                        {
+                          label: "خطاها",
+                          value: error ? 1 : 0,
+                          tone: error ? "danger" : "default",
+                        },
+                      ]
+                }
+                secondary={
+                  result ? (
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      منبع:{" "}
+                      <span dir="ltr">
+                        {result.preview.catalog.canonicalUrl}
+                      </span>
+                    </span>
+                  ) : null
+                }
                 action={
-                  <Button type="button" size="sm" onClick={() => submit()} disabled={loading || !url.trim()} className="rounded-xl">
-                    {loading ? <LoaderCircle className="size-4 animate-spin" /> : <SearchCheck className="size-4" />}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => submit()}
+                    disabled={loading || !url.trim()}
+                    className="rounded-xl"
+                  >
+                    {loading ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <SearchCheck className="size-4" />
+                    )}
                     {result ? "دریافت مجدد" : "بررسی اطلاعات"}
                   </Button>
                 }
@@ -678,27 +954,7 @@ export default function IranKetabPreviewClient() {
                     onFilter={setEditionFilter}
                   />
 
-                  <IranKetabDraftReview
-                    sessionId={result.sessionId}
-                    extraction={result.extraction}
-                    analysis={result.analysis}
-                    onDirtyChange={setDraftDirty}
-                    onStageChange={setWorkflowStage}
-                    recoveredDraft={
-                      restored?.id === result.sessionId ? restored.draft : null
-                    }
-                    recoveredPrepared={
-                      restored?.id === result.sessionId &&
-                      restored.draft &&
-                      restored.extractionFingerprint
-                        ? {
-                            draft: restored.draft,
-                            fingerprint: restored.extractionFingerprint,
-                            preparedCovers: restored.preparedCovers ?? [],
-                          }
-                        : null
-                    }
-                  />
+                  {draftReview}
 
                   <Card className="overflow-hidden rounded-[1.75rem] border-border/60 bg-background/70 shadow-none">
                     <CardHeader className="flex-row items-start justify-between gap-4 border-b border-border/50 px-5 py-5 sm:px-7">

@@ -37,6 +37,12 @@ import {
 } from "@/components/admin/AdminDataTable";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
+import BookCoverImage from "@/components/books/BookCoverImage";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface AdminBookRow {
   id: string;
@@ -365,18 +371,13 @@ function BookCell({ book }: { book: AdminBookRow }) {
   return (
     <div className="flex min-w-[220px] items-center gap-3">
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted shadow-sm">
-        {book.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={book.coverImage}
-            alt={book.title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-primary/5 text-[10px] font-black text-muted-foreground">
-            کتاب
-          </div>
-        )}
+        <BookCoverImage
+          src={book.coverImage}
+          alt={book.title}
+          fill
+          sizes="40px"
+          className="object-cover"
+        />
       </div>
 
       <div className="min-w-0">
@@ -414,19 +415,25 @@ function GenreCell({ value }: { value: string | null }) {
       ))}
 
       {hiddenGenres.length > 0 ? (
-        <span className="group relative inline-flex">
-          <span className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-black text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary">
-            +{hiddenGenres.length.toLocaleString("fa-IR")} مورد
-          </span>
-
-          <span className="pointer-events-none absolute right-0 top-[calc(100%+0.45rem)] z-50 hidden w-[240px] rounded-2xl border border-border/80 bg-card/95 p-2.5 text-right shadow-2xl backdrop-blur-xl group-hover:block">
-            <span className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-r border-t border-border/80 bg-card/95" />
-
-            <span className="relative z-10 mb-2 block text-[10px] font-black text-muted-foreground">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-[11px] font-black text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary"
+            >
+              +{hiddenGenres.length.toLocaleString("fa-IR")} مورد
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="bottom"
+            align="end"
+            sideOffset={8}
+            className="z-[100] w-[240px] rounded-2xl border border-border/80 bg-card/95 p-2.5 text-right text-foreground shadow-2xl backdrop-blur-xl"
+          >
+            <span className="mb-2 block text-[10px] font-black text-muted-foreground">
               ژانرهای بیشتر
             </span>
-
-            <span className="relative z-10 flex flex-wrap gap-1.5">
+            <span className="flex flex-wrap gap-1.5">
               {hiddenGenres.map((genre) => (
                 <span
                   key={genre}
@@ -436,8 +443,8 @@ function GenreCell({ value }: { value: string | null }) {
                 </span>
               ))}
             </span>
-          </span>
-        </span>
+          </TooltipContent>
+        </Tooltip>
       ) : null}
     </div>
   );

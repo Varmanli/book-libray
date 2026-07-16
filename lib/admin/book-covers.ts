@@ -13,7 +13,7 @@ import {
   COVER_UPLOAD_MAX_LABEL,
   type CoverStatus,
 } from "@/lib/admin/book-covers.shared";
-import { normalizeCoverImage } from "@/lib/book/cover";
+import { coalesceCoverImage, normalizeCoverImage } from "@/lib/book/cover";
 import { getFilenameExtension, sanitizeFilename } from "@/lib/server/upload-key";
 
 const COUNT = sql<number>`count(*)::int`;
@@ -57,10 +57,15 @@ export function isManagedCoverImage(value: string | null | undefined) {
 
 export function getCoverStatus(input: {
   coverImage: string | null;
+  catalogCoverImage?: string | null;
   coverFilename: string | null;
 }): CoverStatus {
-  if (isManagedCoverImage(input.coverImage)) return "uploaded";
-  if (!normalizeCoverImage(input.coverImage)) {
+  const resolvedCover = coalesceCoverImage(
+    input.coverImage,
+    input.catalogCoverImage,
+  );
+  if (isManagedCoverImage(resolvedCover)) return "uploaded";
+  if (!resolvedCover) {
     return input.coverFilename ? "ready" : "missing";
   }
   return "unknown";
@@ -79,30 +84,28 @@ function mapCoverRow(row: {
   sourceEditionCode: string | null;
   coverFilename: string | null;
   coverImage: string | null;
+  catalogCoverImage: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): AdminBookCoverRow {
   return {
     ...row,
-    coverImage: normalizeCoverImage(row.coverImage),
+    coverImage: coalesceCoverImage(row.coverImage, row.catalogCoverImage),
+    catalogCoverImage: normalizeCoverImage(row.catalogCoverImage),
     coverStatus: getCoverStatus(row),
   };
 }
 
-function missingManagedCoverCondition(): SQL {
-  const prefixes = getManagedUploadPrefixes();
-  const internalLikeConds = prefixes.map(
-    (prefix) => sql`${BookEdition.coverImage} ilike ${`${prefix}%`}`,
-  );
-  const hasInternalCover =
-    internalLikeConds.length > 0
-      ? or(...internalLikeConds)
-      : sql`false`;
-
-  return or(
-    sql`${BookEdition.coverImage} is null`,
-    sql`trim(${BookEdition.coverImage}) = ''`,
-    sql`not (${hasInternalCover})`,
+function missingCoverCondition(): SQL {
+  return and(
+    or(
+      sql`${BookEdition.coverImage} is null`,
+      sql`trim(${BookEdition.coverImage}) = ''`,
+    ),
+    or(
+      sql`${CatalogBook.coverImage} is null`,
+      sql`trim(${CatalogBook.coverImage}) = ''`,
+    ),
   ) as SQL;
 }
 
@@ -132,7 +135,7 @@ export async function listAdminBookCovers(opts: {
   }
 
   if (opts.onlyMissing) {
-    conds.push(missingManagedCoverCondition());
+    conds.push(missingCoverCondition());
   }
 
   if (opts.recentOnly) {
@@ -161,6 +164,7 @@ export async function listAdminBookCovers(opts: {
         sourceEditionCode: BookEdition.sourceEditionCode,
         coverFilename: BookEdition.coverFilename,
         coverImage: BookEdition.coverImage,
+        catalogCoverImage: CatalogBook.coverImage,
         createdAt: BookEdition.createdAt,
         updatedAt: BookEdition.updatedAt,
       })
@@ -202,6 +206,7 @@ export async function getAdminBookCoverEditionById(editionId: string) {
       sourceEditionCode: BookEdition.sourceEditionCode,
       coverFilename: BookEdition.coverFilename,
       coverImage: BookEdition.coverImage,
+      catalogCoverImage: CatalogBook.coverImage,
       createdAt: BookEdition.createdAt,
       updatedAt: BookEdition.updatedAt,
     })
@@ -238,7 +243,7 @@ async function listCoverFilenameCandidates(opts?: { onlyMissing?: boolean }) {
   ];
 
   if (opts?.onlyMissing) {
-    conds.push(missingManagedCoverCondition());
+    conds.push(missingCoverCondition());
   }
 
   const rows = await db
@@ -255,6 +260,7 @@ async function listCoverFilenameCandidates(opts?: { onlyMissing?: boolean }) {
       sourceEditionCode: BookEdition.sourceEditionCode,
       coverFilename: BookEdition.coverFilename,
       coverImage: BookEdition.coverImage,
+      catalogCoverImage: CatalogBook.coverImage,
       createdAt: BookEdition.createdAt,
       updatedAt: BookEdition.updatedAt,
     })

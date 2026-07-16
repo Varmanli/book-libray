@@ -85,14 +85,7 @@ export function validateEditionFieldValue(
   value: unknown,
 ): unknown {
   if (field === "isbn10" || field === "isbn13") {
-    const normalized = normalizeIsbn(value);
-    if (
-      normalized !== null &&
-      (!isValidIsbn(normalized) ||
-        normalized.length !== (field === "isbn10" ? 10 : 13))
-    )
-      throw new Error("ISBN_CONFLICT");
-    return normalized;
+    return normalizeIsbn(value);
   }
   if (field === "publishedYear") {
     if (

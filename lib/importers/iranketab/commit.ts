@@ -44,7 +44,6 @@ import {
 export type IranKetabCommitErrorCode =
   | "INVALID_DRAFT"
   | "STALE_DRAFT"
-  | "ISBN_CONFLICT"
   | "SOURCE_URL_CONFLICT"
   | "SOURCE_EDITION_CONFLICT"
   | "ENTITY_AMBIGUOUS"
@@ -58,7 +57,6 @@ export const IRANKETAB_COMMIT_ERROR_MESSAGES: Record<
 > = {
   INVALID_DRAFT: "پیش‌نویس ورود معتبر نیست.",
   STALE_DRAFT: "پیش‌نویس تغییر کرده است؛ دوباره اعتبارسنجی کنید.",
-  ISBN_CONFLICT: "شابک انتخاب‌شده متعلق به نسخه دیگری است.",
   SOURCE_URL_CONFLICT: "لینک ایران‌کتاب متعلق به کتاب دیگری است.",
   SOURCE_EDITION_CONFLICT: "کد نسخه ایران‌کتاب متعلق به نسخه دیگری است.",
   ENTITY_AMBIGUOUS: "یکی از مراجع چند تطابق احتمالی دارد.",
@@ -206,20 +204,6 @@ export async function commitIranKetabImport(params: {
       await tx.execute(
         sql`select pg_advisory_xact_lock(${advisoryLockKey(identity)})`,
       );
-      const requestedIsbns = draft.editions
-        .flatMap((item) =>
-          item.action === "CREATE_NEW"
-            ? [
-                normalizeIsbn(item.fields.isbn10),
-                normalizeIsbn(item.fields.isbn13),
-              ]
-            : [],
-        )
-        .filter((value): value is string => Boolean(value));
-      for (const isbn of [...new Set(requestedIsbns)].sort())
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(${advisoryLockKey(`isbn:${isbn}`)})`,
-        );
       const sourceCodes = draft.editions.flatMap((item) =>
         item.action === "CREATE_NEW" ? [item.fields.sourceEditionCode] : [],
       );
@@ -587,24 +571,6 @@ export async function commitIranKetabImport(params: {
             coverAction: "SKIPPED",
           });
           continue;
-        }
-        const isbnConditions = [isbn10, isbn13]
-          .filter((value): value is string => Boolean(value))
-          .flatMap((value) => [
-            eq(BookEdition.isbn10, value),
-            eq(BookEdition.isbn13, value),
-          ]);
-        if (isbnConditions.length) {
-          const [isbnOwner] = await tx
-            .select({ id: BookEdition.id })
-            .from(BookEdition)
-            .where(or(...isbnConditions))
-            .limit(1);
-          if (isbnOwner)
-            throw new IranKetabCommitError(
-              "ISBN_CONFLICT",
-              "شابک انتخاب‌شده قبلاً برای نسخه دیگری ثبت شده است.",
-            );
         }
         const coverImage =
           coverUrls.get(decision.extractedEditionIndex) ?? null;

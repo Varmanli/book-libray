@@ -78,6 +78,7 @@ export default function IranKetabDraftReview({
   recoveredDraft,
   recoveredPrepared,
   onStageChange,
+  onSuccess,
 }: {
   extraction: IranKetabExtractionEnvelope;
   analysis: IranKetabMatchAnalysis;
@@ -86,6 +87,7 @@ export default function IranKetabDraftReview({
   recoveredDraft?: IranKetabImportDraft | null;
   recoveredPrepared?: unknown;
   onStageChange?: (stage: number) => void;
+  onSuccess?: (success: CommitSuccess) => void;
 }) {
   const initial = useMemo(
     () => recoveredDraft ?? initializeIranKetabDraft(extraction, analysis),
@@ -336,6 +338,7 @@ export default function IranKetabDraftReview({
         commitGuard.current = true;
         setServerIssues([]);
         setCommitResult(parsed.data);
+        onSuccess?.(parsed.data);
         sessionStorage.setItem(
           "iranketab:last-success",
           JSON.stringify(parsed.data),

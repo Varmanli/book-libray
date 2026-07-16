@@ -217,6 +217,18 @@ export async function getRecoverableSession(adminId: string) {
     .limit(1);
   return row ?? null;
 }
+
+export async function cancelImportSession(id: string, adminId: string) {
+  const [session] = await db
+    .select({ status: IranKetabImportSession.status })
+    .from(IranKetabImportSession)
+    .where(and(eq(IranKetabImportSession.id, id), eq(IranKetabImportSession.adminId, adminId)))
+    .limit(1);
+  if (!session) throw new Error("SESSION_NOT_FOUND");
+  if (session.status === "CANCELLED" || session.status === "SUCCESS") return;
+  assertTransition(session.status, "CANCELLED");
+  await db.update(IranKetabImportSession).set({ status: "CANCELLED", updatedAt: new Date() }).where(eq(IranKetabImportSession.id, id));
+}
 export async function assertOwnedImportSession(id: string, adminId: string) {
   const [row] = await db
     .select({ id: IranKetabImportSession.id })

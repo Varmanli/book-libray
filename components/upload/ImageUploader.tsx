@@ -71,6 +71,7 @@ function uploadImage(
   onProgress: (value: number) => void,
   kind: UploadKind = "image",
   targetOwnerId?: string,
+  signal?: AbortSignal,
 ) {
   return new Promise<UploadResponse>((resolve, reject) => {
     const formData = new FormData();
@@ -80,6 +81,8 @@ function uploadImage(
     if (targetOwnerId) formData.append("targetOwnerId", targetOwnerId);
 
     const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    signal?.addEventListener("abort", abort, { once: true });
     xhr.open("POST", "/api/upload/image");
     xhr.responseType = "json";
 
@@ -89,6 +92,7 @@ function uploadImage(
     };
 
     xhr.onerror = () => reject(new Error(UPLOAD_FAILED_MESSAGE));
+    xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
     xhr.onload = () => {
       const response = xhr.response as
         | UploadResponse
@@ -178,6 +182,15 @@ export function ImageUploader({
   const [error, setError] = React.useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(value ?? null);
   const [loadError, setLoadError] = React.useState(false);
+  const mountedRef = React.useRef(true);
+  const uploadAbortRef = React.useRef<AbortController | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      uploadAbortRef.current?.abort();
+    };
+  }, []);
 
   const resolvedMaxSizeKb =
     maxSizeKb ?? getImageUploadPolicy(folder).maxInputBytes / 1024;
@@ -229,9 +242,21 @@ export function ImageUploader({
     setError(null);
     setUploading(true);
     setProgress(0);
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
 
     try {
-      const data = await uploadImage(file, folder, setProgress, kind, targetOwnerId);
+      const data = await uploadImage(
+        file,
+        folder,
+        (nextProgress) => {
+          if (mountedRef.current) setProgress(nextProgress);
+        },
+        kind,
+        targetOwnerId,
+        abortController.signal,
+      );
+      if (!mountedRef.current) return;
       setLoadError(false);
       setPreviewUrl(data.url);
       onChange(data.url);
@@ -239,6 +264,7 @@ export function ImageUploader({
       setProgress(100);
       toast.success(UPLOAD_SUCCESS_MESSAGE);
     } catch (uploadError) {
+      if (!mountedRef.current || abortController.signal.aborted) return;
       const rawMessage =
         uploadError instanceof Error ? uploadError.message : UPLOAD_FAILED_MESSAGE;
       const message =
@@ -249,8 +275,13 @@ export function ImageUploader({
       setProgress(0);
       toast.error(message);
     } finally {
-      setUploading(false);
-      resetInput();
+      if (uploadAbortRef.current === abortController) {
+        uploadAbortRef.current = null;
+      }
+      if (mountedRef.current) {
+        setUploading(false);
+        resetInput();
+      }
     }
   };
 
@@ -327,21 +358,18 @@ export function ImageUploader({
             : "opacity-0"
         )}
       >
-        {uploading ? (
-          <span className="flex items-center gap-1.5">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {progress >= 100
-              ? folder === "quotes"
-                ? "در حال بهینه‌سازی تصویر..."
-                : "در حال ذخیره تصویر..."
-              : `${progress}%`}
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            تغییر
-          </span>
-        )}
+        <span className={cn("flex items-center gap-1.5", !uploading && "hidden")}>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {progress >= 100
+            ? folder === "quotes"
+              ? "در حال بهینه‌سازی تصویر..."
+              : "در حال ذخیره تصویر..."
+            : `${progress}%`}
+        </span>
+        <span className={cn("flex items-center gap-1.5", uploading && "hidden")}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          تغییر
+        </span>
       </div>
     </div>
   );
@@ -380,11 +408,10 @@ export function ImageUploader({
         onClick={openPicker}
         disabled={disabled || uploading}
       >
-        {previewUrl ? (
-          <RefreshCw className="h-4 w-4" />
-        ) : (
-          <UploadCloud className="h-4 w-4" />
-        )}
+        <span className="flex h-4 w-4 items-center justify-center">
+          <RefreshCw className={cn("h-4 w-4", !previewUrl && "hidden")} />
+          <UploadCloud className={cn("h-4 w-4", previewUrl && "hidden")} />
+        </span>
         {uploading
           ? progress >= 100
             ? folder === "quotes"

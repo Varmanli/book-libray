@@ -13,6 +13,7 @@ export interface AdminBookCoverRow {
   sourceEditionCode: string | null;
   coverFilename: string | null;
   coverImage: string | null;
+  catalogCoverImage?: string | null;
   coverStatus: CoverStatus;
   createdAt: Date;
   updatedAt: Date;

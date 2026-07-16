@@ -1,4 +1,7 @@
-import { MessageSquareText, NotebookPen } from "lucide-react";
+"use client";
+import { useState } from "react";
+import { Loader2, MessageSquareText, NotebookPen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import NoteCard from "@/components/profile/NoteCard";
 import type { PublicNote } from "@/lib/notes/service";
@@ -8,12 +11,32 @@ export default function NotesSection({
   notes,
   isOwner,
   canLike = false,
+  username,
+  initialHasMore,
 }: {
   notes: PublicNote[];
   isOwner: boolean;
   canLike?: boolean;
+  username: string;
+  initialHasMore: boolean;
 }) {
-  const hasNotes = notes.length > 0;
+  const [items, setItems] = useState(notes);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loading, setLoading] = useState(false);
+  const hasNotes = items.length > 0;
+  async function loadMore() {
+    if (loading || !hasMore) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/profile/${encodeURIComponent(username)}/notes?limit=10&offset=${items.length}`);
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.notes)) throw new Error();
+      setItems((current) => [...current, ...data.notes.filter((item: PublicNote) => !current.some((old) => old.id === item.id))]);
+      setHasMore(Boolean(data.hasMore));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/75 shadow-[0_22px_70px_-52px_rgba(0,0,0,0.42)]">
@@ -48,7 +71,7 @@ export default function NotesSection({
 
                 {hasNotes ? (
                   <span className="rounded-full border border-border/70 bg-background/50 px-2.5 py-1 text-[11px] font-black text-muted-foreground backdrop-blur">
-                    {notes.length.toLocaleString("fa-IR")} یادداشت
+                    {items.length.toLocaleString("fa-IR")} یادداشت
                   </span>
                 ) : null}
               </div>
@@ -62,7 +85,7 @@ export default function NotesSection({
           <EmptyNotesState isOwner={isOwner} />
         ) : (
           <div className="flex flex-col gap-4">
-            {notes.map((note) => (
+            {items.map((note) => (
               <NoteCard
                 key={note.id}
                 note={note}
@@ -71,6 +94,7 @@ export default function NotesSection({
                 showBook
               />
             ))}
+            {hasMore ? <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loading} className="mx-auto mt-1 rounded-xl">{loading && <Loader2 className="h-4 w-4 animate-spin" />}مشاهده بیشتر</Button> : null}
           </div>
         )}
       </div>
