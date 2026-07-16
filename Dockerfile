@@ -108,8 +108,9 @@ RUN test -f /app/.next/standalone/server.js \
  && test -d /app/.next/static \
  && echo "Standalone output verified."
 
-# Bundle the production DB repair script and all imported JS dependencies.
-# This avoids copying the complete root node_modules into the runtime image.
+# Bundle the production DB repair script and its CommonJS dependencies.
+# pg is CommonJS; keeping this bundle CommonJS avoids esbuild's ESM dynamic
+# require shim failure ("Dynamic require of events is not supported").
 RUN mkdir -p /app/.runtime \
  && test -x /app/node_modules/.bin/esbuild \
  && /app/node_modules/.bin/esbuild \
@@ -117,11 +118,11 @@ RUN mkdir -p /app/.runtime \
       --bundle \
       --platform=node \
       --target=node22 \
-      --format=esm \
-      --packages=bundle \
+      --format=cjs \
       --external:pg-native \
-      --outfile=/app/.runtime/prod-db-repair.mjs \
- && test -f /app/.runtime/prod-db-repair.mjs
+      --outfile=/app/.runtime/prod-db-repair.cjs \
+ && test -f /app/.runtime/prod-db-repair.cjs \
+ && node /app/.runtime/prod-db-repair.cjs
 
 
 # =============================================================================
@@ -155,8 +156,8 @@ COPY --from=builder --chown=nextjs:nodejs \
 
 # Bundled DB repair executable.
 COPY --from=builder --chown=nextjs:nodejs \
-     /app/.runtime/prod-db-repair.mjs \
-     ./scripts/prod-db-repair.mjs
+     /app/.runtime/prod-db-repair.cjs \
+     ./scripts/prod-db-repair.cjs
 
 # Keep migration SQL files only if prod-db-repair reads them through fs.
 COPY --from=builder --chown=nextjs:nodejs \
@@ -169,7 +170,7 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
- && test -f ./scripts/prod-db-repair.mjs
+ && test -f ./scripts/prod-db-repair.cjs
 
 USER nextjs
 
