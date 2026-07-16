@@ -122,6 +122,7 @@ RUN mkdir -p /app/.runtime \
       --external:pg-native \
       --outfile=/app/.runtime/prod-db-repair.cjs \
  && test -f /app/.runtime/prod-db-repair.cjs \
+ && node -e "const fs=require('fs'); const source=fs.readFileSync('/app/.runtime/prod-db-repair.cjs','utf8'); if (!source.includes('BookEditionContributor') || !source.includes('to_regclass')) process.exit(1); console.log('Repair SQL/schema embedded in CommonJS bundle.')" \
  && node /app/.runtime/prod-db-repair.cjs
 
 

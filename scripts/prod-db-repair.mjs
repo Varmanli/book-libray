@@ -47,6 +47,21 @@ const contributorStatements = [
   `CREATE INDEX IF NOT EXISTS "BookEditionPublisher_reference_idx" ON "BookEditionPublisher" ("reference_item_id")`,
 ];
 
+const BOOK_EDITION_CONTRIBUTOR_SCHEMA = "public";
+
+function sanitizedDatabaseIdentity(connectionString) {
+  try {
+    const url = new URL(connectionString);
+    return {
+      host: url.hostname || "local-socket",
+      port: url.port || "5432",
+      database: decodeURIComponent(url.pathname.replace(/^\//, "")) || "unknown",
+    };
+  } catch {
+    return { host: "unparseable", port: "unknown", database: "unknown" };
+  }
+}
+
 // PostgreSQL enum labels are added outside the table-repair transaction. This
 // is intentional: a newly-added label must be committed before verification
 // inserts use it during the same prestart run.
@@ -248,6 +263,39 @@ async function repairContributorSchema(pool) {
     `DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
     `DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   ]) await pool.query(statement);
+}
+
+async function repairBookEditionContributorSchema(pool) {
+  // Keep this search path local to the transaction so the unqualified,
+  // case-sensitive verification query below checks the application's schema.
+  await pool.query(`SET LOCAL search_path TO ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}`);
+
+  const before = await pool.query(`SELECT to_regclass('"BookEditionContributor"') AS table_name`);
+  const existed = before.rows[0]?.table_name !== null;
+  log(`table "BookEditionContributor" ${existed ? "exists" : "is missing"}.`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."BookEditionContributor" (
+      "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "book_edition_id" varchar NOT NULL REFERENCES ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."BookEdition"("id") ON DELETE CASCADE,
+      "reference_item_id" varchar NOT NULL REFERENCES ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."ReferenceItem"("id") ON DELETE CASCADE,
+      "role" ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."CatalogBookContributorRole" NOT NULL,
+      "sort_order" integer DEFAULT 0 NOT NULL,
+      "source_name" text,
+      "source_url" text,
+      CONSTRAINT "BookEditionContributor_unique" UNIQUE ("book_edition_id", "reference_item_id", "role")
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS "BookEditionContributor_edition_idx" ON ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."BookEditionContributor" ("book_edition_id")`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS "BookEditionContributor_reference_idx" ON ${BOOK_EDITION_CONTRIBUTOR_SCHEMA}."BookEditionContributor" ("reference_item_id")`);
+
+  const after = await pool.query(`SELECT to_regclass('"BookEditionContributor"') AS table_name`);
+  const tableName = after.rows[0]?.table_name ?? null;
+  log(`post-repair verification: to_regclass('"BookEditionContributor"') = ${tableName ?? "NULL"}.`);
+  if (tableName === null) {
+    throw new Error('BookEditionContributor verification failed: table is still missing.');
+  }
+  log(`table "BookEditionContributor" ${existed ? "verified" : "created and verified"}.`);
 }
 
 async function verifyImporterSchema(pool) {
@@ -561,7 +609,11 @@ async function main() {
   });
 
   try {
-    await pool.query("select 1");
+    const identity = sanitizedDatabaseIdentity(process.env.DATABASE_URL);
+    log(`database repair started (host=${identity.host}, port=${identity.port}, database=${identity.database}).`);
+    const connection = await pool.query("SELECT current_database(), current_schema();");
+    log(`connected database/schema: ${connection.rows[0].current_database}/${connection.rows[0].current_schema}.`);
+    await pool.query("SELECT 1");
 
     log("ensuring production enum types exist...");
     for (const statement of enumStatements) {
@@ -570,6 +622,14 @@ async function main() {
     for (const statement of importerEnumValueStatements) await pool.query(statement);
     await repairImporterSchema(pool);
     await repairContributorSchema(pool);
+    await pool.query("BEGIN");
+    try {
+      await repairBookEditionContributorSchema(pool);
+      await pool.query("COMMIT");
+    } catch (error) {
+      await pool.query("ROLLBACK");
+      throw error;
+    }
 
     await runStatements(pool, "Book", bookStatements);
     await runStatements(pool, "BookEdition", bookEditionStatements);
@@ -589,7 +649,7 @@ async function main() {
     await verifyImporterEnumValues(pool);
     await repairFeaturedBookIntegrity(pool);
 
-    log("production database repair completed.");
+    log("database repair completed.");
   } catch (error) {
     logError("production database repair failed:", error);
     // Never start the web process against a database whose repair failed.
