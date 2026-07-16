@@ -3,17 +3,11 @@ import { notFound, permanentRedirect } from "next/navigation";
 import BookArchiveFilters from "@/components/books/BookArchiveFilters";
 import PublicShell from "@/components/PublicShell";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
-import ReferenceBookGrid from "@/components/reference/ReferenceBookGrid";
 import {
   type BookArchiveScope,
   getBookArchivePageData,
-  getBookArchiveScopeCount,
 } from "@/lib/book/archive-service";
-import {
-  getReferenceBooks,
-  getReferenceEntity,
-  ROUTE_BY_TYPE,
-} from "@/lib/reference/public-service";
+import { getReferenceEntity, ROUTE_BY_TYPE } from "@/lib/reference/public-service";
 import {
   REFERENCE_TYPE_LABELS,
   type ReferenceTypeValue,
@@ -92,15 +86,10 @@ export default async function ReferencePublicView({
   const archiveConfig = archiveConfigByType[type];
   const usesArchiveFilters = Boolean(archiveScope && archiveConfig);
 
-  const books = usesArchiveFilters
-    ? []
-    : await getReferenceBooks(type, entity.name);
-  const [scopedArchiveData, scopedBooksCount] = usesArchiveFilters
-    ? await Promise.all([
-        getBookArchivePageData(searchParams ?? {}, archiveScope),
-        getBookArchiveScopeCount(archiveScope),
-      ])
-    : [null, books.length];
+  const scopedArchiveData = usesArchiveFilters
+    ? await getBookArchivePageData(searchParams ?? {}, archiveScope)
+    : null;
+  const bookCount = scopedArchiveData?.archive.totalCount ?? 0;
 
   return (
     <PublicShell>
@@ -151,6 +140,9 @@ export default async function ReferencePublicView({
                       {entity.originalName}
                     </p>
                   ) : null}
+                  <p className="mt-3 text-sm font-bold text-muted-foreground">
+                    {bookCount.toLocaleString("fa-IR")} کتاب
+                  </p>
                   {(entity.birthYear ||
                     entity.deathYear ||
                     entity.countryName ||
@@ -193,7 +185,7 @@ export default async function ReferencePublicView({
         </section>
 
         <div className="mt-6">
-          {usesArchiveFilters && scopedArchiveData && archiveConfig ? (
+          {scopedArchiveData && archiveConfig ? (
             <BookArchiveFilters
               filters={scopedArchiveData.filters}
               options={scopedArchiveData.options}
@@ -205,12 +197,7 @@ export default async function ReferencePublicView({
               hideTranslatorFilter={archiveConfig.hideTranslatorFilter}
               hideCountryFilter={archiveConfig.hideCountryFilter}
             />
-          ) : (
-            <ReferenceBookGrid
-              books={books}
-              subduedAuthor={type === "AUTHOR"}
-            />
-          )}
+          ) : null}
         </div>
       </div>
     </PublicShell>

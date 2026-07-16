@@ -24,14 +24,15 @@ export function detectTextDirection(text: string | null | undefined): TextDirect
   return latinLetters > arabicLetters ? "ltr" : "rtl";
 }
 
-/** Shared DOM presentation for editable and rendered quote content. */
+/** Shared DOM presentation for rendered quote content. Direction is preserved
+ * for bidi handling while all quote text remains horizontally centered. */
 export function getQuoteDirectionProps(text: string | null | undefined) {
   const dir = detectTextDirection(text);
 
   return {
     dir,
     style: {
-      textAlign: dir === "ltr" ? "left" : "right",
+      textAlign: "center",
       unicodeBidi: "plaintext",
     },
   } as const;

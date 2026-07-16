@@ -17,6 +17,7 @@ import {
 import { BookOpenText } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/roles";
 import { getBookDetail } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
 import { Carousel } from "@/components/ui/Carousel";
@@ -593,6 +594,7 @@ export default async function BookPage({
           <BookQuotesSection
             subjectBookId={book.id}
             viewerEntryId={entry?.id ?? null}
+            viewerIsAdmin={isAdmin(viewer)}
             isLoggedIn={isLoggedIn}
             quotes={quotes}
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/quotes`}

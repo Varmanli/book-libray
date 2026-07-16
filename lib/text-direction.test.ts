@@ -10,17 +10,17 @@ import {
   getQuoteTextareaDirectionProps,
 } from "./text-direction";
 
-test("pure Persian text is RTL and right-aligned", () => {
+test("pure Persian text is RTL and centered", () => {
   assert.deepEqual(getQuoteDirectionProps("زندگی زیباست"), {
     dir: "rtl",
-    style: { textAlign: "right", unicodeBidi: "plaintext" },
+    style: { textAlign: "center", unicodeBidi: "plaintext" },
   });
 });
 
-test("pure English text is LTR and left-aligned", () => {
+test("pure English text is LTR and centered", () => {
   assert.deepEqual(getQuoteDirectionProps("Life is beautiful"), {
     dir: "ltr",
-    style: { textAlign: "left", unicodeBidi: "plaintext" },
+    style: { textAlign: "center", unicodeBidi: "plaintext" },
   });
 });
 

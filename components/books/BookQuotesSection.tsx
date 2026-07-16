@@ -33,16 +33,20 @@ import { getQuoteTextareaDirectionProps } from "@/lib/text-direction";
 export default function BookQuotesSection({
   subjectBookId,
   viewerEntryId,
+  viewerIsAdmin = false,
   isLoggedIn,
   quotes,
+  totalQuoteCount,
   variant = "preview",
   viewAllHref,
   showBook = false,
 }: {
   subjectBookId: string;
   viewerEntryId: string | null;
+  viewerIsAdmin?: boolean;
   isLoggedIn: boolean;
   quotes: PublicQuote[];
+  totalQuoteCount?: number;
   variant?: "preview" | "all";
   viewAllHref?: string;
   /** Book pages already establish context, so their cards omit repeated book metadata. */
@@ -215,7 +219,7 @@ export default function BookQuotesSection({
   }
 
   function renderQuoteCard(quote: PublicQuote) {
-    const canManage = viewerEntryId && quote.bookId === viewerEntryId;
+    const canManage = viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
 
     return (
       <QuoteCard
@@ -266,7 +270,7 @@ export default function BookQuotesSection({
                   </h2>
                   {hasQuotes ? (
                     <span className="rounded-full border border-border/70 bg-background/45 px-2.5 py-1 text-[11px] font-bold text-muted-foreground backdrop-blur">
-                      {quotes.length.toLocaleString("fa-IR")} تکه
+                      {(totalQuoteCount ?? quotes.length).toLocaleString("fa-IR")} تکه
                     </span>
                   ) : null}
                 </div>

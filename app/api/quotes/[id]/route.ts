@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { Quote } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/roles";
 import {
   isOwnedQuoteImageKey,
   normalizeQuoteImageKey,
@@ -11,13 +12,13 @@ import {
 } from "@/lib/quotes/image";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
 
-async function ownedQuote(id: string, userId: string) {
+async function manageableQuote(id: string, userId: string, admin: boolean) {
   const [row] = await db
     .select({ quote: Quote, ownerId: Quote.userId })
     .from(Quote)
     .where(eq(Quote.id, id));
   if (!row) return { error: "تکه پیدا نشد", status: 404 } as const;
-  if (row.ownerId !== userId) return { error: "دسترسی غیرمجاز", status: 403 } as const;
+  if (!admin && row.ownerId !== userId) return { error: "دسترسی غیرمجاز", status: 403 } as const;
   return row;
 }
 
@@ -42,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
     const { id } = await params;
-    const existing = await ownedQuote(id, user.id);
+    const existing = await manageableQuote(id, user.id, isAdmin(user));
     if ("error" in existing) return NextResponse.json({ error: existing.error }, { status: existing.status });
 
     const body = (await req.json()) as Record<string, unknown>;
@@ -59,7 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!content && !imageKey) {
       return NextResponse.json({ error: "حذف تنها محتوای تکه مجاز نیست" }, { status: 422 });
     }
-    if (imageKey && !isOwnedQuoteImageKey(imageKey, user.id)) {
+    if (imageKey && !isOwnedQuoteImageKey(imageKey, user.id) && !isOwnedQuoteImageKey(imageKey, existing.ownerId)) {
       return NextResponse.json({ error: "تصویر انتخاب‌شده معتبر نیست" }, { status: 403 });
     }
     if (imageKey && imageKey !== existing.quote.imageKey) {
@@ -79,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       .where(eq(Quote.id, id))
       .returning();
     if (existing.quote.imageKey && existing.quote.imageKey !== imageKey) {
-      await cleanupImage(existing.quote.imageKey, user.id);
+      await cleanupImage(existing.quote.imageKey, existing.ownerId);
     }
     return NextResponse.json({ quote, message: "تکه با موفقیت بروزرسانی شد" });
   } catch (error) {
@@ -93,11 +94,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
     const { id } = await params;
-    const existing = await ownedQuote(id, user.id);
+    const existing = await manageableQuote(id, user.id, isAdmin(user));
     if ("error" in existing) return NextResponse.json({ error: existing.error }, { status: existing.status });
 
     await db.delete(Quote).where(eq(Quote.id, id));
-    await cleanupImage(existing.quote.imageKey, user.id);
+    await cleanupImage(existing.quote.imageKey, existing.ownerId);
     return NextResponse.json({ message: "تکه با موفقیت حذف شد" });
   } catch (error) {
     console.error("❌ خطا در حذف تکه:", error);

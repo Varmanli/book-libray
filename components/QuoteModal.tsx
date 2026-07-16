@@ -106,7 +106,7 @@ export default function QuoteModal({
               آیا از حذف این نقل قول اطمینان دارید؟
             </p>
             <div className="bg-gray-100 p-3 rounded-md">
-              <p {...getQuoteDirectionProps(content)} className="text-sm italic [overflow-wrap:anywhere] [white-space:pre-wrap]">{content}</p>
+          <p {...getQuoteDirectionProps(content)} className="text-center text-sm italic [overflow-wrap:anywhere] [white-space:pre-wrap]">{content}</p>
             </div>
           </div>
         ) : (
@@ -172,7 +172,6 @@ export default function QuoteModal({
     </Dialog>
   );
 }
-
 
 
 

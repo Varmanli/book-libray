@@ -463,6 +463,8 @@ async function loadReferenceLinks(subject: {
   };
 }
 
+const BOOK_QUOTES_PAGE_SIZE = 12;
+
 async function loadPublicQuotes(
   siblingIds: string[],
   subject: {
@@ -472,9 +474,14 @@ async function loadPublicQuotes(
     slug: string;
   },
   viewerId?: string,
-  limit?: number,
-): Promise<PublicQuote[]> {
-  if (siblingIds.length === 0) return [];
+  options: { limit?: number; offset?: number } = {},
+): Promise<{ quotes: PublicQuote[]; total: number }> {
+  if (siblingIds.length === 0) return { quotes: [], total: 0 };
+
+  const visibility = viewerId
+    ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
+    : eq(User.profileVisibility, "PUBLIC");
+  const where = and(inArray(Quote.bookId, siblingIds), visibility);
 
   const query = db
     .select({
@@ -493,20 +500,22 @@ async function loadPublicQuotes(
     .innerJoin(Book, eq(Quote.bookId, Book.id))
     .innerJoin(User, eq(Quote.userId, User.id))
     .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
-    .where(
-      and(
-        inArray(Quote.bookId, siblingIds),
-        viewerId
-          ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
-          : eq(User.profileVisibility, "PUBLIC"),
-      ),
-    )
+    .where(where)
     .groupBy(Quote.id, User.id)
-    .orderBy(desc(sql`count(${QuoteLike.id})`), desc(Quote.createdAt));
+    .orderBy(desc(Quote.createdAt), desc(Quote.id))
+    .limit(Math.min(options.limit ?? 10, 50))
+    .offset(Math.max(options.offset ?? 0, 0));
 
-  const rows = await (limit ? query.limit(limit) : query);
+  const [rows, [{ total }]] = await Promise.all([
+    query,
+    db
+      .select({ total: sql<number>`count(distinct ${Quote.id})::int` })
+      .from(Quote)
+      .innerJoin(User, eq(Quote.userId, User.id))
+      .where(where),
+  ]);
 
-  return rows.map((row) => ({
+  return { quotes: rows.map((row) => ({
     id: row.id,
     content: row.content,
     imageKey: row.imageKey,
@@ -521,7 +530,7 @@ async function loadPublicQuotes(
     authorUsername: row.authorUsername,
     authorName: row.authorName,
     authorImage: row.authorImage,
-  }));
+  })), total };
 }
 
 const DETAIL_QUOTE_LIMIT = 10;
@@ -632,7 +641,7 @@ export async function getBookDetail(
     selectedEdition as BookPresentationEdition | null,
   );
 
-  const quotes = await loadPublicQuotes(
+  const { quotes } = await loadPublicQuotes(
     siblingIds,
     {
       title: subject.title,
@@ -641,7 +650,7 @@ export async function getBookDetail(
       slug,
     },
     viewerId,
-    DETAIL_QUOTE_LIMIT,
+    { limit: DETAIL_QUOTE_LIMIT },
   );
 
   return {
@@ -681,12 +690,16 @@ export type BookQuotesPageResult =
       found: true;
       book: BookQuotesPageHeader;
       quotes: PublicQuote[];
+      total: number;
+      page: number;
+      pageCount: number;
       viewerEntryId: string | null;
     };
 
 export async function getBookQuotesPage(
   ref: string,
   viewerId?: string,
+  page = 1,
 ): Promise<BookQuotesPageResult> {
   const subject = await loadSubjectRow(ref);
   if (!subject) return { found: false };
@@ -709,17 +722,19 @@ export async function getBookQuotesPage(
   });
   const coverImage = display.coverImage;
 
-  const [quotes, viewer] = await Promise.all([
-    loadPublicQuotes(
-      siblingIds,
-      {
-        title: subject.title,
-        author: subject.author,
-        coverImage,
-        slug,
-      },
-      viewerId,
-    ),
+  const currentPage = Math.max(1, Math.floor(page));
+  const { quotes, total } = await loadPublicQuotes(
+    siblingIds,
+    {
+      title: subject.title,
+      author: subject.author,
+      coverImage,
+      slug,
+    },
+    viewerId,
+    { limit: BOOK_QUOTES_PAGE_SIZE, offset: (currentPage - 1) * BOOK_QUOTES_PAGE_SIZE },
+  );
+  const [viewer] = await Promise.all([
     loadViewerEntry(viewerId, subject.catalogBookId, null),
   ]);
 
@@ -733,6 +748,9 @@ export async function getBookQuotesPage(
       coverImage,
     },
     quotes,
+    total,
+    page: currentPage,
+    pageCount: Math.max(1, Math.ceil(total / BOOK_QUOTES_PAGE_SIZE)),
     viewerEntryId: viewer?.id ?? null,
   };
 }

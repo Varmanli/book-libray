@@ -795,7 +795,7 @@ function QuoteReadingDialog({
               className="
     relative z-10
     whitespace-pre-line
-    text-right
+    text-center
     text-sm
     leading-8
     font-medium

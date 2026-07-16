@@ -190,7 +190,7 @@ export default async function DashboardPage() {
                         ) : null}
                         <p
                           {...getQuoteDirectionProps(quote.content)}
-                          className="line-clamp-2 text-sm leading-6 text-foreground"
+                          className="line-clamp-2 text-center text-sm leading-6 text-foreground"
                         >
                           {quote.content ? `«${quote.content}»` : "تکه‌ای تصویری از کتاب"}
                         </p>
