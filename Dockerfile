@@ -44,11 +44,7 @@ COPY packages/iranketab-extractor/package.json \
 COPY packages/iranketab-extractor/src \
      ./packages/iranketab-extractor/src
 
-RUN echo "=== EXTRACTOR BUILD START ===" \
- && date -u \
- && npm run build --prefix packages/iranketab-extractor \
- && date -u \
- && echo "=== EXTRACTOR BUILD END ==="
+RUN npm run build --prefix packages/iranketab-extractor
 
 
 # =============================================================================
@@ -71,6 +67,7 @@ COPY --from=extractor-builder \
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci \
+      --include=dev \
       --fetch-retries=5 \
       --fetch-retry-factor=2 \
       --fetch-retry-mintimeout=10000 \
@@ -95,26 +92,36 @@ COPY --from=extractor-builder \
 
 COPY . .
 
-# These values are public and are inlined into the frontend bundle.
-# Never pass DATABASE_URL or other secrets as build arguments.
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BASE_URL
 
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
-# `next build` already performs production TypeScript validation.
-# Keep `npm run typecheck` in CI/local validation instead of running it twice.
 RUN echo "=== NEXT BUILD START ===" \
  && date -u \
  && npm run build \
  && date -u \
  && echo "=== NEXT BUILD END ==="
 
-# Fail clearly if standalone output was not generated.
 RUN test -f /app/.next/standalone/server.js \
  && test -d /app/.next/static \
  && echo "Standalone output verified."
+
+# Bundle the production DB repair script and all imported JS dependencies.
+# This avoids copying the complete root node_modules into the runtime image.
+RUN mkdir -p /app/.runtime \
+ && test -x /app/node_modules/.bin/esbuild \
+ && /app/node_modules/.bin/esbuild \
+      /app/scripts/prod-db-repair.mjs \
+      --bundle \
+      --platform=node \
+      --target=node22 \
+      --format=esm \
+      --packages=bundle \
+      --external:pg-native \
+      --outfile=/app/.runtime/prod-db-repair.mjs \
+ && test -f /app/.runtime/prod-db-repair.mjs
 
 
 # =============================================================================
@@ -130,12 +137,10 @@ ENV PORT=3005
 ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs \
- && adduser --system --uid 1001 nextjs
+ && adduser --system --uid 1001 nextjs \
+ && apk add --no-cache curl
 
-# Used by the container healthcheck and for the required in-container probe.
-RUN apk add --no-cache curl
-
-# Copy the standalone server and its traced production dependencies.
+# Standalone includes only the production dependencies traced by Next.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/.next/standalone \
      ./
@@ -144,42 +149,19 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/.next/static \
      ./.next/static
 
-# next-pwa may generate service-worker files during build.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/public \
      ./public
 
-# Runtime database/prestart resources.
+# Bundled DB repair executable.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/.runtime/prod-db-repair.mjs \
+     ./scripts/prod-db-repair.mjs
+
+# Keep migration SQL files only if prod-db-repair reads them through fs.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/drizzle \
      ./drizzle
-
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/db \
-     ./db
-
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/lib \
-     ./lib
-
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/scripts \
-     ./scripts
-
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/drizzle.config.* \
-     ./
-
-# Keep package metadata and the installed runtime dependencies because the
-# production repair script imports pg and the requested startup command uses
-# the Next CLI.
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/package.json \
-     ./package.json
-
-COPY --from=deps --chown=nextjs:nodejs \
-     /app/node_modules \
-     ./node_modules
 
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
@@ -187,19 +169,16 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
- && test -f ./scripts/prod-db-repair.mjs \
- && test -x ./node_modules/.bin/next \
- && node -e "require('pg'); console.log('Runtime dependencies verified.')"
+ && test -f ./scripts/prod-db-repair.mjs
 
 USER nextjs
 
 EXPOSE 3005
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
-# Coolify may override PORT at runtime. The entrypoint runs the repair first,
-# then this command keeps Next in the foreground.
-CMD ["./node_modules/.bin/next", "start", "-H", "0.0.0.0"]
+# Standalone Next.js must run directly through server.js.
+CMD ["node", "server.js"]
