@@ -420,7 +420,10 @@ async function loadReferenceLinks(subject: {
       (row) => row.type === pair.type && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
     );
     if (match?.slug) links[pair.key] = match.slug;
-    if (match) images[pair.key] = match.coverImage ?? null;
+    // Keep the DTO on the same media contract as relation rows below. This
+    // matters for the fallback chip path, which otherwise would hand a raw
+    // storage key to the browser while relation-backed chips received a URL.
+    if (match) images[pair.key] = coalesceCoverImage(match.coverImage);
   }
 
   const [authorRows, translatorRows, publisherRows] = await Promise.all([

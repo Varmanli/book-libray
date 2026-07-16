@@ -46,7 +46,7 @@ export default function ReferenceChip({
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-          src={imageSrc as string}
+            src={imageSrc as string}
             alt={name}
             className="h-full w-full object-cover"
             onError={() => setImgError(true)}
