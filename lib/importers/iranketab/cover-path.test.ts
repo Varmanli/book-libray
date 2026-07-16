@@ -1,13 +1,54 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeCoverImage } from "@/lib/book/cover";
-import { finalIranKetabCoverValue, repairVerifiedIranKetabCoverPaths } from "./repair-cover-paths";
+import {
+  finalIranKetabCoverValue,
+  finalIranKetabReferenceMediaValue,
+  repairVerifiedIranKetabCoverPaths,
+} from "./repair-cover-paths";
 
 const key = "covers/iranketab-abcdef0123456789abcd-0.webp";
 
 test("promoted IranKetab cover persists as a canonical covers object key", () => {
   assert.equal(finalIranKetabCoverValue(key), key);
   assert.doesNotMatch(finalIranKetabCoverValue(key), /^\/uploads\//);
+});
+
+for (const [label, referenceKey] of [
+  ["author avatar", "references/iranketab-author-abcdef0123456789abcd-profile.webp"],
+  ["translator avatar", "references/iranketab-translator-abcdef0123456789abcd-profile.webp"],
+  ["publisher logo", "references/iranketab-publisher-abcdef0123456789abcd-profile.webp"],
+] as const) {
+  test(`final ${label} persists as canonical reference media`, () => {
+    assert.equal(finalIranKetabReferenceMediaValue(referenceKey), referenceKey);
+  });
+}
+
+test("reference keys remain rejected by the book-cover validator", () => {
+  assert.throws(
+    () => finalIranKetabCoverValue("references/iranketab-author-abcdef0123456789abcd-profile.webp"),
+    /کاور ایران‌کتاب معتبر نیست/,
+  );
+});
+
+test("entity-specific managed reference keys are accepted", () => {
+  const keyWithEntityToken = "references/iranketab-translator-abcdef0123456789abcd-0123456789abcdef-profile.webp";
+  assert.equal(finalIranKetabReferenceMediaValue(keyWithEntityToken), keyWithEntityToken);
+});
+
+test("temporary and malformed reference keys are rejected", () => {
+  for (const invalid of [
+    "tmp/iranketab-imports/admin/fingerprint/reference-author.webp",
+    "references/iranketab-genre-abcdef0123456789abcd-profile.webp",
+    "references/iranketab-author-too-short-profile.webp",
+    "references/iranketab-author-abcdef0123456789abcd-profile.jpg",
+    "/references/iranketab-author-abcdef0123456789abcd-profile.webp",
+  ]) {
+    assert.throws(
+      () => finalIranKetabReferenceMediaValue(invalid),
+      /تصویر مرجع ایران‌کتاب معتبر نیست/,
+    );
+  }
 });
 
 test("cover object key resolves to the configured Arvan public URL", () => {

@@ -54,6 +54,8 @@ test("Foucault fixture preserves identity and duplicate preference", async () =>
 
 test("URL helpers normalize fragments and reject unsupported hosts", () => {
   assert.equal(normalizeIranKetabBookUrl(" https://www.iranketab.ir/book/1-x#pts=42 "), "https://www.iranketab.ir/book/1-x");
+  assert.equal(normalizeIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine?edition=1"), "https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine?edition=1");
+  assert.equal(normalizeIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-bête-humaine/"), "https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine/");
   assert.equal(extractIranKetabEditionCode("https://iranketab.ir/book/1-x#pts=42"), "42");
   assert.throws(() => normalizeIranKetabBookUrl("not a url"), (error: unknown) => error instanceof IranKetabExtractionError && error.code === "INVALID_URL");
   assert.throws(() => normalizeIranKetabBookUrl("https://example.com/book/1"), (error: unknown) => error instanceof IranKetabExtractionError && error.code === "UNSUPPORTED_HOST");
@@ -107,7 +109,7 @@ test("reference profile enrichment deduplicates URLs and keeps fetch failure non
     ],
     fetcher: async () => { calls += 1; throw new Error("timeout"); },
   });
-  assert.equal(calls, 2);
+  assert.equal(calls, 4);
   assert.equal(profiles.length, 2);
   assert.match(profiles[0]!.diagnostics[0]!, /fetch failed/);
 });

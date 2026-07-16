@@ -5,6 +5,9 @@ import {
   Book,
   BookEdition,
   CatalogBook,
+  CatalogBookContributor,
+  BookEditionContributor,
+  BookEditionPublisher,
   Quote,
   QuoteLike,
   ReferenceItem,
@@ -126,7 +129,10 @@ export type BookDetailResult =
       refLinks: BookReferenceLinks;
       refImages: BookReferenceImages;
       authorChip: ReferenceChipData;
+      authorChips: ReferenceChipData[];
       translatorChip: ReferenceChipData | null;
+      translatorChips: ReferenceChipData[];
+      publisherChip: ReferenceChipData | null;
       quotes: PublicQuote[];
       bookNotes: PublicNote[];
       editionNotes: PublicNote[];
@@ -354,6 +360,8 @@ async function loadTopMoods(catalogBookId: string): Promise<string[]> {
 }
 
 async function loadReferenceLinks(subject: {
+  catalogBookId: string;
+  editionId: string | null;
   author: string;
   genres: string[];
   translator: string | null;
@@ -363,6 +371,9 @@ async function loadReferenceLinks(subject: {
   links: BookReferenceLinks;
   images: BookReferenceImages;
   genres: Array<{ name: string; slug: string | null }>;
+  authors: ReferenceChipData[];
+  translators: ReferenceChipData[];
+  publisher: ReferenceChipData | null;
 }> {
   const pairs: { key: keyof BookReferenceLinks; type: ReferenceTypeValue; name: string }[] = [
     { key: "author", type: "AUTHOR", name: subject.author },
@@ -388,7 +399,7 @@ async function loadReferenceLinks(subject: {
   }
 
   if (conds.length === 0) {
-    return { links: {}, images: {}, genres: [] };
+    return { links: {}, images: {}, genres: [], authors: [], translators: [], publisher: null };
   }
 
   const rows = await db
@@ -412,6 +423,28 @@ async function loadReferenceLinks(subject: {
     if (match) images[pair.key] = match.coverImage ?? null;
   }
 
+  const [authorRows, translatorRows, publisherRows] = await Promise.all([
+    db.select({ name: ReferenceItem.name, slug: ReferenceItem.slug, image: ReferenceItem.coverImage })
+      .from(CatalogBookContributor)
+      .innerJoin(ReferenceItem, eq(ReferenceItem.id, CatalogBookContributor.referenceItemId))
+      .where(and(eq(CatalogBookContributor.catalogBookId, subject.catalogBookId), eq(CatalogBookContributor.role, "AUTHOR"), eq(ReferenceItem.status, "APPROVED")))
+      .orderBy(CatalogBookContributor.sortOrder),
+    subject.editionId
+      ? db.select({ name: ReferenceItem.name, slug: ReferenceItem.slug, image: ReferenceItem.coverImage })
+          .from(BookEditionContributor)
+          .innerJoin(ReferenceItem, eq(ReferenceItem.id, BookEditionContributor.referenceItemId))
+          .where(and(eq(BookEditionContributor.bookEditionId, subject.editionId), eq(BookEditionContributor.role, "TRANSLATOR"), eq(ReferenceItem.status, "APPROVED")))
+          .orderBy(BookEditionContributor.sortOrder)
+      : Promise.resolve([]),
+    subject.editionId
+      ? db.select({ name: ReferenceItem.name, slug: ReferenceItem.slug, image: ReferenceItem.coverImage })
+          .from(BookEditionPublisher)
+          .innerJoin(ReferenceItem, eq(ReferenceItem.id, BookEditionPublisher.referenceItemId))
+          .where(and(eq(BookEditionPublisher.bookEditionId, subject.editionId), eq(ReferenceItem.status, "APPROVED")))
+          .orderBy(BookEditionPublisher.sortOrder)
+      : Promise.resolve([]),
+  ]);
+
   return {
     links,
     images,
@@ -421,6 +454,9 @@ async function loadReferenceLinks(subject: {
       );
       return { name: genre, slug: match?.slug ?? null };
     }),
+    authors: authorRows.map((row) => ({ name: row.name, href: row.slug ? `/authors/${encodeURIComponent(row.slug)}` : null, image: coalesceCoverImage(row.image) })),
+    translators: translatorRows.map((row) => ({ name: row.name, href: row.slug ? `/translators/${encodeURIComponent(row.slug)}` : null, image: coalesceCoverImage(row.image) })),
+    publisher: publisherRows[0] ? { name: publisherRows[0].name, href: publisherRows[0].slug ? `/publishers/${encodeURIComponent(publisherRows[0].slug)}` : null, image: coalesceCoverImage(publisherRows[0].image) } : null,
   };
 }
 
@@ -537,6 +573,8 @@ export async function getBookDetail(
     loadBookStats(subject.catalogBookId),
     loadTopMoods(subject.catalogBookId),
     loadReferenceLinks({
+      catalogBookId: subject.catalogBookId,
+      editionId: selectedEdition?.id ?? null,
       author: subject.author,
       genres: genreNames,
       translator: selectedEdition?.translator ?? null,
@@ -556,6 +594,7 @@ export async function getBookDetail(
     href: refData.links.author ? `/authors/${encodeURIComponent(refData.links.author)}` : null,
     image: refData.images.author ?? null,
   };
+  const authorChips = refData.authors.length > 0 ? refData.authors : [authorChip];
 
   const translatorChip: ReferenceChipData | null = selectedEdition?.translator
     ? {
@@ -566,6 +605,7 @@ export async function getBookDetail(
         image: refData.images.translator ?? null,
       }
     : null;
+  const translatorChips = refData.translators.length > 0 ? refData.translators : (translatorChip ? [translatorChip] : []);
 
   const book: BookDetailMeta = {
     id: subject.catalogBookId,
@@ -613,7 +653,10 @@ export async function getBookDetail(
     refLinks: refData.links,
     refImages: refData.images,
     authorChip,
+    authorChips,
     translatorChip,
+    translatorChips,
+    publisherChip: refData.publisher,
     quotes,
     bookNotes: notes.bookNotes,
     editionNotes: notes.editionNotes,

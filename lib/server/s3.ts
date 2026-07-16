@@ -6,6 +6,7 @@ import {
   HeadBucketCommand,
   HeadObjectCommand,
   CopyObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -49,8 +50,9 @@ export class StorageError extends Error {
       | "STORAGE_FORBIDDEN"
       | "STORAGE_UNKNOWN",
     readonly cause?: unknown,
+    readonly diagnostic?: Record<string, unknown>,
   ) {
-    super(message);
+    super(message, cause === undefined ? undefined : { cause });
     this.name = "StorageError";
   }
 }
@@ -66,9 +68,12 @@ function assertS3Config() {
     .filter(([, value]) => !value)
     .map(([name]) => name);
   if (missing.length > 0) {
+    console.error("[s3] preflight guard failed", { stage: "config_validation", sourceKey: null, destinationKey: null, mediaKind: null, folder: null, contentType: null, extension: null, bucketConfigured: Boolean(bucket), clientExists: Boolean(cachedClient), requiredConfig: { endpoint: Boolean(endpoint), bucket: Boolean(bucket), accessKeyId: Boolean(accessKeyId), secretAccessKey: Boolean(secretAccessKey), publicBaseUrl: Boolean(publicBaseUrl) }, failedGuard: `missing_config:${missing.join(",")}` });
     throw new StorageError(
       `S3 configuration is incomplete. Missing: ${missing.join(", ")}.`,
       "STORAGE_CONFIG",
+      undefined,
+      { stage: "config_validation", failedGuard: `missing_config:${missing.join(",")}`, bucketConfigured: Boolean(bucket), clientExists: Boolean(cachedClient), requiredConfig: { endpoint: Boolean(endpoint), bucket: Boolean(bucket), accessKeyId: Boolean(accessKeyId), secretAccessKey: Boolean(secretAccessKey), publicBaseUrl: Boolean(publicBaseUrl) } },
     );
   }
 }
@@ -153,20 +158,37 @@ function toStorageError(err: unknown, step: string): StorageError {
     | { code?: string; name?: string; message?: string; $metadata?: { httpStatusCode?: number } }
     | null;
   const status = e?.$metadata?.httpStatusCode;
+  const diagnostic = {
+    functionName: "toStorageError",
+    stage: step,
+    providerErrorCode: e?.code ?? e?.name ?? null,
+    requestId: (e as { $metadata?: { requestId?: string } })?.$metadata?.requestId ?? null,
+    httpStatus: status ?? null,
+  };
+  console.error("[s3] operation failed", {
+    step,
+    errorCode: e?.code,
+    errorName: e?.name,
+    httpStatus: status,
+    requestId: (e as { $metadata?: { requestId?: string; extendedRequestId?: string } })?.$metadata?.requestId,
+    extendedRequestId: (e as { $metadata?: { extendedRequestId?: string } })?.$metadata?.extendedRequestId,
+    message: e?.message,
+  });
 
   if (isTimeoutError(err)) {
-    return new StorageError(`Storage timeout during ${step}.`, "STORAGE_TIMEOUT", err);
+    return new StorageError(`Storage timeout during ${step}.`, "STORAGE_TIMEOUT", err, diagnostic);
   }
   if (isConnectionError(err)) {
-    return new StorageError(`Storage unreachable during ${step}.`, "STORAGE_UNREACHABLE", err);
+    return new StorageError(`Storage unreachable during ${step}.`, "STORAGE_UNREACHABLE", err, diagnostic);
   }
   if (status === 403 || e?.name === "AccessDenied") {
-    return new StorageError(`Storage access denied during ${step}.`, "STORAGE_FORBIDDEN", err);
+    return new StorageError(`Storage access denied during ${step}.`, "STORAGE_FORBIDDEN", err, diagnostic);
   }
   return new StorageError(
     `Storage error during ${step}: ${e?.name || e?.code || "unknown"}.`,
     "STORAGE_UNKNOWN",
     err,
+    diagnostic,
   );
 }
 
@@ -248,8 +270,60 @@ export async function headImageInS3(key: string): Promise<StoredImageMetadata | 
 }
 export async function copyImageInS3(input: { sourceKey: string; destinationKey: string; contentType?: string; metadata?: Record<string, string> }): Promise<void> {
   const client = getClient();
-  try { await client.send(new CopyObjectCommand({ Bucket: bucket, Key: input.destinationKey, CopySource: `${bucket}/${encodeURIComponent(input.sourceKey).replace(/%2F/g, "/")}`, ACL: "public-read", ContentType: input.contentType, Metadata: input.metadata, MetadataDirective: input.contentType || input.metadata ? "REPLACE" : "COPY", CacheControl: "public, max-age=31536000, immutable" })); }
-  catch (error) { throw toStorageError(error, "CopyObject"); }
+  const sourceKey = input.sourceKey.trim().replace(/^\/+/, "");
+  const destinationKey = input.destinationKey.trim().replace(/^\/+/, "");
+  const copySource = buildCopySource(sourceKey);
+  console.info("[s3] preflight before CopyObject", { stage: "copy_preflight", sourceKey, destinationKey, mediaKind: "image", folder: destinationKey.split("/")[0], contentType: input.contentType ?? null, extension: destinationKey.split(".").pop() ?? null, bucketConfigured: Boolean(bucket), clientExists: Boolean(cachedClient), requiredConfig: { endpoint: Boolean(endpoint), bucket: Boolean(bucket), accessKeyId: Boolean(accessKeyId), secretAccessKey: Boolean(secretAccessKey), publicBaseUrl: Boolean(publicBaseUrl) } });
+  const started = Date.now();
+  console.info("[s3] CopyObject start", { sourceKey, destinationKey, bucket, copySource, mediaType: input.contentType, forcePathStyle: true, command: `CopyObject(Bucket=${bucket}, Key=${destinationKey}, CopySource=${copySource})` });
+  try {
+    const result = await client.send(new CopyObjectCommand({ Bucket: bucket, Key: destinationKey, CopySource: copySource, ACL: "public-read", ContentType: input.contentType, Metadata: input.metadata, MetadataDirective: input.contentType || input.metadata ? "REPLACE" : "COPY", CacheControl: "public, max-age=31536000, immutable" }));
+    console.info("[s3] CopyObject OK", { sourceKey, destinationKey, bucket, durationMs: Date.now() - started, etag: result.CopyObjectResult?.ETag, requestId: result.$metadata.requestId, httpStatus: result.$metadata.httpStatusCode });
+  } catch (error) {
+    console.error("[s3] CopyObject FAILED", { sourceKey, destinationKey, bucket, copySource, durationMs: Date.now() - started, mediaType: input.contentType, error });
+    console.warn("[s3] CopyObject fallback starting", { sourceKey, destinationKey, bucket, providerErrorCode: (error as { Code?: string; code?: string })?.Code ?? (error as { code?: string })?.code, httpStatus: (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode });
+    let lastCheckpoint = "before_fallback_get";
+    let fallbackGetObject: Record<string, unknown> = { ok: false };
+    let fallbackPutObject: Record<string, unknown> = { ok: false };
+    let headObject: Record<string, unknown> = { ok: false };
+    try {
+      const getStarted = Date.now();
+      const source = await client.send(new GetObjectCommand({ Bucket: bucket, Key: sourceKey }));
+      fallbackGetObject = { ok: true, requestId: source.$metadata.requestId ?? null };
+      const body = source.Body;
+      if (!body || typeof body.transformToByteArray !== "function") throw new Error("GET_OBJECT_BODY_UNAVAILABLE");
+      const bytes = await body.transformToByteArray();
+      console.info("[s3] fallback GetObject OK", { sourceKey, bytes: bytes.byteLength, durationMs: Date.now() - getStarted, requestId: source.$metadata.requestId, httpStatus: source.$metadata.httpStatusCode });
+      lastCheckpoint = "before_fallback_put";
+      const putStarted = Date.now();
+      const put = await client.send(new PutObjectCommand({ Bucket: bucket, Key: destinationKey, Body: bytes, ContentType: input.contentType ?? source.ContentType ?? "application/octet-stream", Metadata: input.metadata, ACL: "public-read", CacheControl: "public, max-age=31536000, immutable" }));
+      fallbackPutObject = { ok: true, requestId: put.$metadata.requestId ?? null };
+      console.info("[s3] fallback PutObject OK", { destinationKey, bytes: bytes.byteLength, durationMs: Date.now() - putStarted, etag: put.ETag, requestId: put.$metadata.requestId, httpStatus: put.$metadata.httpStatusCode });
+      lastCheckpoint = "before_destination_head";
+      const verified = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: destinationKey }));
+      headObject = { ok: true, requestId: verified.$metadata.requestId ?? null };
+      if (!verified.ContentLength || verified.ContentLength < 1) throw new Error("FALLBACK_DESTINATION_EMPTY");
+      console.info("[s3] fallback destination verified", { destinationKey, sizeBytes: verified.ContentLength, requestId: verified.$metadata.requestId, httpStatus: verified.$metadata.httpStatusCode });
+    } catch (fallbackError) {
+      console.error("[s3] CopyObject fallback FAILED", { sourceKey, destinationKey, bucket, fallbackError, originalError: error, finalProviderErrorCode: (fallbackError as { Code?: string; code?: string })?.Code ?? (fallbackError as { code?: string })?.code, finalHttpStatus: (fallbackError as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode });
+      const providerError = (error as { Code?: string; code?: string })?.Code ?? (error as { code?: string })?.code;
+      const finalProviderError = (fallbackError as { Code?: string; code?: string })?.Code ?? (fallbackError as { code?: string })?.code;
+      if (fallbackError instanceof Error && !("cause" in fallbackError))
+        Object.defineProperty(fallbackError, "cause", { value: error, configurable: true });
+      const converted = toStorageError(fallbackError, lastCheckpoint);
+      throw new StorageError(
+        converted.message,
+        converted.code,
+        fallbackError,
+        { functionName: "copyImageInS3", stage: lastCheckpoint, lastCheckpoint, sourceKey, destinationKey, copyObject: { ok: false, providerErrorCode: providerError }, fallbackGetObject, fallbackPutObject, headObject, finalProviderErrorCode: finalProviderError, requestId: (fallbackError as { $metadata?: { requestId?: string } })?.$metadata?.requestId ?? null },
+      );
+    }
+  }
+}
+
+/** Arvan uses path-style addressing; CopySource is bucket plus an RFC3986-encoded key. */
+export function buildCopySource(sourceKey: string, sourceBucket = bucket ?? ""): string {
+  return `${sourceBucket}/${encodeURIComponent(sourceKey.replace(/^\/+/, "")).replace(/%2F/gi, "/")}`;
 }
 
 /**

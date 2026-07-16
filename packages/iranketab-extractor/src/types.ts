@@ -21,6 +21,7 @@ export type RelatedProfileCandidate = {
   name: string;
   slug: string;
   sourceUrl: string | null;
+  profileId?: string | null;
   originalName: string | null;
   country: GhafasehCountry | null;
   description?: string | null;
@@ -53,4 +54,3 @@ export type ExtractionDiagnostics = {
   relatedProfiles: RelatedProfileCandidate[];
   coverCandidatesByEdition: Record<string, IranKetabCoverCandidate[]>;
 };
-

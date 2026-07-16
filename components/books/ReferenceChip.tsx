@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { normalizeMediaUrl } from "@/lib/book/cover";
 
 /**
  * چیپ فشرده‌ی نویسنده/مترجم با آواتار دایره‌ای. اگر تصویر نبود یا خطا داد، حرف
@@ -21,7 +22,8 @@ export default function ReferenceChip({
   size?: "sm" | "md";
 }) {
   const [imgError, setImgError] = useState(false);
-  const showImage = !!image && !imgError;
+  const imageSrc = normalizeMediaUrl(image);
+  const showImage = !!imageSrc && !imgError;
   const initial = name.trim().charAt(0) || "؟";
 
   const avatarSize = size === "sm" ? "h-6 w-6" : "h-7 w-7";
@@ -44,7 +46,7 @@ export default function ReferenceChip({
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={image as string}
+          src={imageSrc as string}
             alt={name}
             className="h-full w-full object-cover"
             onError={() => setImgError(true)}

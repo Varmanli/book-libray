@@ -5,6 +5,13 @@ export function finalIranKetabCoverValue(finalKey: string) {
   return finalKey;
 }
 
+/** Canonical managed media for IranKetab contributor profiles and banners. */
+export function finalIranKetabReferenceMediaValue(finalKey: string) {
+  if (!/^references\/iranketab-(author|translator|publisher)-[a-f0-9]{20}(?:-[a-f0-9]{16})?-(profile|banner)\.webp$/i.test(finalKey))
+    throw new Error("کلید نهایی تصویر مرجع ایران‌کتاب معتبر نیست.");
+  return finalKey;
+}
+
 export function legacyIranKetabCoverToKey(value: string) {
   return value.startsWith(LEGACY_IRANKETAB_COVER_PREFIX)
     ? value.replace(/^\/uploads\//, "")

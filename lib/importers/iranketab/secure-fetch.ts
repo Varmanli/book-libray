@@ -19,6 +19,13 @@ export const MAX_REDIRECTS = 3;
 export const MAX_HTML_BYTES = 3 * 1024 * 1024;
 export const FETCH_TIMEOUT_MS = 12_000;
 
+function isBookPath(pathname: string): boolean {
+  let decoded: string;
+  try { decoded = decodeURIComponent(pathname); } catch { return false; }
+  const normalized = decoded.replace(/\/+$/, "");
+  return /^\/book\/\d+(?:-[^/]+)?$/u.test(normalized);
+}
+
 const ipv4Deny = new BlockList();
 for (const [network, prefix] of [["0.0.0.0",8],["10.0.0.0",8],["100.64.0.0",10],["127.0.0.0",8],["169.254.0.0",16],["172.16.0.0",12],["192.0.0.0",24],["192.0.2.0",24],["192.168.0.0",16],["198.18.0.0",15],["198.51.100.0",24],["203.0.113.0",24],["224.0.0.0",4],["240.0.0.0",4]] as const) ipv4Deny.addSubnet(network, prefix, "ipv4");
 const ipv6Deny = new BlockList();
@@ -31,7 +38,7 @@ export function validateIranKetabBookUrl(value: string): URL {
   const host = url.hostname.toLowerCase();
   if (isIP(host)) throw new SecureIranKetabFetchError("UNSAFE_DESTINATION", "آدرس IP به‌عنوان مقصد قابل پذیرش نیست.");
   if (!IRANKETAB_HOSTS.has(host)) throw new SecureIranKetabFetchError("UNSUPPORTED_HOST", "فقط لینک صفحات کتاب سایت ایران‌کتاب قابل پذیرش است.");
-  if (url.search || /%/.test(url.pathname) || !/^\/book\/\d+-[a-z0-9][a-z0-9-]*\/?$/i.test(url.pathname)) throw new SecureIranKetabFetchError("UNSUPPORTED_PATH", "این مسیر، صفحه شناخته‌شده کتاب در ایران‌کتاب نیست.");
+  if (!isBookPath(url.pathname)) throw new SecureIranKetabFetchError("UNSUPPORTED_PATH", "این مسیر، صفحه شناخته‌شده کتاب در ایران‌کتاب نیست.");
   url.hash = "";
   return url;
 }

@@ -801,6 +801,16 @@ export const UserRelations = relations(User, ({ many }) => ({
   blogPosts: many(BlogPost),
 }));
 
+export const BookEditionContributor = pgTable("BookEditionContributor", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  bookEditionId: varchar("book_edition_id").notNull().references(() => BookEdition.id, { onDelete: "cascade" }),
+  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
+  role: CatalogBookContributorRole("role").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
+}, (t) => ({ uniqueContributor: unique("BookEditionContributor_unique").on(t.bookEditionId, t.referenceItemId, t.role), editionIdx: index("BookEditionContributor_edition_idx").on(t.bookEditionId), referenceIdx: index("BookEditionContributor_reference_idx").on(t.referenceItemId) }));
+
 export const PasswordResetTokenRelations = relations(
   PasswordResetToken,
   ({ one }) => ({

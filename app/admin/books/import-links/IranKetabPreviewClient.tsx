@@ -202,7 +202,15 @@ export default function IranKetabPreviewClient({
   );
   const [restored, setRestored] = useState<RecoverableSession | null>(null);
   const [showSamePageReview, setShowSamePageReview] = useState(false);
+  const [isFreshImport, setIsFreshImport] = useState(true);
+  const [resetGeneration, setResetGeneration] = useState(0);
   useEffect(() => {
+    if (sessionStorage.getItem("iranketab:explicit-reset") === "1") {
+      setWorkflowStage(1);
+      setRecoverable(null);
+      setRestored(null);
+      return;
+    }
     const savedPreview = sessionStorage.getItem("iranketab:preview");
     if (savedPreview) {
       try {
@@ -211,6 +219,7 @@ export default function IranKetabPreviewClient({
           result: Extract<PreviewResponse, { success: true }>;
         };
         if (saved.result?.success) {
+          setIsFreshImport(false);
           setUrl(saved.url);
           setResult(saved.result);
           setWorkflowStage(2);
@@ -224,6 +233,7 @@ export default function IranKetabPreviewClient({
       const parsed = commitSuccessSchema.safeParse(JSON.parse(stored));
       if (parsed.success) {
         terminalSuccessRef.current = true;
+        setIsFreshImport(false);
         setTerminalSuccess(parsed.data);
         setWorkflowStage(5);
       } else sessionStorage.removeItem("iranketab:last-success");
@@ -309,6 +319,8 @@ export default function IranKetabPreviewClient({
     )
       return;
     setError(null);
+    setIsFreshImport(false);
+    sessionStorage.removeItem("iranketab:explicit-reset");
     setLoading(true);
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -327,6 +339,7 @@ export default function IranKetabPreviewClient({
         return;
       }
       setResult(payload);
+      setIsFreshImport(false);
       setShowSamePageReview(false);
       sessionStorage.setItem(
         "iranketab:preview",
@@ -360,11 +373,32 @@ export default function IranKetabPreviewClient({
       }))
     )
       return;
+    // Switch the rendered workflow to the empty form before any server cleanup.
+    setIsFreshImport(true);
+    setResetGeneration((generation) => generation + 1);
+    setUrl("");
+    setResult(null);
+    setRecoverable(null);
+    setRestored(null);
+    setTerminalSuccess(null);
+    terminalSuccessRef.current = false;
+    setShowSamePageReview(false);
+    setWorkflowStage(1);
+    setExpanded(false);
+    setDraftDirty(false);
     abortRef.current?.abort();
     abortRef.current = null;
-    if (result?.sessionId) {
-      void fetch(`/api/admin/books/import-links/sessions/${result.sessionId}/draft`, { method: "DELETE" });
+    const sessionId = result?.sessionId ?? recoverable?.id ?? restored?.id;
+    sessionStorage.setItem("iranketab:explicit-reset", "1");
+    if (sessionId) await fetch(`/api/admin/books/import-links/sessions/${sessionId}/draft`, { method: "DELETE" }).catch(() => undefined);
+    for (const storage of [sessionStorage, localStorage]) {
+      for (let index = storage.length - 1; index >= 0; index -= 1) {
+        const key = storage.key(index);
+        if (key?.toLowerCase().includes("iranketab")) storage.removeItem(key);
+      }
     }
+    sessionStorage.setItem("iranketab:explicit-reset", "1");
+    window.history.replaceState({}, "", window.location.pathname);
     setLoading(false);
     setUrl("");
     setResult(null);
@@ -381,6 +415,7 @@ export default function IranKetabPreviewClient({
     sessionStorage.removeItem("iranketab:last-success");
   }
   async function reset() { await resetImport(false); }
+  async function handleNewImport() { await resetImport(true); }
   function handleImportSuccess(success: CommitSuccess) {
     setTerminalSuccess(success);
     terminalSuccessRef.current = true;
@@ -397,8 +432,9 @@ export default function IranKetabPreviewClient({
       )
     : editions;
   const visible = expanded ? filtered : filtered.slice(0, 6);
-  const draftReview = result ? (
+  const draftReview = !isFreshImport && result ? (
     <IranKetabDraftReview
+      key={`${result.sessionId}-${resetGeneration}`}
       sessionId={result.sessionId}
       extraction={result.extraction}
       analysis={result.analysis}
@@ -481,31 +517,31 @@ export default function IranKetabPreviewClient({
               )
             ) : null}
           </div>
-          {!result && !terminalSuccess ? (
-            <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Input
-                ref={urlInputRef}
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://www.iranketab.ir/book/..."
-                dir="ltr"
-                className="h-11 min-w-0"
-              />
-              <Button type="submit" disabled={loading || !url.trim()} className="h-11 shrink-0 px-5">
-                {loading ? (
-                  <LoaderCircle className="size-4 animate-spin" />
-                ) : (
-                  <SearchCheck className="size-4" />
-                )}
-                بررسی
-              </Button>
-            </form>
-          ) : null}
           {error ? (
             <p className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {error.message}
             </p>
           ) : null}
+          <form onSubmit={submit} className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Input
+              ref={urlInputRef}
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="https://www.iranketab.ir/book/..."
+              dir="ltr"
+              aria-label="نشانی صفحه کتاب ایران‌کتاب"
+              disabled={loading}
+              className="h-11 min-w-0"
+            />
+            <Button type="submit" disabled={loading || !url.trim()} className="h-11 shrink-0 px-5">
+              <span className="relative size-4 shrink-0" aria-hidden>
+                <LoaderCircle className={`absolute inset-0 size-4 ${loading ? "animate-spin opacity-100" : "opacity-0"}`} />
+                <SearchCheck className={`absolute inset-0 size-4 ${loading ? "opacity-0" : "opacity-100"}`} />
+              </span>
+              بررسی
+            </Button>
+          </form>
+          <span id="iranketab-workflow-control" className="sr-only" aria-hidden="true" />
         </div>
         {!terminalSuccess ? (
           <>
@@ -524,9 +560,44 @@ export default function IranKetabPreviewClient({
               ))}
               </div>
             </section>
+            {result ? (() => {
+              const profiles = result.extraction.diagnostics.relatedProfiles;
+              const counts = {
+                authors: profiles.filter((profile) => profile.type === "AUTHOR").length,
+                translators: profiles.filter((profile) => profile.type === "TRANSLATOR").length,
+                publishers: profiles.filter((profile) => profile.type === "PUBLISHER").length,
+              };
+              const warnings = profiles.filter((profile) => (profile.diagnostics?.length ?? 0) > 0).length;
+              return (
+                <section data-testid="iranketab-reference-enrichment-summary" className="rounded-2xl border border-border/70 bg-card/45 p-3 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-sm font-black text-foreground">بررسی پدیدآورندگان</h2>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">پروفایل نویسندگان، مترجمان و ناشر پیش از ادامه دریافت و برای تطبیق آماده شده است.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" onClick={() => setShowSamePageReview(true)} className="h-10 rounded-xl font-bold">
+                        بررسی اطلاعات نویسندگان و ناشر
+                      </Button>
+                      {warnings > 0 ? <Button type="button" variant="outline" onClick={() => void submit()} disabled={loading} className="h-10 rounded-xl">
+                        تلاش مجدد دریافت پروفایل‌ها
+                      </Button> : null}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                    {[["نویسندگان", counts.authors], ["مترجمان", counts.translators], ["ناشران", counts.publishers], ["هشدارهای غیرمسدودکننده", warnings]] .map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-center">
+                        <p className="text-lg font-black tabular-nums">{Number(value).toLocaleString("fa-IR")}</p>
+                        <p className="text-[11px] text-muted-foreground">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })() : null}
             <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-end">
-              {result ? <Button type="button" onClick={() => setShowSamePageReview(true)} className="h-10 rounded-xl font-bold">بررسی کاورها</Button> : null}
-              <Button type="button" variant="outline" onClick={() => void resetImport(false)} className="h-10 rounded-xl">افزودن کتاب جدید</Button>
+              {result ? <Button type="button" onClick={() => setShowSamePageReview(true)} variant="outline" className="h-10 rounded-xl font-bold">بررسی کاورها</Button> : null}
+              <Button type="button" variant="outline" onClick={handleNewImport} className="h-10 rounded-xl">افزودن کتاب جدید</Button>
               <Button
                 asChild
                 variant="outline"
@@ -800,7 +871,7 @@ export default function IranKetabPreviewClient({
                   </form>
 
                   {result ? (
-                    <div id="iranketab-workflow-control" className="mt-5" />
+                    <div className="mt-5" />
                   ) : null}
 
                   {loading ? (

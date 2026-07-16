@@ -101,7 +101,10 @@ export default async function BookPage({
     refLinks,
     refImages,
     authorChip,
+    authorChips,
     translatorChip,
+    translatorChips,
+    publisherChip,
     quotes,
     bookNotes,
     editionNotes,
@@ -227,6 +230,13 @@ export default async function BookPage({
         icon={<FiArchive className="h-4 w-4" />}
         label="ناشر"
         value={presentation.publisher}
+        valueAvatar={
+          <MetaAvatar
+            image={publisherChip?.image}
+            name={presentation.publisher}
+            fallback={<FiArchive />}
+          />
+        }
         href={
           refLinks.publisher
             ? `/publishers/${encodeURIComponent(refLinks.publisher)}`
@@ -385,11 +395,22 @@ export default async function BookPage({
 
               <div className="mt-5 flex flex-col items-center gap-3 lg:items-start">
                 <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 lg:justify-start">
-                  <ReferenceChip
-                    name={authorChip.name}
-                    href={authorChip.href}
-                    image={authorChip.image}
-                  />
+                  {authorChips.map((chip) => (
+                    <ReferenceChip
+                      key={`${chip.name}-${chip.href ?? ""}`}
+                      name={chip.name}
+                      href={chip.href}
+                      image={chip.image}
+                    />
+                  ))}
+                  {translatorChips.map((chip) => (
+                    <ReferenceChip
+                      key={`translator-${chip.name}-${chip.href ?? ""}`}
+                      name={chip.name}
+                      href={chip.href}
+                      image={chip.image}
+                    />
+                  ))}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">

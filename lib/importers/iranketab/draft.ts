@@ -12,6 +12,7 @@ const entityType = z.enum([
   "COUNTRY",
 ]);
 const entityProfile = z.object({
+  profileId: z.string().nullable().optional(),
   originalName: z.string().nullable().optional(),
   slug: z.string().nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
@@ -203,7 +204,7 @@ export function initializeIranKetabDraft(
 ): IranKetabImportDraft {
   const profileFor = (type: z.infer<typeof entityType>, name: string) => {
     const profile = extraction.diagnostics.relatedProfiles.find((item) => item.type === type && item.name === name);
-    return profile ? { originalName: profile.originalName, slug: profile.slug, sourceUrl: profile.sourceUrl, description: profile.description, shortDescription: profile.shortDescription, imageUrl: profile.imageUrl, bannerImageUrl: profile.bannerImageUrl, birthYear: profile.birthYear, deathYear: profile.deathYear, countryName: profile.country?.name ?? null, countrySlug: profile.country?.slug ?? null, website: profile.website, seoTitle: profile.seoTitle, seoDescription: profile.seoDescription, metadata: profile.metadata } : undefined;
+    return profile ? { profileId: profile.profileId ?? null, originalName: profile.originalName, slug: profile.slug, sourceUrl: profile.sourceUrl, description: profile.description, shortDescription: profile.shortDescription, imageUrl: profile.imageUrl, bannerImageUrl: profile.bannerImageUrl, birthYear: profile.birthYear, deathYear: profile.deathYear, countryName: profile.country?.name ?? null, countrySlug: profile.country?.slug ?? null, website: profile.website, seoTitle: profile.seoTitle, seoDescription: profile.seoDescription, metadata: profile.metadata } : undefined;
   };
   const resolve = (type: z.infer<typeof entityType>, name: string) => {
     const profile = profileFor(type, name);

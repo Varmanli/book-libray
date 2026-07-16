@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import {
@@ -12,19 +12,36 @@ import {
   transitionImportSession,
 } from "@/lib/importers/iranketab/session";
 import { commitSuccessSchema } from "@/lib/importers/iranketab/commit-contract";
+import {
+  attachErrorCheckpointIfMissing,
+  checkpoint,
+} from "@/lib/importers/iranketab/error-diagnostics";
+import { developmentErrorPayload } from "@/lib/importers/iranketab/commit-api-diagnostics";
 export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const body = (await req.json().catch(() => null)) as {
-    extraction?: never;
-    draft?: never;
+    extraction?: unknown;
+    draft?: unknown;
     sessionId?: string;
   } | null;
   if (!body?.extraction || !body.draft || !body.sessionId)
     return apiError("درخواست ورود معتبر نیست", 400, "INVALID_DRAFT");
+  let routeCheckpoint = checkpoint(
+    "before_assert_owned_session",
+    "POST /api/admin/books/import-links/commit",
+    "session_validation",
+    "assertOwnedImportSession(body.sessionId, gate.user.id)",
+  );
   try {
     await assertOwnedImportSession(body.sessionId, gate.user.id);
+    routeCheckpoint = checkpoint(
+      "before_commit_session_transition",
+      "POST /api/admin/books/import-links/commit",
+      "session_transition",
+      "transitionImportSession(..., COMMITTING)",
+    );
     await transitionImportSession(
       body.sessionId,
       gate.user.id,
@@ -32,6 +49,12 @@ export async function POST(req: NextRequest) {
       {},
       "COMMIT_STARTED",
     ).catch(() => undefined);
+    routeCheckpoint = checkpoint(
+      "before_commit_iranketab_import",
+      "POST /api/admin/books/import-links/commit",
+      "commit_call",
+      "commitIranKetabImport(...)",
+    );
     const result = await commitIranKetabImport({
       adminId: gate.user.id,
       extraction: body.extraction as never,
@@ -69,6 +92,7 @@ export async function POST(req: NextRequest) {
     const { ok: _ok, ...data } = payload;
     return apiSuccess(data);
   } catch (error) {
+    attachErrorCheckpointIfMissing(error, routeCheckpoint);
     const code =
       error instanceof IranKetabCommitError ? error.code : "IMPORT_FAILED";
     if (code === "IMPORT_ALREADY_COMPLETED") {
@@ -98,9 +122,21 @@ export async function POST(req: NextRequest) {
       "COMMIT_FAILED",
       { code },
     ).catch(() => undefined);
-    if (error instanceof IranKetabCommitError)
-      return apiError(error.message, 409, error.code);
+    if (error instanceof IranKetabCommitError) {
+      const developmentDiagnostics = process.env.NODE_ENV !== "production" || process.env.IRANKETAB_DEBUG === "true";
+      const { diagnostic, errorChain, lastCheckpoint } = developmentErrorPayload(error, body, developmentDiagnostics);
+      console.error("[iranketab.commit] API failure", { internalCode: error.code, message: error.message, cause: error.cause, errorChain, lastCheckpoint, sessionId: body.sessionId });
+      const detail = process.env.NODE_ENV !== "production" && error.cause instanceof Error ? ` ${error.cause.message}` : "";
+      return NextResponse.json({ ok: false, error: `${error.message}${detail}`, code: error.code, diagnostic, errorChain, lastCheckpoint }, { status: 409 });
+    }
     console.error("iranketab commit failed", error);
-    return apiError("ثبت نهایی کتاب ناموفق بود", 500, "IMPORT_FAILED");
+    const developmentDiagnostics = process.env.NODE_ENV !== "production" || process.env.IRANKETAB_DEBUG === "true";
+    const diagnostics = developmentErrorPayload(error, body, developmentDiagnostics);
+    return NextResponse.json({
+      ok: false,
+      error: "ثبت نهایی کتاب ناموفق بود",
+      code: "IMPORT_FAILED",
+      ...diagnostics,
+    }, { status: 500 });
   }
 }

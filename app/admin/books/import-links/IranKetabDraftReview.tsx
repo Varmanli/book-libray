@@ -46,6 +46,8 @@ import {
 } from "@/lib/importers/iranketab/commit-contract";
 import IranKetabImportSuccess from "./IranKetabImportSuccess";
 
+type CommitDiagnostic = { httpStatus: number; [key: string]: unknown };
+
 function preparedDraftFromUnknown(value: unknown): PreparedDraft | null {
   if (!value || typeof value !== "object") return null;
   const record = value as { preparedCovers?: unknown[] };
@@ -97,6 +99,7 @@ export default function IranKetabDraftReview({
   const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [serverIssues, setServerIssues] = useState<string[]>([]);
+  const [commitDiagnostic, setCommitDiagnostic] = useState<CommitDiagnostic | null>(null);
   const [checking, setChecking] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -123,7 +126,7 @@ export default function IranKetabDraftReview({
     [],
   );
   useEffect(() => {
-    onStageChange?.(commitResult ? 5 : preparedDraft ? 3 : 1);
+    onStageChange?.(commitResult ? 6 : preparedDraft ? 4 : 2);
   }, [commitResult, preparedDraft, onStageChange]);
   useEffect(() => {
     dispatch({ type: "RESET", draft: initial });
@@ -194,6 +197,13 @@ export default function IranKetabDraftReview({
     committing,
     success: Boolean(commitResult),
   });
+  const relatedProfiles = extraction.diagnostics.relatedProfiles;
+  const profileCounts = {
+    AUTHOR: relatedProfiles.filter((profile) => profile.type === "AUTHOR").length,
+    TRANSLATOR: relatedProfiles.filter((profile) => profile.type === "TRANSLATOR").length,
+    PUBLISHER: relatedProfiles.filter((profile) => profile.type === "PUBLISHER").length,
+  };
+  const profileFailures = relatedProfiles.filter((profile) => (profile.diagnostics?.length ?? 0) > 0).length;
   const canContinue =
     !checking &&
     !preparing &&
@@ -337,6 +347,7 @@ export default function IranKetabDraftReview({
         terminalRef.current = true;
         commitGuard.current = true;
         setServerIssues([]);
+        setCommitDiagnostic(null);
         setCommitResult(parsed.data);
         onSuccess?.(parsed.data);
         sessionStorage.setItem(
@@ -344,13 +355,14 @@ export default function IranKetabDraftReview({
           JSON.stringify(parsed.data),
         );
       } else {
-        const error = raw as { error?: string; code?: string };
+        const error = raw as { error?: string; code?: string; diagnostic?: Record<string, unknown> };
         setServerIssues([
           error.error ??
             (parsed.success
               ? "ثبت نهایی ناموفق بود."
               : `پاسخ ثبت نهایی معتبر نیست: ${parsed.error.issues[0]?.path.join(".")}`),
         ]);
+        setCommitDiagnostic(error.diagnostic ? { httpStatus: response.status, ...error.diagnostic } : null);
         if (error.code === "STALE_DRAFT") setPreparedDraft(null);
         if (error.code === "COVER_PROMOTION_FAILED") {
           setPreparedDraft(null);
@@ -380,6 +392,24 @@ export default function IranKetabDraftReview({
       className="relative space-y-6 pb-40 sm:pb-32"
       aria-label="بررسی و تصمیم‌گیری برای ورود کتاب"
     >
+      <Card data-testid="iranketab-reference-enrichment-step" className="overflow-hidden rounded-3xl border-primary/20 shadow-sm">
+        <CardHeader className="border-b border-border/50 px-5 py-4 sm:px-7">
+          <CardTitle className="text-base font-black">بررسی پدیدآورندگان</CardTitle>
+          <CardDescription>پروفایل‌های نویسندگان، مترجمان و ناشران همراه با استخراج کتاب دریافت و برای تطبیق آماده شده‌اند.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
+          {(["AUTHOR", "TRANSLATOR", "PUBLISHER"] as const).map((type) => (
+            <div key={type} className="rounded-2xl border border-border/60 bg-background/50 p-3">
+              <p className="text-sm font-black">{type === "AUTHOR" ? "نویسندگان" : type === "TRANSLATOR" ? "مترجمان" : "ناشران"}</p>
+              <p className="mt-1 text-2xl font-black text-primary">{profileCounts[type].toLocaleString("fa-IR")}</p>
+              <p className="text-xs text-muted-foreground">پروفایل دریافت و تحلیل شد</p>
+            </div>
+          ))}
+          <p className="text-xs leading-6 text-muted-foreground sm:col-span-3">
+            {profileFailures > 0 ? `${profileFailures.toLocaleString("fa-IR")} پروفایل با هشدار دریافت شد؛ ورود کتاب متوقف نمی‌شود و می‌توانید جزئیات را بررسی کنید.` : "اطلاعات پروفایل‌ها برای تطبیق موجودی آماده است."}
+          </p>
+        </CardContent>
+      </Card>
       {controlTarget
         ? createPortal(
             <div
@@ -496,7 +526,7 @@ export default function IranKetabDraftReview({
               data-workflow-invalid="true"
               tabIndex={-1}
             >
-              {[...validation.issues, ...serverIssues].map((issue) => (
+          {[...validation.issues, ...serverIssues].map((issue) => (
                 <li key={issue}>{issue}</li>
               ))}
             </ul>
@@ -505,6 +535,15 @@ export default function IranKetabDraftReview({
               پیش‌نویس برای مرحله انتقال کاور آماده است.
             </p>
           )}
+          {commitDiagnostic ? (
+            <div className="space-y-3 rounded-2xl border border-sky-500/30 bg-sky-500/[0.06] p-4 text-sm" dir="ltr" data-testid="iranketab-commit-diagnostic">
+              <div className="flex items-center justify-between gap-3" dir="rtl">
+                <span className="font-bold">جزئیات تشخیصی خطای ثبت نهایی (توسعه)</span>
+                <Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(JSON.stringify(commitDiagnostic, null, 2))}>کپی جزئیات خطا</Button>
+              </div>
+              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-background/80 p-3 text-xs">{JSON.stringify(commitDiagnostic, null, 2)}</pre>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <Card

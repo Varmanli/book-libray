@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test, { beforeEach, after } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import {
   advisoryLockKey,
   canonicalIranKetabSourceIdentity,
 } from "../../lib/importers/iranketab/server-hardening";
-import { commitIranKetabImport } from "../../lib/importers/iranketab/commit";
+import {
+  commitIranKetabImport,
+  type IranKetabCommitMediaStorage,
+} from "../../lib/importers/iranketab/commit";
 import {
   draftFingerprint,
   type IranKetabImportDraftWithPreparedCovers,
@@ -17,8 +21,13 @@ import {
 } from "../../lib/importers/iranketab/storage-promotion";
 
 const connectionString = process.env.DATABASE_URL;
-if (!connectionString || !/127\.0\.0\.1|localhost/.test(connectionString))
-  throw new Error("Integration tests require an isolated local PostgreSQL URL");
+const databaseName = connectionString ? new URL(connectionString).pathname.slice(1) : "";
+if (
+  !connectionString ||
+  !/127\.0\.0\.1|localhost/.test(connectionString) ||
+  !/(^|[_-])test([_-]|$)/i.test(databaseName)
+)
+  throw new Error("Integration tests require an isolated local PostgreSQL database whose name contains 'test'");
 const pool = new Pool({ connectionString, max: 12 });
 after(async () => pool.end());
 beforeEach(async () => {
@@ -210,7 +219,15 @@ function fixture(bookId = 9001, isbn13 = "9780306406157") {
         sourceEditionCode: `${bookId}-1`,
       },
     ],
-    diagnostics: { coverCandidatesByEdition: {} },
+    warnings: [],
+    diagnostics: {
+      descriptionCompleteness: "missing",
+      editionsParsed: 1,
+      editionsAfterDedup: 1,
+      parsedEditions: [],
+      relatedProfiles: [],
+      coverCandidatesByEdition: {},
+    },
   };
   const draft: any = {
     draftVersion: 1,
@@ -308,6 +325,95 @@ test("real commit is idempotent after duplicate submit and lost response retry",
     entities: "1",
     links: "1",
   });
+});
+
+test("complete commit persists promoted cover and contributor reference media", async () => {
+  const input = fixture(9010, "9783161484100");
+  const author = {
+    action: "CREATE_NEW",
+    entityType: "AUTHOR",
+    extractedName: "Media Author",
+    proposedName: "Media Author",
+    profile: { description: "Author biography", sourceUrl: "https://www.iranketab.ir/profile/author" },
+    profileImageAction: "replace",
+    bannerImageAction: "preserve",
+  };
+  const translator = {
+    action: "CREATE_NEW",
+    entityType: "TRANSLATOR",
+    extractedName: "Media Translator",
+    proposedName: "Media Translator",
+    profile: { description: "Translator biography", sourceUrl: "https://www.iranketab.ir/profile/translator" },
+    profileImageAction: "replace",
+    bannerImageAction: "preserve",
+  };
+  const publisher = {
+    action: "CREATE_NEW",
+    entityType: "PUBLISHER",
+    extractedName: "Media Publisher",
+    proposedName: "Media Publisher",
+    profile: { description: "Publisher biography", sourceUrl: "https://www.iranketab.ir/profile/publisher" },
+    profileImageAction: "replace",
+    bannerImageAction: "preserve",
+  };
+  const draft = input.prepared.draft as any;
+  draft.catalog.authors = [author];
+  draft.entities = [author, translator, publisher];
+  draft.editions[0].translators = [translator];
+  draft.editions[0].publisher = publisher;
+  draft.editions[0].coverAction = { action: "IMPORT_SOURCE", candidateUrl: "https://images.iranketab.ir/cover.webp" };
+  draft.source.approvedCoverCandidateUrls = ["https://images.iranketab.ir/cover.webp"];
+  (input.extraction as any).book.authors = [{ name: "Media Author" }];
+  (input.extraction as any).editions[0].translators = [{ name: "Media Translator" }];
+  (input.extraction as any).editions[0].publisher = { name: "Media Publisher" };
+  const fingerprint = draftFingerprint(draft);
+  const referenceKey = (type: string, name: string) => {
+    const token = createHash("sha256").update(`${type}:${name}`).digest("hex").slice(0, 16);
+    return `references/iranketab-${type.toLowerCase()}-${fingerprint.slice(0, 20)}-${token}-profile.webp`;
+  };
+  const prefix = `tmp/iranketab-imports/integration-admin/${fingerprint}/`;
+  const coverSource = `${prefix}0-9010-1.webp`;
+  const referenceSources = {
+    AUTHOR: `${prefix}reference-author-a-profile.webp`,
+    TRANSLATOR: `${prefix}reference-translator-b-profile.webp`,
+    PUBLISHER: `${prefix}reference-publisher-c-profile.webp`,
+  } as const;
+  const objects = new Map<string, { key: string; sizeBytes: number; contentType: string | null; etag: string | null; metadata: Record<string, string> }>();
+  objects.set(coverSource, { key: coverSource, sizeBytes: 100, contentType: "image/webp", etag: null, metadata: { "iranketab-admin": "integration-admin", "iranketab-fingerprint": fingerprint, "iranketab-edition-index": "0" } });
+  for (const source of Object.values(referenceSources))
+    objects.set(source, { key: source, sizeBytes: 100, contentType: "image/webp", etag: null, metadata: {} });
+  const mediaStorage: IranKetabCommitMediaStorage = {
+    async head(key) { return objects.get(key) ?? null; },
+    async copy({ sourceKey, destinationKey, contentType, metadata }) {
+      const source = objects.get(sourceKey);
+      if (!source) throw new Error("SOURCE_MISSING");
+      objects.set(destinationKey, { ...source, key: destinationKey, contentType: contentType ?? source.contentType, metadata: metadata ?? source.metadata });
+    },
+    async delete(key) { objects.delete(key); },
+  };
+  input.prepared = {
+    draft,
+    fingerprint,
+    preparedCovers: [{ extractedEditionIndex: 0, sourceEditionCode: "9010-1", status: "PREPARED", action: "USE_PREPARED", objectKey: coverSource, url: "https://storage.invalid/temp-cover.webp", originalSourceUrl: "https://images.iranketab.ir/cover.webp", mimeType: "image/webp", width: 100, height: 100, sizeBytes: 100, preparedAt: new Date().toISOString() }],
+    preparedReferenceImages: [author, translator, publisher].map((entity) => ({ entityType: entity.entityType, extractedName: entity.extractedName, kind: "PROFILE" as const, status: "PREPARED" as const, objectKey: referenceSources[entity.entityType as keyof typeof referenceSources], sourceUrl: entity.profile.sourceUrl, mimeType: "image/webp" as const, width: 100, height: 100, sizeBytes: 100, url: "https://storage.invalid/reference.webp" })),
+  } as any;
+
+  const result = await commitIranKetabImport({ adminId: "integration-admin", ...input, mediaStorage });
+  assert.equal(result.catalog.action, "CREATED");
+  assert.equal(result.editions[0].action, "CREATED");
+
+  const references = await pool.query(`select type,name,cover_image,description from "ReferenceItem" order by type`);
+  assert.deepEqual(references.rows.map((row) => ({ type: row.type, coverImage: row.cover_image, description: row.description })), [
+    { type: "AUTHOR", coverImage: referenceKey("AUTHOR", "Media Author"), description: "Author biography" },
+    { type: "TRANSLATOR", coverImage: referenceKey("TRANSLATOR", "Media Translator"), description: "Translator biography" },
+    { type: "PUBLISHER", coverImage: referenceKey("PUBLISHER", "Media Publisher"), description: "Publisher biography" },
+  ]);
+  const relations = await pool.query(`select (select count(*) from "CatalogBookContributor" where role='AUTHOR') authors, (select count(*) from "BookEditionContributor" where role='TRANSLATOR') translators, (select count(*) from "BookEditionPublisher") publishers`);
+  assert.deepEqual(relations.rows[0], { authors: "1", translators: "1", publishers: "1" });
+  assert.ok(objects.has(`covers/iranketab-${fingerprint.slice(0, 20)}-0.webp`));
+  assert.ok(objects.has(referenceKey("AUTHOR", "Media Author")));
+  assert.ok(objects.has(referenceKey("TRANSLATOR", "Media Translator")));
+  assert.ok(objects.has(referenceKey("PUBLISHER", "Media Publisher")));
 });
 
 test("concurrent real commits across pool connections create one import", async () => {

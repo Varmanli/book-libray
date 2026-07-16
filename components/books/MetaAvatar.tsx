@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { normalizeMediaUrl } from "@/lib/book/cover";
 
 /**
  * آواتار دایره‌ای کوچک برای کارت متادیتا (مثل مترجم). در نبود تصویر یا خطای
@@ -16,7 +17,8 @@ export default function MetaAvatar({
   fallback?: ReactNode;
 }) {
   const [imgError, setImgError] = useState(false);
-  const showImage = !!image && !imgError;
+  const imageSrc = normalizeMediaUrl(image);
+  const showImage = !!imageSrc && !imgError;
   const initial = name?.trim().charAt(0);
 
   return (
@@ -24,7 +26,7 @@ export default function MetaAvatar({
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={image as string}
+          src={imageSrc as string}
           alt={name ?? ""}
           className="h-full w-full object-cover"
           onError={() => setImgError(true)}

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 const steps = [
   { label: "دریافت اطلاعات", icon: FileSearch },
   { label: "بررسی داده‌ها", icon: ScanSearch },
+  { label: "بررسی پدیدآورندگان", icon: Users },
   { label: "تطبیق موجودی", icon: Users },
   { label: "بررسی نسخه‌ها", icon: UploadCloud },
   { label: "آمادگی پیش‌نویس", icon: ShieldCheck },

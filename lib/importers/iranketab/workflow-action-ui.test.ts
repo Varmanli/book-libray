@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const source = readFileSync(path.join(process.cwd(), "app/admin/books/import-links/IranKetabDraftReview.tsx"), "utf8");
+const preview = readFileSync(path.join(process.cwd(), "app/admin/books/import-links/IranKetabPreviewClient.tsx"), "utf8");
 
 test("top workflow control and mobile-safe bottom spacing remain rendered", () => {
   assert.match(source, /data-testid="import-workflow-top-control"/);
@@ -35,8 +36,23 @@ test("completed technical details and edition cards are collapsed by default", (
 test("contributor import is a distinct persisted workflow step before commit", () => {
   const ui = readFileSync(path.join(process.cwd(), "app/admin/books/import-links/IranKetabImporterUi.tsx"), "utf8");
   const session = readFileSync(path.join(process.cwd(), "lib/importers/iranketab/session.ts"), "utf8");
-  assert.match(ui, /ایمپورت نویسندگان، مترجمان و ناشران/);
+  assert.match(ui, /بررسی پدیدآورندگان/);
   assert.match(source, /iranketab-contributor-step/);
   assert.match(session, /CONTRIBUTOR_STEP_STARTED/);
   assert.match(session, /CONTRIBUTOR_STEP_COMPLETED/);
+});
+
+test("new import reset switches to fresh mode before async cleanup", () => {
+  assert.match(preview, /const \[isFreshImport, setIsFreshImport\] = useState\(true\)/);
+  assert.match(preview, /setIsFreshImport\(true\);[\s\S]*setResult\(null\)/);
+  assert.match(preview, /onClick=\{handleNewImport\}/);
+  assert.match(preview, /key=\{`\$\{result\.sessionId\}-\$\{resetGeneration\}`\}/);
+  assert.match(preview, /iranketab:explicit-reset/);
+});
+
+test("summary view mounts the initial IranKetab URL form", () => {
+  assert.match(preview, /view = "summary"/);
+  assert.match(preview, /aria-label="نشانی صفحه کتاب ایران‌کتاب"/);
+  assert.match(preview, /<Button type="submit" disabled=\{loading \|\| !url\.trim\(\)\}/);
+  assert.match(preview, /<form onSubmit=\{submit\} className="mt-4 flex flex-col gap-2 sm:flex-row">/);
 });

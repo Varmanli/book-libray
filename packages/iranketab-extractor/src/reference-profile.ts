@@ -9,6 +9,7 @@ export type ParsedIranKetabReferenceProfile = {
   originalName: string | null;
   slug: string;
   sourceUrl: string | null;
+  profileId: string | null;
   sourceName: "iranketab";
   description: string | null;
   shortDescription: string | null;
@@ -52,19 +53,21 @@ export function parseIranKetabReferenceProfile(input: {
 }): ParsedIranKetabReferenceProfile {
   const $ = cheerio.load(input.html);
   const canonical = $("link[rel='canonical']").attr("href") ?? input.pageUrl;
-  const name = first($, ["meta[property='og:title']", "h1", "[itemprop='name']"]) ?? "";
-  const description = first($, ["meta[name='description']", "meta[property='og:description']", "[itemprop='description']"]);
-  const originalName = first($, ["[itemprop='alternateName']", ".ltr", "meta[name='originalName']"]);
-  const imageUrl = first($, ["meta[property='og:image']", "[itemprop='image'] img", "img[alt*='پروفایل']"]);
-  const birthYear = parseNullableInt(labeled($, /(?:تولد|زاده)\s*[:：-]?\s*([۰-۹0-9]{4})/));
-  const deathYear = parseNullableInt(labeled($, /(?:درگذشت|وفات)\s*[:：-]?\s*([۰-۹0-9]{4})/));
+  const name = first($, [".relative h4.font-bold", "h4.font-bold", "meta[property='og:title']", "h1", "[itemprop='name']"]) ?? "";
+  const description = first($, [".relative .text-justify", "[itemprop='description']", "meta[property='og:description']", "meta[name='description']"]);
+  const originalName = first($, [".relative h5.font-en", "[itemprop='alternateName']", ".ltr", "meta[name='originalName']"]);
+  const imageUrl = first($, [".relative img[alt]:not([alt*='ایران'])", "meta[property='og:image']", "[itemprop='image'] img", "img[alt*='پروفایل']"]);
+  const visibleText = normalizeWhitespace($(".relative").first().text());
+  const birthYear = parseNullableInt(labeled($, /(?:تولد|زاده)\s*[:：-]?\s*([۰-۹0-9]{4})/) ?? visibleText.match(/زاده[^۰-۹0-9]{0,30}([۰-۹0-9]{4})/)?.[1] ?? null);
+  const deathYear = parseNullableInt(labeled($, /(?:درگذشت|وفات)\s*[:：-]?\s*([۰-۹0-9]{4})/) ?? visibleText.match(/(?:درگذشته|وفات)[^۰-۹0-9]{0,30}([۰-۹0-9]{4})/)?.[1] ?? null);
   let slug = "";
   try { slug = new URL(canonical, input.pageUrl).pathname.split("/").filter(Boolean).pop() ?? ""; } catch { slug = ""; }
+  const profileId = canonical.match(/\/profile\/(\d+)(?:-|\/|$)/)?.[1] ?? $("[data-entity-id]").first().attr("data-entity-id") ?? null;
   const diagnostics: string[] = [];
   if (!name) diagnostics.push("profile name missing");
   if (!description) diagnostics.push("profile description missing");
   return {
-    type: input.type, name: normalizePersianText(name), originalName: originalName ? normalizeWhitespace(originalName) : null,
+    type: input.type, name: normalizePersianText(name.replace(/^کتاب های\s+/i, "").replace(/\s*\|.*$/, "")), originalName: originalName ? normalizeWhitespace(originalName) : null, profileId,
     slug, sourceUrl: canonical, sourceName: "iranketab", description, shortDescription: description,
     imageUrl, bannerImageUrl: null, birthYear: birthYear && birthYear > 0 ? birthYear : null,
     deathYear: deathYear && deathYear > 0 ? deathYear : null,
@@ -82,24 +85,35 @@ export async function enrichIranKetabReferenceProfiles(input: {
   timeoutMs?: number;
 }): Promise<ParsedIranKetabReferenceProfile[]> {
   const seen = new Set<string>();
-  const result: ParsedIranKetabReferenceProfile[] = [];
-  for (const profile of input.profiles) {
-    if (!profile.sourceUrl || seen.has(profile.sourceUrl)) continue;
+  const uniqueProfiles = input.profiles.filter((profile) => {
+    if (!profile.sourceUrl || seen.has(profile.sourceUrl)) return false;
     seen.add(profile.sourceUrl);
+    return true;
+  });
+  const fetchProfile = async (profile: (typeof uniqueProfiles)[number]) => {
     try {
-      const url = new URL(profile.sourceUrl);
+      const url = new URL(profile.sourceUrl!);
       if (!/^(?:www\.)?iranketab\.ir$/i.test(url.hostname)) throw new Error("PROFILE_HOST_NOT_ALLOWED");
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10000);
-      const response = await (input.fetcher ?? globalThis.fetch)(url.toString(), { signal: controller.signal });
-      clearTimeout(timer);
-      if (!response.ok || !(response.headers.get("content-type") ?? "").toLowerCase().includes("html")) throw new Error(`PROFILE_HTTP_${response.status}`);
-      const html = await response.text();
-      if (html.length > 2_000_000) throw new Error("PROFILE_RESPONSE_TOO_LARGE");
-      result.push(parseIranKetabReferenceProfile({ html, pageUrl: url.toString(), type: profile.type }));
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10000);
+        try {
+          const response = await (input.fetcher ?? globalThis.fetch)(url.toString(), { signal: controller.signal });
+          if (!response.ok || !(response.headers.get("content-type") ?? "").toLowerCase().includes("html")) throw new Error(`PROFILE_HTTP_${response.status}`);
+          const html = await response.text();
+          if (html.length > 2_000_000) throw new Error("PROFILE_RESPONSE_TOO_LARGE");
+          return parseIranKetabReferenceProfile({ html, pageUrl: url.toString(), type: profile.type });
+        } catch (error) { lastError = error; } finally { clearTimeout(timer); }
+      }
+      throw lastError ?? new Error("PROFILE_FETCH_FAILED");
     } catch (error) {
-      result.push({ type: profile.type, name: profile.name, originalName: null, slug: "", sourceUrl: profile.sourceUrl, sourceName: "iranketab", description: null, shortDescription: null, imageUrl: null, bannerImageUrl: null, birthYear: null, deathYear: null, countryName: null, countrySlug: null, country: null, website: null, seoTitle: null, seoDescription: null, metadata: {}, diagnostics: [`profile fetch failed: ${error instanceof Error ? error.message : "unknown"}`] });
+      return { type: profile.type, name: profile.name, originalName: null, profileId: null, slug: "", sourceUrl: profile.sourceUrl, sourceName: "iranketab" as const, description: null, shortDescription: null, imageUrl: null, bannerImageUrl: null, birthYear: null, deathYear: null, countryName: null, countrySlug: null, country: null, website: null, seoTitle: null, seoDescription: null, metadata: {}, diagnostics: [`profile fetch failed: ${error instanceof Error ? error.message : "unknown"}`] };
     }
+  };
+  const results: ParsedIranKetabReferenceProfile[] = [];
+  for (let index = 0; index < uniqueProfiles.length; index += 3) {
+    results.push(...await Promise.all(uniqueProfiles.slice(index, index + 3).map(fetchProfile)));
   }
-  return result;
+  return results;
 }

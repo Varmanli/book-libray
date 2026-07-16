@@ -1,9 +1,11 @@
 import { and, eq, or, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor";
 import { db } from "@/db";
 import {
   BookEdition,
   BookEditionPublisher,
+  BookEditionContributor,
   BookExternalLink,
   CatalogBook,
   CatalogBookContributor,
@@ -35,57 +37,80 @@ import {
 } from "./hardening";
 import { iranKetabImportDraftSchema } from "./draft";
 import { extractionCollectionLimitIssues, formatIranKetabSchemaIssues, IRANKETAB_COLLECTION_LIMITS } from "./collection-limits";
-import { finalIranKetabCoverValue } from "./repair-cover-paths";
+import {
+  finalIranKetabCoverValue,
+  finalIranKetabReferenceMediaValue,
+} from "./repair-cover-paths";
 import {
   advisoryLockKey,
   canonicalIranKetabSourceIdentity,
 } from "./server-hardening";
-
-export type IranKetabCommitErrorCode =
-  | "INVALID_DRAFT"
-  | "STALE_DRAFT"
-  | "SOURCE_URL_CONFLICT"
-  | "SOURCE_EDITION_CONFLICT"
-  | "ENTITY_AMBIGUOUS"
-  | "COVER_PROMOTION_FAILED"
-  | "DATABASE_TRANSACTION_FAILED"
-  | "IMPORT_ALREADY_COMPLETED"
-  | "CONCURRENT_IMPORT_CONFLICT";
-export const IRANKETAB_COMMIT_ERROR_MESSAGES: Record<
-  IranKetabCommitErrorCode,
-  string
-> = {
-  INVALID_DRAFT: "پیش‌نویس ورود معتبر نیست.",
-  STALE_DRAFT: "پیش‌نویس تغییر کرده است؛ دوباره اعتبارسنجی کنید.",
-  SOURCE_URL_CONFLICT: "لینک ایران‌کتاب متعلق به کتاب دیگری است.",
-  SOURCE_EDITION_CONFLICT: "کد نسخه ایران‌کتاب متعلق به نسخه دیگری است.",
-  ENTITY_AMBIGUOUS: "یکی از مراجع چند تطابق احتمالی دارد.",
-  COVER_PROMOTION_FAILED: "انتقال کاور کامل نشد؛ دوباره آماده‌سازی کنید.",
-  DATABASE_TRANSACTION_FAILED: "ثبت تراکنشی اطلاعات انجام نشد.",
-  IMPORT_ALREADY_COMPLETED: "این ورود قبلاً تکمیل شده است.",
-  CONCURRENT_IMPORT_CONFLICT: "ورود هم‌زمان دیگری در حال انجام است.",
+import {
+  attachErrorCheckpoint,
+  checkpoint,
+} from "./error-diagnostics";
+import {
+  IranKetabCommitError,
+  mediaValidationError,
+  promotionFailure,
+  wrapIranKetabCommitError,
+} from "./commit-errors";
+export {
+  IranKetabCommitError,
+  IRANKETAB_COMMIT_ERROR_MESSAGES,
+  mediaValidationError,
+  promotionFailure,
+  wrapIranKetabCommitError,
+  type IranKetabCommitErrorCode,
+} from "./commit-errors";
+export type IranKetabCommitMediaStorage = {
+  head: typeof headImageUpload;
+  copy: typeof copyImageUpload;
+  delete: typeof deleteImageUpload;
 };
-export class IranKetabCommitError extends Error {
-  constructor(
-    public readonly code: IranKetabCommitErrorCode,
-    message = IRANKETAB_COMMIT_ERROR_MESSAGES[code],
-  ) {
-    super(message);
-    this.name = "IranKetabCommitError";
-  }
-}
 export async function commitIranKetabImport(params: {
   adminId: string;
   extraction: IranKetabExtractionEnvelope;
   prepared: IranKetabImportDraftWithPreparedCovers;
+  mediaStorage?: IranKetabCommitMediaStorage;
 }) {
   const { draft, fingerprint, preparedCovers } = params.prepared;
+  let lastCheckpoint = checkpoint(
+    "commit_started",
+    "commitIranKetabImport",
+    "input_validation",
+    "read prepared import payload",
+  );
+  const markCommit = (name: string, stage: string, statement: string) => {
+    lastCheckpoint = checkpoint(name, "commitIranKetabImport", stage, statement);
+    console.info("[iranketab.commit] checkpoint", lastCheckpoint);
+  };
   const preparedReferenceImages = params.prepared.preparedReferenceImages ?? [];
+  const mediaStorage = params.mediaStorage ?? {
+    head: headImageUpload,
+    copy: copyImageUpload,
+    delete: deleteImageUpload,
+  };
+  const draftReferenceCounts = {
+    authors: draft.catalog.authors.length,
+    translators: draft.editions.reduce((total, edition) => total + (edition.action === "EXCLUDE" ? 0 : edition.translators.length), 0),
+    publishers: draft.editions.filter((edition) => edition.action !== "EXCLUDE" && Boolean(edition.publisher)).length,
+  };
+  console.info("[iranketab.commit] contributor payload", {
+    ...draftReferenceCounts,
+    entities: draft.entities.map((entity) => ({ type: entity.entityType, name: entity.extractedName, action: entity.action })),
+    stagedReferenceImages: preparedReferenceImages.filter((image) => image.status === "PREPARED").length,
+  });
   const extractionLimitIssues = extractionCollectionLimitIssues(params.extraction);
   if (extractionLimitIssues.length) throw new IranKetabCommitError("INVALID_DRAFT", extractionLimitIssues.join(" "));
   if (preparedCovers.length > IRANKETAB_COLLECTION_LIMITS.editions) throw new IranKetabCommitError("INVALID_DRAFT", `تعداد «کاورهای آماده‌شده» ${preparedCovers.length.toLocaleString("fa-IR")} مورد است؛ حداکثر مجاز ${IRANKETAB_COLLECTION_LIMITS.editions.toLocaleString("fa-IR")} مورد است.`);
   const parsedDraft = iranKetabImportDraftSchema.safeParse(draft);
   if (!parsedDraft.success) throw new IranKetabCommitError("INVALID_DRAFT", formatIranKetabSchemaIssues(parsedDraft.error).join(" "));
+  const parsedContributorCounts = { authors: draft.catalog.authors.length, translators: draft.editions.reduce((n, e) => n + (e.action === "EXCLUDE" ? 0 : e.translators.length), 0), publishers: draft.editions.filter((e) => e.action !== "EXCLUDE" && Boolean(e.publisher)).length };
+  const extractedContributorCounts = { authors: params.extraction.book.authors.length, translators: params.extraction.editions.reduce((n, e) => n + e.translators.length, 0), publishers: params.extraction.editions.filter((e) => Boolean(e.publisher.name)).length };
+  console.info("[iranketab.commit] contributor boundary", { extraction: extractedContributorCounts, draft: parsedContributorCounts, entities: draft.entities.length });
+  if (extractedContributorCounts.authors > 0 && parsedContributorCounts.authors === 0)
+    throw new IranKetabCommitError("INVALID_DRAFT", "اطلاعات نویسندگان در پیش‌نویس ثبت نهایی از بین رفته است.");
   if (
     draftFingerprint(draft) !== fingerprint ||
     draft.source.canonicalUrl !== params.extraction.source.canonicalUrl ||
@@ -106,7 +131,43 @@ export async function commitIranKetabImport(params: {
   const promoted: string[] = [];
   const coverUrls = new Map<number, string>();
   const referenceImageUrls = new Map<string, { profile?: string; banner?: string; filename?: string }>();
-  const promoteCovers = async () => {
+  const promoteMedia = async () => {
+    let promotionCheckpoint = checkpoint(
+      "inside_promote_media",
+      "promoteMedia",
+      "promotion_entry",
+      "entered promoteMedia",
+    );
+    let failedDuringStorageOperation = false;
+    const markPromotion = (name: string, stage: string, statement: string) => {
+      promotionCheckpoint = checkpoint(name, "promoteMedia", stage, statement);
+      lastCheckpoint = promotionCheckpoint;
+      console.info("[iranketab.commit] checkpoint", promotionCheckpoint);
+    };
+    const storageCall = async <T>(
+      before: string,
+      after: string,
+      stage: string,
+      statement: string,
+      operation: () => Promise<T>,
+    ): Promise<T> => {
+      markPromotion(before, stage, statement);
+      failedDuringStorageOperation = false;
+      try {
+        const value = await operation();
+        markPromotion(after, stage, `${statement} returned`);
+        return value;
+      } catch (error) {
+        failedDuringStorageOperation = true;
+        attachErrorCheckpoint(error, promotionCheckpoint);
+        throw error;
+      }
+    };
+    markPromotion(
+      "inside_promote_media",
+      "promotion_entry",
+      "entered promoteMedia",
+    );
     try {
       for (const preparedCover of preparedCovers.filter(
         (item) => item.status === "PREPARED",
@@ -123,87 +184,172 @@ export async function commitIranKetabImport(params: {
             "STALE_DRAFT",
             "کاور موقت قابل تأیید نیست.",
           );
+        if (!fingerprint || !Number.isInteger(preparedCover.extractedEditionIndex) || preparedCover.extractedEditionIndex < 0)
+          throw new IranKetabCommitError("FINAL_MEDIA_KEY_GENERATION_FAILED", `فیلد لازم برای کلید نهایی کاور موجود نیست: ${!fingerprint ? "fingerprint" : "extractedEditionIndex"}.`);
         const finalKey = `covers/iranketab-${fingerprint.slice(0, 20)}-${preparedCover.extractedEditionIndex}.webp`;
-        const prior = await headImageUpload(finalKey);
-        const metadata = await headImageUpload(preparedCover.objectKey);
-        if (
-          !prior &&
-          (!metadata ||
-            metadata.contentType !== "image/webp" ||
-            metadata.sizeBytes < 1 ||
-            metadata.sizeBytes > 10 * 1024 * 1024 ||
-            metadata.metadata["iranketab-admin"] !== params.adminId ||
-            metadata.metadata["iranketab-fingerprint"] !== fingerprint ||
-            metadata.metadata["iranketab-edition-index"] !==
-              String(preparedCover.extractedEditionIndex))
-        )
-          throw new IranKetabCommitError(
+        console.info("[iranketab.commit] final media key generated", { sourceKey: preparedCover.objectKey, destinationKey: finalKey, extractedEditionIndex: preparedCover.extractedEditionIndex, mediaType: "cover", destinationFolder: "covers" });
+        console.info("[iranketab.commit] media checkpoint before HeadObject", { stage: "destination_lookup", sourceKey: preparedCover.objectKey, destinationKey: finalKey, mediaKind: "BOOK_COVER", folder: "covers", contentType: "image/webp", extension: "webp" });
+        const prior = await storageCall(
+          "before_destination_head",
+          "after_destination_head",
+          "destination_lookup",
+          "headImageUpload(finalKey)",
+          () => mediaStorage.head(finalKey),
+        );
+        console.info("[iranketab.commit] media checkpoint before source HeadObject", { stage: "source_metadata_lookup", sourceKey: preparedCover.objectKey, destinationKey: finalKey, mediaKind: "BOOK_COVER", folder: "covers", contentType: "image/webp", extension: "webp" });
+        const metadata = await storageCall(
+          "before_source_head",
+          "after_source_head",
+          "source_metadata_lookup",
+          "headImageUpload(preparedCover.objectKey)",
+          () => mediaStorage.head(preparedCover.objectKey!),
+        );
+        const sourceValidationFailures = !metadata ? ["source_missing"] : [
+          ...(metadata.contentType !== "image/webp" ? ["content_type_mismatch"] : []),
+          ...(metadata.sizeBytes < 1 ? ["source_empty"] : []),
+          ...(metadata.sizeBytes > 10 * 1024 * 1024 ? ["source_too_large"] : []),
+          ...(metadata.metadata["iranketab-admin"] !== params.adminId ? ["admin_metadata_mismatch"] : []),
+          ...(metadata.metadata["iranketab-fingerprint"] !== fingerprint ? ["fingerprint_metadata_mismatch"] : []),
+          ...(metadata.metadata["iranketab-edition-index"] !== String(preparedCover.extractedEditionIndex) ? ["edition_index_metadata_mismatch"] : []),
+        ];
+        if (!prior && sourceValidationFailures.length)
+          throw mediaValidationError(
             "STALE_DRAFT",
             "کاور آماده‌شده نیازمند آماده‌سازی مجدد است.",
+            {
+              functionName: "promoteMedia",
+              stage: "source_validation",
+              sourceKey: preparedCover.objectKey,
+              destinationKey: finalKey,
+              failedGuard: sourceValidationFailures.join(","),
+              observed: metadata ? {
+                contentType: metadata.contentType,
+                sizeBytes: metadata.sizeBytes,
+                hasAdminMetadata: Boolean(metadata.metadata["iranketab-admin"]),
+                hasFingerprintMetadata: Boolean(metadata.metadata["iranketab-fingerprint"]),
+                editionIndexMetadata: metadata.metadata["iranketab-edition-index"] ?? null,
+              } : null,
+            },
           );
         if (!prior) {
-          await copyImageUpload({
-            sourceKey: preparedCover.objectKey,
-            destinationKey: finalKey,
-            contentType: "image/webp",
-            metadata: {
-              "iranketab-fingerprint": fingerprint,
-              "iranketab-edition-index": String(
-                preparedCover.extractedEditionIndex,
-              ),
-            },
-          });
+          await storageCall(
+            "before_copy",
+            "after_copy",
+            "copy",
+            "copyImageUpload(preparedCover.objectKey, finalKey)",
+            () => mediaStorage.copy({
+              sourceKey: preparedCover.objectKey!,
+              destinationKey: finalKey,
+              contentType: "image/webp",
+              metadata: {
+                "iranketab-fingerprint": fingerprint,
+                "iranketab-edition-index": String(
+                  preparedCover.extractedEditionIndex,
+                ),
+              },
+            }),
+          );
           promoted.push(finalKey);
         } else if (prior.metadata["iranketab-fingerprint"] !== fingerprint) {
-          throw new IranKetabCommitError(
+          throw mediaValidationError(
             "COVER_PROMOTION_FAILED",
             "مقصد کاور با ورود دیگری تداخل دارد.",
+            { functionName: "promoteMedia", stage: "destination_validation", sourceKey: preparedCover.objectKey, destinationKey: finalKey, failedGuard: "destination_fingerprint_conflict" },
           );
         }
-        const finalMetadata = await headImageUpload(finalKey);
+        const finalMetadata = await storageCall(
+          "before_destination_head",
+          "after_destination_head",
+          "destination_validation",
+          "headImageUpload(finalKey) after promotion",
+          () => mediaStorage.head(finalKey),
+        );
         if (
           !finalMetadata ||
           finalMetadata.contentType !== "image/webp" ||
           finalMetadata.sizeBytes < 1
         )
-          throw new IranKetabCommitError(
+          throw mediaValidationError(
             "COVER_PROMOTION_FAILED",
             "تأیید کاور نهایی ناموفق بود.",
+            { functionName: "promoteMedia", stage: "destination_validation", sourceKey: preparedCover.objectKey, destinationKey: finalKey, failedGuard: !finalMetadata ? "destination_missing" : finalMetadata.contentType !== "image/webp" ? "destination_content_type_mismatch" : "destination_empty" },
           );
         // Persist the canonical Arvan object key. Display code resolves this
         // key to S3_PUBLIC_BASE_URL; /uploads is reserved for real local files.
+        markPromotion(
+          "before_cover_final_value",
+          "cover_path_validation",
+          "finalIranKetabCoverValue(finalKey)",
+        );
         coverUrls.set(preparedCover.extractedEditionIndex, finalIranKetabCoverValue(finalKey));
       }
       for (const image of preparedReferenceImages.filter((item) => item.status === "PREPARED")) {
         if (!image.objectKey || !isOwnedTemporaryCoverKey(image.objectKey, params.adminId, fingerprint)) continue;
-        const finalKey = `references/iranketab-${image.entityType.toLowerCase()}-${fingerprint.slice(0, 20)}-${image.kind.toLowerCase()}.webp`;
-        if (!await headImageUpload(finalKey)) {
-          await copyImageUpload({ sourceKey: image.objectKey, destinationKey: finalKey, contentType: "image/webp", metadata: { "iranketab-fingerprint": fingerprint, "iranketab-reference-source": image.sourceUrl } });
+        if (!fingerprint || !image.entityType || !image.kind)
+          throw new IranKetabCommitError("FINAL_MEDIA_KEY_GENERATION_FAILED", `فیلد لازم برای کلید نهایی تصویر مرجع موجود نیست: ${!fingerprint ? "fingerprint" : !image.entityType ? "entityType" : "kind"}.`);
+        const entityToken = createHash("sha256")
+          .update(`${image.entityType}:${image.extractedName}`)
+          .digest("hex")
+          .slice(0, 16);
+        const finalKey = `references/iranketab-${image.entityType.toLowerCase()}-${fingerprint.slice(0, 20)}-${entityToken}-${image.kind.toLowerCase()}.webp`;
+        console.info("[iranketab.commit] final media key generated", { sourceKey: image.objectKey, destinationKey: finalKey, entityType: image.entityType, mediaType: image.kind, destinationFolder: "references" });
+        console.info("[iranketab.commit] media checkpoint before reference HeadObject", { stage: "reference_destination_lookup", sourceKey: image.objectKey, destinationKey: finalKey, mediaKind: image.kind, folder: "references", contentType: "image/webp", extension: "webp" });
+        const priorReference = await storageCall(
+          "before_destination_head",
+          "after_destination_head",
+          "reference_destination_lookup",
+          "headImageUpload(reference finalKey)",
+          () => mediaStorage.head(finalKey),
+        );
+        if (!priorReference) {
+          console.info("[iranketab.commit] media checkpoint before reference CopyObject", { stage: "reference_copy", sourceKey: image.objectKey, destinationKey: finalKey, mediaKind: image.kind, folder: "references", contentType: "image/webp", extension: "webp" });
+          await storageCall(
+            "before_copy",
+            "after_copy",
+            "reference_copy",
+            "copyImageUpload(reference objectKey, finalKey)",
+            () => mediaStorage.copy({ sourceKey: image.objectKey!, destinationKey: finalKey, contentType: "image/webp", metadata: { "iranketab-fingerprint": fingerprint, "iranketab-reference-source": image.sourceUrl } }),
+          );
           promoted.push(finalKey);
         }
         const current = referenceImageUrls.get(`${image.entityType}:${image.extractedName}`) ?? {};
-        referenceImageUrls.set(`${image.entityType}:${image.extractedName}`, { ...current, [image.kind === "PROFILE" ? "profile" : "banner"]: finalIranKetabCoverValue(finalKey), filename: finalKey.split("/").pop() });
+        markPromotion(
+          "before_reference_final_value",
+          "reference_path_validation",
+          "finalIranKetabReferenceMediaValue(finalKey)",
+        );
+        const referenceValue = finalIranKetabReferenceMediaValue(finalKey);
+        referenceImageUrls.set(`${image.entityType}:${image.extractedName}`, {
+          ...current,
+          [image.kind === "PROFILE" ? "profile" : "banner"]: referenceValue,
+          ...(image.kind === "PROFILE" ? { filename: finalKey.split("/").pop() } : {}),
+        });
       }
     } catch (error) {
+      attachErrorCheckpoint(error, promotionCheckpoint);
       await Promise.all(
-        promoted.map((key) => deleteImageUpload(key).catch(() => undefined)),
+        promoted.map((key) => mediaStorage.delete(key).catch(() => undefined)),
       );
-      if (error instanceof IranKetabCommitError) throw error;
-      throw new IranKetabCommitError(
-        "COVER_PROMOTION_FAILED",
-        "انتقال امن کاور به فضای نهایی ناموفق بود.",
+      console.error("[iranketab.commit] media promotion original error", { stage: "media_promotion", error });
+      throw promotionFailure(
+        error,
+        failedDuringStorageOperation,
+        promotionCheckpoint,
       );
     }
   };
   let result;
   try {
     result = await db.transaction(async (tx) => {
+      markCommit("before_source_identity", "pre_promotion", "canonicalIranKetabSourceIdentity(draft.source.canonicalUrl)");
       const identity = canonicalIranKetabSourceIdentity(
         draft.source.canonicalUrl,
       );
+      markCommit("before_import_advisory_lock", "pre_promotion", "tx.execute import advisory lock");
       await tx.execute(
         sql`select pg_advisory_xact_lock(${advisoryLockKey(identity)})`,
       );
+      markCommit("before_source_code_collection", "pre_promotion", "collect source edition codes");
       const sourceCodes = draft.editions.flatMap((item) =>
         item.action === "CREATE_NEW" ? [item.fields.sourceEditionCode] : [],
       );
@@ -211,6 +357,7 @@ export async function commitIranKetabImport(params: {
         await tx.execute(
           sql`select pg_advisory_xact_lock(${advisoryLockKey(`source-edition:${code}`)})`,
         );
+      markCommit("before_existing_links_query", "pre_promotion", "query existing IranKetab links");
       const existingLinks = await tx
         .select({
           catalogBookId: BookExternalLink.catalogBookId,
@@ -234,22 +381,22 @@ export async function commitIranKetabImport(params: {
           "SOURCE_URL_CONFLICT",
           "این لینک ایران‌کتاب به کتاب دیگری متصل است.",
         );
-      await promoteCovers();
+      markCommit("before_promote_media", "pre_promotion", "await promoteMedia()");
+      await promoteMedia();
+      markCommit("after_promote_media", "post_promotion", "promoteMedia() returned");
       const entityResult = {
         created: [] as Array<{ entityType: string; id: string; name: string }>,
         reused: [] as Array<{ entityType: string; id: string; name: string }>,
       };
       const referenceCache = createReferenceResolutionCache();
       const resolvedEntityIds = new Map<string, string>();
+      const entityKey = (entity: { entityType: string; extractedName: string; entityId?: string }) =>
+        entity.entityId ? `${entity.entityType}:id:${entity.entityId}` : `${entity.entityType}:name:${entity.extractedName}`;
       for (const entity of draft.entities) {
         if (entity.action === "IGNORE") continue;
         if (entity.action === "REUSE_EXISTING") {
           const [row] = await tx
-            .select({
-              id: ReferenceItem.id,
-              name: ReferenceItem.name,
-              type: ReferenceItem.type,
-            })
+            .select()
             .from(ReferenceItem)
             .where(eq(ReferenceItem.id, entity.entityId))
             .limit(1);
@@ -262,6 +409,7 @@ export async function commitIranKetabImport(params: {
           const images = referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`);
           const patch: Partial<typeof ReferenceItem.$inferInsert> = {};
           const put = (key: keyof typeof patch, value: unknown) => {
+            if (row[key] != null && String(row[key]).trim() !== "") return;
             if (typeof value === "string" && value.trim()) (patch[key] as unknown) = value.trim();
             else if (typeof value === "number") (patch[key] as unknown) = value;
           };
@@ -276,7 +424,7 @@ export async function commitIranKetabImport(params: {
           put("sourceUrl", profile?.sourceUrl);
           put("seoTitle", profile?.seoTitle);
           put("seoDescription", profile?.seoDescription);
-          if (profile?.metadata && Object.keys(profile.metadata).length) patch.metadata = profile.metadata;
+          if (profile?.metadata && Object.keys(profile.metadata).length) patch.metadata = { ...(row.metadata ?? {}), ...profile.metadata, ...(profile.profileId ? { iranketabProfileId: profile.profileId } : {}) };
           if (entity.profileImageAction === "replace" && images?.profile) patch.coverImage = images.profile;
           if (entity.profileImageAction === "replace" && images?.filename) patch.imageFilename = images.filename;
           if (entity.profileImageAction === "remove") patch.coverImage = null;
@@ -288,11 +436,11 @@ export async function commitIranKetabImport(params: {
             id: row.id,
             name: row.name,
           });
-          resolvedEntityIds.set(`${entity.entityType}:${entity.extractedName}`, row.id);
+          resolvedEntityIds.set(entityKey(entity), row.id);
         } else if (entity.action === "CREATE_NEW") {
           const resolved = await resolveReferenceItem(tx, {
             type: entity.entityType,
-            input: { name: entity.proposedName, ...entity.profile, imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl, bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl, imageFilename: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.filename },
+            input: { name: entity.proposedName, ...entity.profile, metadata: { ...(entity.profile?.metadata ?? {}), ...(entity.profile?.profileId ? { iranketabProfileId: entity.profile.profileId } : {}) }, imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl, bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl, imageFilename: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.filename },
             cache: referenceCache,
             createdById: params.adminId,
             defaultStatus: "APPROVED",
@@ -309,7 +457,7 @@ export async function commitIranKetabImport(params: {
             id: resolved.id,
             name: resolved.name,
           });
-          resolvedEntityIds.set(`${entity.entityType}:${entity.extractedName}`, resolved.id);
+          resolvedEntityIds.set(entityKey(entity), resolved.id);
         }
       }
       let catalogId: string;
@@ -636,21 +784,28 @@ export async function commitIranKetabImport(params: {
           sortOrder: 0,
         });
       for (const [index, entity] of draft.catalog.authors.entries()) {
-        const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
-        if (referenceId) await tx.insert(CatalogBookContributor).values({ catalogBookId: catalogId, referenceItemId: referenceId, role: "AUTHOR", sortOrder: index, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+        const referenceId = resolvedEntityIds.get(entityKey(entity));
+        if (!referenceId) throw new IranKetabCommitError("DATABASE_TRANSACTION_FAILED", `مرجع نویسنده «${entity.extractedName}» (temporary ID: ${"entityId" in entity ? entity.entityId : "none"}, expected resolution key: ${entityKey(entity)}, source profile URL: ${entity.profile?.sourceUrl ?? draft.source.canonicalUrl}) حل نشد.`);
+        await tx.insert(CatalogBookContributor).values({ catalogBookId: catalogId, referenceItemId: referenceId, role: "AUTHOR", sortOrder: index, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
       }
+      let createdContributorRelations = 0;
+      let createdPublisherRelations = 0;
       for (const decision of draft.editions) {
         if (decision.action === "EXCLUDE") continue;
         const editionId = editions.find((item) => item.extractedEditionIndex === decision.extractedEditionIndex)?.editionId;
         if (!editionId) continue;
         for (const [order, entity] of decision.translators.entries()) {
-          const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
-          if (referenceId) await tx.insert(CatalogBookContributor).values({ catalogBookId: catalogId, referenceItemId: referenceId, role: "TRANSLATOR", sortOrder: order, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+          const referenceId = resolvedEntityIds.get(entityKey(entity));
+          if (!referenceId) throw new IranKetabCommitError("DATABASE_TRANSACTION_FAILED", `مرجع مترجم «${entity.extractedName}» (temporary ID: ${"entityId" in entity ? entity.entityId : "none"}, expected resolution key: ${entityKey(entity)}, source profile URL: ${entity.profile?.sourceUrl ?? draft.source.canonicalUrl}) حل نشد.`);
+          await tx.insert(BookEditionContributor).values({ bookEditionId: editionId, referenceItemId: referenceId, role: "TRANSLATOR", sortOrder: order, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+          createdContributorRelations += 1;
         }
         if (decision.publisher) {
           const entity = decision.publisher;
-          const referenceId = resolvedEntityIds.get(`${entity.entityType}:${entity.extractedName}`);
-          if (referenceId) await tx.insert(BookEditionPublisher).values({ bookEditionId: editionId, referenceItemId: referenceId, sortOrder: 0, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+          const referenceId = resolvedEntityIds.get(entityKey(entity));
+          if (!referenceId) throw new IranKetabCommitError("DATABASE_TRANSACTION_FAILED", `مرجع ناشر «${entity.extractedName}» (temporary ID: ${"entityId" in entity ? entity.entityId : "none"}, expected resolution key: ${entityKey(entity)}, source profile URL: ${entity.profile?.sourceUrl ?? draft.source.canonicalUrl}) حل نشد.`);
+          await tx.insert(BookEditionPublisher).values({ bookEditionId: editionId, referenceItemId: referenceId, sortOrder: 0, sourceName: "iranketab", sourceUrl: entity.profile?.sourceUrl ?? draft.source.canonicalUrl }).onConflictDoNothing();
+          createdPublisherRelations += 1;
         }
       }
       const [catalog] = await tx
@@ -663,6 +818,7 @@ export async function commitIranKetabImport(params: {
           .update(CatalogBook)
           .set({ primaryEditionId: first, updatedAt: new Date() })
           .where(eq(CatalogBook.id, catalogId));
+      console.info("[iranketab.commit] contributor relations persisted", { authors: draft.catalog.authors.length, translators: createdContributorRelations, publishers: createdPublisherRelations, resolved: resolvedEntityIds.size });
       return {
         catalog: { action: catalogAction, id: catalogId, title: catalogTitle },
         editions,
@@ -670,19 +826,22 @@ export async function commitIranKetabImport(params: {
       };
     });
   } catch (error) {
+    attachErrorCheckpoint(error, lastCheckpoint);
     await Promise.all(
-      promoted.map((key) => deleteImageUpload(key).catch(() => undefined)),
+      promoted.map((key) => mediaStorage.delete(key).catch(() => undefined)),
     );
     await Promise.all(
       [...preparedCovers, ...preparedReferenceImages]
         .map((item) => (item as { status: string; objectKey?: string }).objectKey)
         .filter((key): key is string => Boolean(key))
-        .map((key) => deleteImageUpload(key).catch(() => undefined)),
+        .map((key) => mediaStorage.delete(key).catch(() => undefined)),
     );
     if (error instanceof IranKetabCommitError) throw error;
-    throw new IranKetabCommitError(
+    throw wrapIranKetabCommitError(
       "DATABASE_TRANSACTION_FAILED",
       "تراکنش ثبت کتاب انجام نشد.",
+      error,
+      lastCheckpoint,
     );
   }
   const cleanupWarnings: string[] = [];
@@ -690,7 +849,7 @@ export async function commitIranKetabImport(params: {
     const tempKey = (preparedCover as { objectKey?: string }).objectKey;
     if (preparedCover.status === "PREPARED" && tempKey)
       try {
-        await deleteImageUpload(tempKey);
+        await mediaStorage.delete(tempKey);
       } catch {
         cleanupWarnings.push(
           "پاک‌سازی یکی از کاورهای موقت بعد از ثبت ناموفق بود.",
