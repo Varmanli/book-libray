@@ -225,6 +225,13 @@
       "when": 1784023000000,
       "tag": "0031_iranketab_reference_step",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1784207340000,
+      "tag": "0032_iranketab_edition_contributors",
+      "breakpoints": true
     }
   ]
 }

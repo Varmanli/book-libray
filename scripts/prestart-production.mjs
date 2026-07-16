@@ -24,12 +24,37 @@ async function runProductionRepair() {
   });
 }
 
+async function runMigrations() {
+  return new Promise((resolve, reject) => {
+    const child = spawn("npm", ["run", "db:migrate"], {
+      cwd: process.cwd(),
+      env: { ...process.env },
+      stdio: "inherit",
+      shell: process.platform === "win32",
+    });
+
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`database migration exited with code ${code ?? "unknown"}`));
+    });
+    child.on("error", reject);
+  });
+}
+
 async function main() {
   const { loadedFiles } = loadScriptEnv();
 
   if (loadedFiles.length > 0) {
     console.log(`[prestart] loaded env files: ${loadedFiles.join(", ")}`);
   }
+
+  console.log("[prestart] applying database migrations...");
+  await runMigrations();
+  console.log("[prestart] migrations completed.");
 
   console.log("[prestart] running production database repair...");
   await runProductionRepair();

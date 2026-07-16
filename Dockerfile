@@ -172,6 +172,13 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/package.json \
      ./package.json
 
+# The entrypoint applies Drizzle migrations before starting the application. The
+# standalone server does not include development CLIs, so retain the installed
+# project dependencies that provide the checked-in migration command.
+COPY --from=deps --chown=nextjs:nodejs \
+     /app/node_modules \
+     ./node_modules
+
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
      ./docker-entrypoint.sh

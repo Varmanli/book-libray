@@ -13,6 +13,7 @@
     "lint": "eslint",
     "test": "tsx --test --test-concurrency=1 lib/**/*.test.ts",
     "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "db:prod:repair": "node scripts/prod-db-repair.mjs",
     "migrate:favicon": "tsx --env-file=.env scripts/migrate-local-favicon-to-s3.ts",
     "backfill:usernames": "tsx scripts/backfill-usernames.ts",
