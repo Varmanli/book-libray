@@ -11,7 +11,7 @@ export function validateIranKetabReferenceImageUrl(value: string): URL {
   return url;
 }
 
-export async function prepareIranKetabReferenceImage(input: { sourceUrl: string; fetcher?: typeof fetch; objectKey: string }) {
+export async function prepareIranKetabReferenceImage(input: { sourceUrl: string; fetcher?: typeof fetch; objectKey: string; metadata?: Record<string, string> }) {
   let current = validateIranKetabReferenceImageUrl(input.sourceUrl);
   const visited = new Set<string>();
   const fetcher = input.fetcher ?? fetch;
@@ -35,7 +35,7 @@ export async function prepareIranKetabReferenceImage(input: { sourceUrl: string;
     if (!meta.width || !meta.height || meta.width > 12000 || meta.height > 12000) throw new Error("REFERENCE_IMAGE_DIMENSIONS");
     const buffer = await image.rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
     const hash = createHash("sha256").update(buffer).digest("hex");
-    const upload = await saveImageUpload({ buffer, contentType: "image/webp", filename: "reference.webp", folder: "temp", objectKey: input.objectKey, metadata: { "iranketab-reference-hash": hash, "iranketab-source-url": input.sourceUrl } });
+    const upload = await saveImageUpload({ buffer, contentType: "image/webp", filename: "reference.webp", folder: "temp", objectKey: input.objectKey, metadata: { "iranketab-reference-hash": hash, "iranketab-source-url": input.sourceUrl, ...input.metadata } });
     const output = await sharp(buffer).metadata();
     return { objectKey: upload.key, url: upload.url, hash, mimeType: "image/webp" as const, width: output.width!, height: output.height!, sizeBytes: buffer.length, sourceUrl: input.sourceUrl };
   }

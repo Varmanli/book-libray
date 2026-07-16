@@ -27,6 +27,8 @@ export const preparedCoverResultSchema = z.discriminatedUnion("status", [
 ]);
 
 export const preparedDraftSchema = z.object({
+  /** The server session that owns every temporary key in this payload. */
+  sessionId: z.string().min(1).optional(),
   draft: iranKetabImportDraftSchema,
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
   preparedCovers: z.array(preparedCoverResultSchema),

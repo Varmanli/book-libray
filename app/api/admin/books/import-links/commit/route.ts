@@ -9,8 +9,11 @@ import {
   assertOwnedImportSession,
   classifyRetryable,
   getImportSession,
+  saveImportDraft,
   transitionImportSession,
 } from "@/lib/importers/iranketab/session";
+import { preparedDraftSchema } from "@/lib/importers/iranketab/cover-contract";
+import { reprepareMissingIranKetabMedia } from "@/lib/importers/iranketab/cover-preparation";
 import { commitSuccessSchema } from "@/lib/importers/iranketab/commit-contract";
 import {
   attachErrorCheckpointIfMissing,
@@ -36,6 +39,25 @@ export async function POST(req: NextRequest) {
   );
   try {
     await assertOwnedImportSession(body.sessionId, gate.user.id);
+    const persisted = await getImportSession(body.sessionId);
+    const persistedPrepared = preparedDraftSchema.safeParse((persisted?.session.preparedCovers as unknown[] | null)?.[0]);
+    if (!persisted?.session.extraction || !persistedPrepared.success)
+      return apiError("رسانه‌های این نشست آماده نیستند؛ دوباره آماده‌سازی کنید.", 409, "STALE_DRAFT");
+    console.info("[iranketab.commit] session IDs", { prepareSessionId: persistedPrepared.data.sessionId ?? null, commitSessionId: body.sessionId });
+    // Always preflight every source. Missing keys are repaired one-by-one and the
+    // replacement payload is persisted before promotion starts.
+    const repairedPrepared = await reprepareMissingIranKetabMedia({
+      adminId: gate.user.id,
+      sessionId: body.sessionId,
+      extraction: persisted.session.extraction as never,
+      prepared: persistedPrepared.data,
+    });
+    await saveImportDraft(body.sessionId, gate.user.id, {
+      draft: repairedPrepared.draft,
+      extraction: persisted.session.extraction,
+      preparedCovers: [repairedPrepared],
+      fingerprint: repairedPrepared.fingerprint,
+    });
     routeCheckpoint = checkpoint(
       "before_commit_session_transition",
       "POST /api/admin/books/import-links/commit",
@@ -57,8 +79,9 @@ export async function POST(req: NextRequest) {
     );
     const result = await commitIranKetabImport({
       adminId: gate.user.id,
-      extraction: body.extraction as never,
-      prepared: body.draft as never,
+      sessionId: body.sessionId,
+      extraction: persisted.session.extraction as never,
+      prepared: repairedPrepared,
     });
     const summary = {
       catalogAction: result.catalog.action,

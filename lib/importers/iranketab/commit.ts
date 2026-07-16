@@ -70,6 +70,7 @@ export type IranKetabCommitMediaStorage = {
 };
 export async function commitIranKetabImport(params: {
   adminId: string;
+  sessionId?: string;
   extraction: IranKetabExtractionEnvelope;
   prepared: IranKetabImportDraftWithPreparedCovers;
   mediaStorage?: IranKetabCommitMediaStorage;
@@ -97,6 +98,7 @@ export async function commitIranKetabImport(params: {
     publishers: draft.editions.filter((edition) => edition.action !== "EXCLUDE" && Boolean(edition.publisher)).length,
   };
   console.info("[iranketab.commit] contributor payload", {
+    sessionId: params.sessionId ?? null,
     ...draftReferenceCounts,
     entities: draft.entities.map((entity) => ({ type: entity.entityType, name: entity.extractedName, action: entity.action })),
     stagedReferenceImages: preparedReferenceImages.filter((image) => image.status === "PREPARED").length,
@@ -178,6 +180,7 @@ export async function commitIranKetabImport(params: {
             preparedCover.objectKey,
             params.adminId,
             fingerprint,
+            params.sessionId,
           )
         )
           throw new IranKetabCommitError(
@@ -210,6 +213,7 @@ export async function commitIranKetabImport(params: {
           ...(metadata.sizeBytes > 10 * 1024 * 1024 ? ["source_too_large"] : []),
           ...(metadata.metadata["iranketab-admin"] !== params.adminId ? ["admin_metadata_mismatch"] : []),
           ...(metadata.metadata["iranketab-fingerprint"] !== fingerprint ? ["fingerprint_metadata_mismatch"] : []),
+          ...(params.sessionId && metadata.metadata["iranketab-session-id"] !== params.sessionId ? ["session_metadata_mismatch"] : []),
           ...(metadata.metadata["iranketab-edition-index"] !== String(preparedCover.extractedEditionIndex) ? ["edition_index_metadata_mismatch"] : []),
         ];
         if (!prior && sourceValidationFailures.length)
@@ -284,7 +288,7 @@ export async function commitIranKetabImport(params: {
         coverUrls.set(preparedCover.extractedEditionIndex, finalIranKetabCoverValue(finalKey));
       }
       for (const image of preparedReferenceImages.filter((item) => item.status === "PREPARED")) {
-        if (!image.objectKey || !isOwnedTemporaryCoverKey(image.objectKey, params.adminId, fingerprint)) continue;
+        if (!image.objectKey || !isOwnedTemporaryCoverKey(image.objectKey, params.adminId, fingerprint, params.sessionId)) throw new IranKetabCommitError("STALE_DRAFT", "تصویر مرجع موقت قابل تأیید نیست.");
         if (!fingerprint || !image.entityType || !image.kind)
           throw new IranKetabCommitError("FINAL_MEDIA_KEY_GENERATION_FAILED", `فیلد لازم برای کلید نهایی تصویر مرجع موجود نیست: ${!fingerprint ? "fingerprint" : !image.entityType ? "entityType" : "kind"}.`);
         const entityToken = createHash("sha256")
@@ -301,6 +305,16 @@ export async function commitIranKetabImport(params: {
           "headImageUpload(reference finalKey)",
           () => mediaStorage.head(finalKey),
         );
+        const referenceMetadata = await storageCall(
+          "before_source_head",
+          "after_source_head",
+          "reference_source_metadata_lookup",
+          "headImageUpload(reference objectKey)",
+          () => mediaStorage.head(image.objectKey!),
+        );
+        console.info("[iranketab.commit] source HeadObject", { sessionId: params.sessionId ?? null, key: image.objectKey, exists: Boolean(referenceMetadata), kind: image.kind, entityType: image.entityType });
+        if (!priorReference && (!referenceMetadata || referenceMetadata.contentType !== "image/webp" || referenceMetadata.sizeBytes < 1 || referenceMetadata.metadata["iranketab-admin"] !== params.adminId || referenceMetadata.metadata["iranketab-fingerprint"] !== fingerprint || (params.sessionId && referenceMetadata.metadata["iranketab-session-id"] !== params.sessionId)))
+          throw mediaValidationError("STALE_DRAFT", "تصویر مرجع آماده‌شده نیازمند آماده‌سازی مجدد است.", { functionName: "promoteMedia", stage: "reference_source_validation", sourceKey: image.objectKey, destinationKey: finalKey, failedGuard: !referenceMetadata ? "source_missing" : "metadata_or_content_invalid" });
         if (!priorReference) {
           console.info("[iranketab.commit] media checkpoint before reference CopyObject", { stage: "reference_copy", sourceKey: image.objectKey, destinationKey: finalKey, mediaKind: image.kind, folder: "references", contentType: "image/webp", extension: "webp" });
           await storageCall(
@@ -830,12 +844,7 @@ export async function commitIranKetabImport(params: {
     await Promise.all(
       promoted.map((key) => mediaStorage.delete(key).catch(() => undefined)),
     );
-    await Promise.all(
-      [...preparedCovers, ...preparedReferenceImages]
-        .map((item) => (item as { status: string; objectKey?: string }).objectKey)
-        .filter((key): key is string => Boolean(key))
-        .map((key) => mediaStorage.delete(key).catch(() => undefined)),
-    );
+    // Staged sources are intentionally retained: a failed transaction must be retryable.
     if (error instanceof IranKetabCommitError) throw error;
     throw wrapIranKetabCommitError(
       "DATABASE_TRANSACTION_FAILED",
@@ -847,7 +856,7 @@ export async function commitIranKetabImport(params: {
   const cleanupWarnings: string[] = [];
   for (const preparedCover of [...preparedCovers, ...preparedReferenceImages]) {
     const tempKey = (preparedCover as { objectKey?: string }).objectKey;
-    if (preparedCover.status === "PREPARED" && tempKey)
+    if (preparedCover.status === "PREPARED" && tempKey && (!params.sessionId || isOwnedTemporaryCoverKey(tempKey, params.adminId, fingerprint, params.sessionId)))
       try {
         await mediaStorage.delete(tempKey);
       } catch {

@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     );
     const result = await prepareIranKetabCovers({
       adminId: gate.user.id,
+      sessionId: body.sessionId,
       extraction: body.extraction as never,
       draft: body.draft as never,
     });
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       body.sessionId,
       gate.user.id,
       "IMPORTING_REFERENCES",
-      { preparedCovers: result.results, extractionFingerprint: result.fingerprint },
+      { preparedCovers: [result.preparedDraft], extractionFingerprint: result.fingerprint },
       "COVER_PREPARATION_COMPLETED",
       { statuses: result.results.map((item) => item.status) },
     );
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       gate.user.id,
       "READY_TO_COMMIT",
       {
-        preparedCovers: result.results,
+        preparedCovers: [result.preparedDraft],
         extractionFingerprint: result.fingerprint,
       },
       "CONTRIBUTOR_STEP_COMPLETED",
