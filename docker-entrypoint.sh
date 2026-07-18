@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-echo "Applying production database migrations..."
-MIGRATION_WORKDIR=/app/migration node scripts/run-production-migrations.cjs
+: "${DATABASE_URL:?DATABASE_URL is required}"
+: "${JWT_SECRET:?JWT_SECRET is required}"
 
 echo "Starting Next.js server..."
 
-exec "$@"
+exec node server.js

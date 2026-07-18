@@ -64,26 +64,18 @@ test("every committed SQL migration is represented exactly once in the Drizzle j
   assert.deepEqual(sqlMigrationTags.sort(), [...tags].sort());
 });
 
-test("production image startup gates server launch on the serialized official migration command", () => {
+test("production image starts Next.js without automatic database changes", () => {
   const dockerfile = readFileSync("Dockerfile", "utf8");
   const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
-  const gate = readFileSync("scripts/run-production-migrations.mjs", "utf8");
 
-  assert.match(entrypoint, /MIGRATION_WORKDIR=\/app\/migration node scripts\/run-production-migrations\.cjs/);
-  assert.ok(entrypoint.indexOf("run-production-migrations.cjs") < entrypoint.indexOf('exec "$@"'));
   assert.match(entrypoint, /set -eu/);
-  assert.match(dockerfile, /\/app\/package\.json/);
-  assert.match(dockerfile, /\.\/migration\/drizzle/);
-  assert.match(dockerfile, /\.\/migration\/node_modules/);
-  assert.match(dockerfile, /0033_iranketab_preview_operations\.sql/);
-  assert.match(gate, /DATABASE_URL is required/);
-  assert.match(gate, /npm run db:migrate/);
-  assert.match(gate, /pg_try_advisory_lock/);
-  assert.match(gate, /pg_advisory_unlock/);
-  assert.doesNotMatch(entrypoint, /prod-db-repair/);
-  assert.equal((entrypoint.match(/run-production-migrations\.cjs/g) ?? []).length, 1);
-  assert.doesNotMatch(readFileSync("scripts/prestart-production.mjs", "utf8"), /prod-db-repair/);
-  assert.match(dockerfile, /migration-manifest\.json/);
+  assert.match(entrypoint, /DATABASE_URL is required/);
+  assert.match(entrypoint, /JWT_SECRET is required/);
+  assert.match(entrypoint, /exec node server\.js/);
+  assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3005\//);
+  assert.doesNotMatch(entrypoint, /drizzle-kit|db:migrate|db:push|prod-db-repair|run-production-migrations/);
+  assert.doesNotMatch(dockerfile, /drizzle-kit migrate|db:push|prod-db-repair|run-production-migrations|migration-manifest/);
+  assert.doesNotMatch(readFileSync("scripts/prestart-production.mjs", "utf8"), /db:migrate|db:push|prod-db-repair|run-production-migrations/);
 });
 
 function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; hash: string; created_at: number }> }> = {}) {
