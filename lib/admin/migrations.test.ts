@@ -64,17 +64,23 @@ test("every committed SQL migration is represented exactly once in the Drizzle j
   assert.deepEqual(sqlMigrationTags.sort(), [...tags].sort());
 });
 
-test("production image starts Next.js without automatic database changes", () => {
+test("production image validates env, repairs the database, then starts Next.js", () => {
   const dockerfile = readFileSync("Dockerfile", "utf8");
   const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
 
   assert.match(entrypoint, /set -eu/);
   assert.match(entrypoint, /DATABASE_URL is required/);
   assert.match(entrypoint, /JWT_SECRET is required/);
-  assert.match(entrypoint, /exec node server\.js/);
-  assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3005\//);
-  assert.doesNotMatch(entrypoint, /drizzle-kit|db:migrate|db:push|prod-db-repair|run-production-migrations/);
-  assert.doesNotMatch(dockerfile, /drizzle-kit migrate|db:push|prod-db-repair|run-production-migrations|migration-manifest/);
+  assert.match(entrypoint, /node \.\/scripts\/prod-db-repair\.mjs/);
+  assert.match(entrypoint, /exec "\$@"/);
+  assert.ok(entrypoint.indexOf(": \"\${DATABASE_URL") < entrypoint.indexOf("node ./scripts/prod-db-repair.mjs"));
+  assert.ok(entrypoint.indexOf("node ./scripts/prod-db-repair.mjs") < entrypoint.indexOf('exec "$@"'));
+  assert.equal((entrypoint.match(/node \.\/scripts\/prod-db-repair\.mjs/g) ?? []).length, 1);
+  assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3000\//);
+  assert.match(dockerfile, /\/app\/scripts\/prod-db-repair\.mjs/);
+  assert.match(dockerfile, /\/app\/node_modules/);
+  assert.doesNotMatch(entrypoint, /drizzle-kit|db:migrate|db:push|run-production-migrations/);
+  assert.doesNotMatch(dockerfile, /drizzle-kit migrate|db:push|run-production-migrations|migration-manifest/);
   assert.doesNotMatch(readFileSync("scripts/prestart-production.mjs", "utf8"), /db:migrate|db:push|prod-db-repair|run-production-migrations/);
 });
 

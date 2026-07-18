@@ -138,6 +138,17 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/public \
      ./public
 
+# The startup repair is intentionally separate from Next.js' standalone trace.
+# Copy its production dependencies and scripts so it can run before server.js.
+COPY --from=deps --chown=nextjs:nodejs \
+     /app/node_modules \
+     ./node_modules
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/scripts/prod-db-repair.mjs \
+     /app/scripts/load-script-env.mjs \
+     ./scripts/
+
 
 # =============================================================================
 # Container entrypoint
@@ -148,6 +159,7 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
+ && test -f ./scripts/prod-db-repair.mjs \
  && echo "Runtime application assets verified."
 
 USER nextjs
