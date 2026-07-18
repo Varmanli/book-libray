@@ -5,6 +5,7 @@ import {
 import { splitMultiValueText } from "@/lib/book/genres";
 import { isLocalUploadPath } from "@/lib/storage/image-url";
 import { normalizeIsbn as normalizeImportIsbn } from "@/lib/books/import/isbn";
+import { normalizeBookGroupingKey, normalizeBookTitle } from "@/lib/books/import/title-normalization";
 import type {
   ImportStatus,
   NormalizedImportBook,
@@ -214,25 +215,7 @@ export function canPersistCoverUrl(coverUrl: string | null): boolean {
   return !!coverUrl && !isLocalUploadPath(coverUrl);
 }
 
-export function normalizeBookGroupingKey(
-  title: string,
-  _firstAuthor?: string,
-  _originalTitle?: string | null,
-): string {
-  return normalizeBookTitle(title);
-}
-
-/** Formatting-only title normalization used for identity decisions. */
-export function normalizeBookTitle(value: string | null | undefined): string {
-  return (value ?? "")
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200D\u200E\u200F\uFEFF]/g, "")
-    .replace(/[يى]/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/\s+/gu, " ")
-    .trim()
-    .toLocaleLowerCase();
-}
+export { normalizeBookGroupingKey, normalizeBookTitle } from "@/lib/books/import/title-normalization";
 
 export function joinPeople(values: Array<string | NormalizedImportReference>): string {
   return values

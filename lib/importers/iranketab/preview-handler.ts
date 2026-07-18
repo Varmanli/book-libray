@@ -13,11 +13,17 @@ import {
 import { analyzeIranKetabExtraction } from "./match-analysis";
 import type { AnalysisData } from "./match-analysis";
 import { assertExtractionCollectionLimits } from "./collection-limits";
+import { canonicalIranKetabSourceIdentity } from "./server-hardening";
+import type { AcquirePreviewOperationResult, IranKetabPreviewPayload } from "./preview-operation";
 
 type Gate = { user: { id: string } } | { error: NextResponse };
 type Dependencies = {
   authorize: () => Promise<Gate>;
   secureFetch?: typeof fetchIranKetabHtmlSecurely;
+  enrichProfiles?: boolean;
+  acquirePreviewOperation?: (sourceIdentity: string) => Promise<AcquirePreviewOperationResult>;
+  completePreviewOperation?: (operationId: string, generation: number, payload: IranKetabPreviewPayload) => Promise<unknown>;
+  failPreviewOperation?: (operationId: string, generation: number, input: { code: string; message: string; retryable: boolean }) => Promise<unknown>;
   loadAnalysisData: (
     extraction: Awaited<ReturnType<typeof extractIranKetabBook>>,
   ) => Promise<AnalysisData>;
@@ -69,11 +75,20 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
     } catch (error) {
       return mappedFailure(error);
     }
-    const slot = acquireIranKetabPreviewSlot(gate.user.id, canonicalUrl);
-    if (!("release" in slot))
+    const operations = dependencies.acquirePreviewOperation ? null : await import("./preview-operation");
+    const operation = await (dependencies.acquirePreviewOperation ?? operations!.acquireOrGetIranKetabPreview)(canonicalIranKetabSourceIdentity(canonicalUrl));
+    if (operation.kind === "PROCESSING") return operationResponse(operation, "IRANKETAB_IMPORT_IN_PROGRESS", "این کتاب هم‌اکنون در حال دریافت است.", 202);
+    if (operation.kind === "FAILED") return operationResponse(operation, operation.operation.errorCode ?? "PREVIEW_FAILED", operation.operation.errorMessage ?? "استخراج اطلاعات این صفحه ناموفق بود.", 422);
+    const slot = operation.kind === "COMPLETED" ? null : acquireIranKetabPreviewSlot(gate.user.id, canonicalUrl);
+    if (slot && !("release" in slot))
       return failure(slot.code, slot.message, true, 429);
     let sessionId: string | undefined;
     try {
+      if (operation.kind === "COMPLETED") {
+        sessionId = await dependencies.startSession?.({ adminId: gate.user.id, sourceUrl: url, canonicalUrl });
+        if (sessionId) await dependencies.previewReady?.({ sessionId, adminId: gate.user.id, ...operation.payload });
+        return NextResponse.json({ success: true, reused: true, operationId: operation.operation.id, sessionId, ...operation.payload });
+      }
       sessionId = await dependencies.startSession?.({
         adminId: gate.user.id,
         sourceUrl: url,
@@ -82,15 +97,26 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
       const fetched = await (
         dependencies.secureFetch ?? fetchIranKetabHtmlSecurely
       )(canonicalUrl);
+      if (
+        canonicalIranKetabSourceIdentity(fetched.canonicalUrl) !==
+        canonicalIranKetabSourceIdentity(canonicalUrl)
+      ) {
+        throw new SecureIranKetabFetchError(
+          "REDIRECT_REJECTED",
+          "تغییر مسیر به صفحه کتاب دیگری رد شد.",
+          false,
+        );
+      }
       const extraction = await extractIranKetabBook({
-        url: canonicalUrl,
+        url: fetched.canonicalUrl,
         html: fetched.html,
-        enrichProfiles: true,
+        enrichProfiles: dependencies.enrichProfiles ?? true,
       });
       assertExtractionCollectionLimits(extraction);
       const data = await dependencies.loadAnalysisData(extraction);
       const analysis = analyzeIranKetabExtraction(extraction, data);
       const preview = buildAdminIranKetabPreview(extraction);
+      await (dependencies.completePreviewOperation ?? operations!.completeIranKetabPreview)(operation.operation.id, operation.operation.generation, { extraction, analysis, preview });
       if (sessionId)
         await dependencies.previewReady?.({
           sessionId,
@@ -111,11 +137,18 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
         await dependencies
           .sessionFailed?.({ sessionId, adminId: gate.user.id, error })
           .catch(() => undefined);
-      return mappedFailure(error);
+      const response = mappedFailure(error);
+      const payload = await response.clone().json().catch(() => null) as { error?: { code?: string; message?: string; retryable?: boolean } } | null;
+      await (dependencies.failPreviewOperation ?? operations!.failIranKetabPreview)(operation.operation.id, operation.operation.generation, { code: payload?.error?.code ?? "PREVIEW_FAILED", message: payload?.error?.message ?? "استخراج اطلاعات این صفحه ناموفق بود.", retryable: payload?.error?.retryable ?? true }).catch(() => undefined);
+      return response;
     } finally {
-      slot.release();
+      if (slot && "release" in slot) slot.release();
     }
   };
+}
+
+function operationResponse(operation: Extract<AcquirePreviewOperationResult, { kind: "PROCESSING" | "FAILED" }>, code: string, message: string, status: number) {
+  return NextResponse.json({ success: false, error: { code, message, retryable: operation.kind === "PROCESSING" }, operationId: operation.operation.id, operationStatus: operation.operation.status, ...(operation.kind === "PROCESSING" ? { retryAfter: operation.retryAfterSeconds } : {}) }, { status, headers: operation.kind === "PROCESSING" ? { "Retry-After": String(operation.retryAfterSeconds) } : undefined });
 }
 
 function mappedFailure(error: unknown): NextResponse {

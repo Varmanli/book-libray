@@ -39,6 +39,9 @@ export function validateIranKetabBookUrl(value: string): URL {
   if (isIP(host)) throw new SecureIranKetabFetchError("UNSAFE_DESTINATION", "آدرس IP به‌عنوان مقصد قابل پذیرش نیست.");
   if (!IRANKETAB_HOSTS.has(host)) throw new SecureIranKetabFetchError("UNSUPPORTED_HOST", "فقط لینک صفحات کتاب سایت ایران‌کتاب قابل پذیرش است.");
   if (!isBookPath(url.pathname)) throw new SecureIranKetabFetchError("UNSUPPORTED_PATH", "این مسیر، صفحه شناخته‌شده کتاب در ایران‌کتاب نیست.");
+  // The book ID lives in the path; query values are neither required for
+  // extraction nor safe to preserve as distinct import identities.
+  url.search = "";
   url.hash = "";
   return url;
 }

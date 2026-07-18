@@ -129,6 +129,11 @@ export const IranKetabImportEventType = pgEnum("IranKetabImportEventType", [
   "COMMIT_COMPLETED",
   "COMMIT_FAILED",
 ]);
+export const IranKetabPreviewOperationStatus = pgEnum("IranKetabPreviewOperationStatus", [
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+]);
 export const CatalogBookContributorRole = pgEnum("CatalogBookContributorRole", ["AUTHOR", "TRANSLATOR"]);
 
 // ---------------- User ----------------
@@ -552,6 +557,29 @@ export const IranKetabImportEvent = pgTable(
     sessionIdx: index("IranKetabImportEvent_session_idx").on(t.sessionId),
     createdIdx: index("IranKetabImportEvent_created_idx").on(t.createdAt),
     typeIdx: index("IranKetabImportEvent_type_idx").on(t.type),
+  }),
+);
+
+/** Shared, source-derived preview work. Per-admin drafts remain in IranKetabImportSession. */
+export const IranKetabPreviewOperation = pgTable(
+  "IranKetabPreviewOperation",
+  {
+    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    sourceIdentity: text("source_identity").notNull(),
+    status: IranKetabPreviewOperationStatus("status").default("PROCESSING").notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    retryable: boolean("retryable").default(false).notNull(),
+    generation: integer("generation").default(1).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    sourceIdentityUnique: unique("IranKetabPreviewOperation_source_identity_unique").on(t.sourceIdentity),
+    reclaimIdx: index("IranKetabPreviewOperation_reclaim_idx").on(t.status, t.leaseExpiresAt, t.expiresAt),
   }),
 );
 

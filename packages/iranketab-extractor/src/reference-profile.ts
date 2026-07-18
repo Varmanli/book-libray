@@ -83,6 +83,9 @@ export async function enrichIranKetabReferenceProfiles(input: {
   profiles: Array<{ type: GhafasehReferenceProfileType; name: string; sourceUrl: string | null }>;
   fetcher?: (url: string, init?: RequestInit) => Promise<Response>;
   timeoutMs?: number;
+  /** Profiles are optional enrichment. Keep retries explicit and low. */
+  maxAttempts?: number;
+  retryDelayMs?: number;
 }): Promise<ParsedIranKetabReferenceProfile[]> {
   const seen = new Set<string>();
   const uniqueProfiles = input.profiles.filter((profile) => {
@@ -95,16 +98,31 @@ export async function enrichIranKetabReferenceProfiles(input: {
       const url = new URL(profile.sourceUrl!);
       if (!/^(?:www\.)?iranketab\.ir$/i.test(url.hostname)) throw new Error("PROFILE_HOST_NOT_ALLOWED");
       let lastError: unknown = null;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      const maxAttempts = Math.max(1, Math.min(input.maxAttempts ?? 1, 2));
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10000);
         try {
           const response = await (input.fetcher ?? globalThis.fetch)(url.toString(), { signal: controller.signal });
-          if (!response.ok || !(response.headers.get("content-type") ?? "").toLowerCase().includes("html")) throw new Error(`PROFILE_HTTP_${response.status}`);
+          if (!response.ok) {
+            const error = new Error(`PROFILE_HTTP_${response.status}`);
+            (error as Error & { retryable?: boolean }).retryable = response.status === 429 || response.status >= 500;
+            throw error;
+          }
+          if (!(response.headers.get("content-type") ?? "").toLowerCase().includes("html")) {
+            const error = new Error("PROFILE_INVALID_CONTENT_TYPE");
+            (error as Error & { retryable?: boolean }).retryable = false;
+            throw error;
+          }
           const html = await response.text();
           if (html.length > 2_000_000) throw new Error("PROFILE_RESPONSE_TOO_LARGE");
           return parseIranKetabReferenceProfile({ html, pageUrl: url.toString(), type: profile.type });
-        } catch (error) { lastError = error; } finally { clearTimeout(timer); }
+        } catch (error) {
+          lastError = error;
+          const retryable = !(error instanceof Error) || error.name === "AbortError" || (error as Error & { retryable?: boolean }).retryable !== false;
+          if (!retryable || attempt + 1 >= maxAttempts) break;
+          await new Promise(resolve => setTimeout(resolve, Math.max(0, input.retryDelayMs ?? 100) * (attempt + 1)));
+        } finally { clearTimeout(timer); }
       }
       throw lastError ?? new Error("PROFILE_FETCH_FAILED");
     } catch (error) {

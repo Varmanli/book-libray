@@ -54,11 +54,12 @@ test("Foucault fixture preserves identity and duplicate preference", async () =>
 
 test("URL helpers normalize fragments and reject unsupported hosts", () => {
   assert.equal(normalizeIranKetabBookUrl(" https://www.iranketab.ir/book/1-x#pts=42 "), "https://www.iranketab.ir/book/1-x");
-  assert.equal(normalizeIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine?edition=1"), "https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine?edition=1");
+  assert.equal(normalizeIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine?edition=1&utm_source=test"), "https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine");
   assert.equal(normalizeIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-bête-humaine/"), "https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine/");
   assert.equal(extractIranKetabEditionCode("https://iranketab.ir/book/1-x#pts=42"), "42");
   assert.throws(() => normalizeIranKetabBookUrl("not a url"), (error: unknown) => error instanceof IranKetabExtractionError && error.code === "INVALID_URL");
   assert.throws(() => normalizeIranKetabBookUrl("https://example.com/book/1"), (error: unknown) => error instanceof IranKetabExtractionError && error.code === "UNSUPPORTED_HOST");
+  for (const value of ["http://www.iranketab.ir/book/1-x", "https://u:p@www.iranketab.ir/book/1-x", "https://www.iranketab.ir:444/book/1-x", "//www.iranketab.ir/book/1-x"]) assert.throws(() => normalizeIranKetabBookUrl(value));
 });
 
 test("normalization preserves established Persian and ISBN behavior", () => {
@@ -109,9 +110,18 @@ test("reference profile enrichment deduplicates URLs and keeps fetch failure non
     ],
     fetcher: async () => { calls += 1; throw new Error("timeout"); },
   });
-  assert.equal(calls, 4);
+  assert.equal(calls, 2);
   assert.equal(profiles.length, 2);
   assert.match(profiles[0]!.diagnostics[0]!, /fetch failed/);
+});
+
+test("reference profile enrichment retries only configured transient failures", async () => {
+  let unavailableCalls = 0;
+  await enrichIranKetabReferenceProfiles({ profiles: [{ type: "AUTHOR", name: "الف", sourceUrl: "https://www.iranketab.ir/profile/a" }], maxAttempts: 2, retryDelayMs: 0, fetcher: async () => { unavailableCalls += 1; return new Response("unavailable", { status: 503, headers: { "content-type": "text/html" } }); } });
+  assert.equal(unavailableCalls, 2);
+  let missingCalls = 0;
+  await enrichIranKetabReferenceProfiles({ profiles: [{ type: "AUTHOR", name: "الف", sourceUrl: "https://www.iranketab.ir/profile/a" }], maxAttempts: 2, retryDelayMs: 0, fetcher: async () => { missingCalls += 1; return new Response("missing", { status: 404, headers: { "content-type": "text/html" } }); } });
+  assert.equal(missingCalls, 1);
 });
 
 test("malformed HTML and empty edition collections remain diagnosable", async () => {

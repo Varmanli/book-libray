@@ -12,6 +12,7 @@ test("strict URL validation accepts only exact HTTPS IranKetab book paths",()=>{
   assert.equal(validateIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-b%C3%AAte-humaine").pathname,"/book/2589-la-b%C3%AAte-humaine");
   assert.equal(validateIranKetabBookUrl("https://www.iranketab.ir/book/2589-la-bête-humaine").pathname,"/book/2589-la-b%C3%AAte-humaine");
   assert.equal(validateIranKetabBookUrl("https://iranketab.ir/book/2589-test/?edition=1").pathname,"/book/2589-test/");
+  assert.equal(validateIranKetabBookUrl("https://iranketab.ir/book/2589-test/?edition=1&utm_source=test").search,"");
   for(const value of ["http://iranketab.ir/book/1-test","https://u:p@iranketab.ir/book/1-test","https://iranketab.ir:444/book/1-test","https://evil-iranketab.ir/book/1-test","https://iranketab.ir.example.com/book/1-test","https://127.0.0.1/book/1-test","https://iranketab.ir/profile/1-test","https://iranketab.ir/search?q=test","https://iranketab.ir/category/1"]){assert.throws(()=>validateIranKetabBookUrl(value));}
 });
 

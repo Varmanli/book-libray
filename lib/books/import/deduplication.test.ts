@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeBookGroupingKey, normalizeBookTitle } from "./normalize";
+import { normalizeBookGroupingKey, normalizeBookTitle } from "./title-normalization";
 
 test("identical normalized titles share the physical-variant grouping key", () => {
   assert.equal(normalizeBookGroupingKey("  کتاب  "), normalizeBookGroupingKey("کتاب"));

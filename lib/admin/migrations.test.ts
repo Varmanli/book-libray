@@ -31,7 +31,8 @@ test("IranKetab session migration follows the journal without a duplicate sequen
   assert.equal(new Set(indexes).size, indexes.length);
   assert.equal(new Set(tags).size, tags.length);
   assert.deepEqual(indexes, indexes.map((_, index) => index));
-  assert.equal(tags.at(-1), "0028_iranketab_import_sessions");
+  assert.equal(tags[indexes.indexOf(28)], "0028_iranketab_import_sessions");
+  assert.ok(tags.indexOf("0028_iranketab_import_sessions") >= 0);
 });
 
 test("IranKetab session migration is additive and defines recovery indexes", () => {
@@ -39,4 +40,12 @@ test("IranKetab session migration is additive and defines recovery indexes", () 
   assert.match(importerMigration, /IranKetabImportSession_admin_idx/);
   assert.match(importerMigration, /IranKetabImportSession_canonical_idx/);
   assert.match(importerMigration, /IranKetabImportEvent_session_idx/);
+});
+
+test("IranKetab preview-operation migration is journaled and has durable identity indexes", () => {
+  const previewMigration = readFileSync("drizzle/0033_iranketab_preview_operations.sql", "utf8");
+  assert.ok(journal.entries.some((entry) => entry.tag === "0033_iranketab_preview_operations"));
+  assert.match(previewMigration, /IranKetabPreviewOperation_source_identity_unique/);
+  assert.match(previewMigration, /IranKetabPreviewOperation_reclaim_idx/);
+  assert.doesNotMatch(previewMigration, /DROP\s|TRUNCATE\s|DELETE\s+FROM/i);
 });
