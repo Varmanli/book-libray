@@ -1,6 +1,6 @@
 import { Pool } from "pg";
+import { pathToFileURL } from "node:url";
 
-import { loadScriptEnv } from "./load-script-env.mjs";
 
 function log(message) {
   console.log(`[prod-db-repair] ${message}`);
@@ -37,6 +37,139 @@ const enumStatements = [
    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
   `DO $$ BEGIN CREATE TYPE "CatalogBookContributorRole" AS ENUM ('AUTHOR','TRANSLATOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
 ];
+
+const PREVIEW_OPERATION_TABLE = "IranKetabPreviewOperation";
+const PREVIEW_OPERATION_ENUM = "IranKetabPreviewOperationStatus";
+const PREVIEW_OPERATION_COLUMNS = {
+  id: ["character varying", "NO", "gen_random_uuid()"],
+  source_identity: ["text", "NO", null],
+  status: ["IranKetabPreviewOperationStatus", "NO", "'PROCESSING'"],
+  lease_expires_at: ["timestamp without time zone", "YES", null],
+  expires_at: ["timestamp without time zone", "YES", null],
+  result: ["jsonb", "YES", null],
+  error_code: ["text", "YES", null],
+  error_message: ["text", "YES", null],
+  retryable: ["boolean", "NO", "false"],
+  generation: ["integer", "NO", "1"],
+  created_at: ["timestamp without time zone", "NO", "now()"],
+  updated_at: ["timestamp without time zone", "NO", "now()"],
+};
+
+function normalizedSql(value) {
+  return String(value ?? "").replaceAll('"public".', "").replaceAll("public.", "").replace(/\s+/g, " ").trim();
+}
+
+function defaultMatches(actual, expected) {
+  return expected === null ? actual === null : normalizedSql(actual).includes(expected);
+}
+
+function previewOperationSchemaFailures(schema) {
+  const failures = [];
+  if (!schema.enumExists) {
+    failures.push(`enum ${PREVIEW_OPERATION_ENUM} is missing`);
+  } else if (schema.enumKind !== "e" || JSON.stringify(schema.enumLabels) !== JSON.stringify(["PROCESSING", "COMPLETED", "FAILED"])) {
+    failures.push(`enum ${PREVIEW_OPERATION_ENUM} must be exactly ENUM ('PROCESSING','COMPLETED','FAILED')`);
+  }
+
+  if (!schema.tableExists) {
+    failures.push(`table ${PREVIEW_OPERATION_TABLE} is missing`);
+    return failures;
+  }
+
+  const actualColumns = new Map(schema.columns.map((column) => [column.column_name, column]));
+  const expectedNames = Object.keys(PREVIEW_OPERATION_COLUMNS);
+  if (actualColumns.size !== expectedNames.length || [...actualColumns.keys()].some((name) => !expectedNames.includes(name))) {
+    failures.push(`table ${PREVIEW_OPERATION_TABLE} has an unexpected column set`);
+  }
+  for (const [name, [type, nullable, defaultValue]] of Object.entries(PREVIEW_OPERATION_COLUMNS)) {
+    const column = actualColumns.get(name);
+    const actualType = column?.data_type === "USER-DEFINED" ? column.udt_name : column?.data_type;
+    if (!column || actualType !== type || column.is_nullable !== nullable || !defaultMatches(column.column_default, defaultValue)) {
+      failures.push(`column ${PREVIEW_OPERATION_TABLE}.${name} does not match migration 0033`);
+    }
+  }
+
+  const constraints = new Map(schema.constraints.map((constraint) => [constraint.conname, normalizedSql(constraint.definition)]));
+  const expectedConstraints = {
+    IranKetabPreviewOperation_pkey: "PRIMARY KEY (id)",
+    IranKetabPreviewOperation_source_identity_unique: "UNIQUE (source_identity)",
+  };
+  for (const [name, definition] of Object.entries(expectedConstraints)) {
+    if (constraints.get(name) !== definition) failures.push(`constraint ${name} does not match migration 0033`);
+  }
+  if (constraints.size !== Object.keys(expectedConstraints).length || [...constraints.keys()].some((name) => !(name in expectedConstraints))) {
+    failures.push(`table ${PREVIEW_OPERATION_TABLE} has unexpected primary/unique constraints`);
+  }
+
+  if (normalizedSql(schema.reclaimIndexDefinition) !== 'CREATE INDEX "IranKetabPreviewOperation_reclaim_idx" ON "IranKetabPreviewOperation" USING btree (status, lease_expires_at, expires_at)') {
+    failures.push("index IranKetabPreviewOperation_reclaim_idx does not match migration 0033");
+  }
+  return failures;
+}
+
+async function inspectPreviewOperationSchema(pool) {
+  const [enumResult, tableResult] = await Promise.all([
+    pool.query(`SELECT t.typtype AS enum_kind, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS enum_labels FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace LEFT JOIN pg_enum e ON e.enumtypid = t.oid WHERE n.nspname = 'public' AND t.typname = $1 GROUP BY t.typtype`, [PREVIEW_OPERATION_ENUM]),
+    pool.query(`SELECT to_regclass('public."IranKetabPreviewOperation"') AS table_name`),
+  ]);
+  const enumRow = enumResult.rows[0];
+  const tableExists = tableResult.rows[0]?.table_name !== null && tableResult.rows[0]?.table_name !== undefined;
+  if (!tableExists) return { enumExists: Boolean(enumRow), enumKind: enumRow?.enum_kind, enumLabels: enumRow?.enum_labels ?? [], tableExists: false, columns: [], constraints: [], reclaimIndexDefinition: null };
+
+  const [columns, constraints, index] = await Promise.all([
+    pool.query(`SELECT column_name, data_type, udt_name, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`, [PREVIEW_OPERATION_TABLE]),
+    pool.query(`SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = 'public."IranKetabPreviewOperation"'::regclass AND contype IN ('p', 'u')`),
+    pool.query(`SELECT pg_get_indexdef(indexrelid) AS definition FROM pg_index WHERE indexrelid = to_regclass('public."IranKetabPreviewOperation_reclaim_idx"')`),
+  ]);
+  return { enumExists: Boolean(enumRow), enumKind: enumRow?.enum_kind, enumLabels: enumRow?.enum_labels ?? [], tableExists: true, columns: columns.rows, constraints: constraints.rows, reclaimIndexDefinition: index.rows[0]?.definition ?? null };
+}
+
+export async function repairPreviewOperationSchema(pool) {
+  await pool.query("BEGIN");
+  try {
+    const before = await inspectPreviewOperationSchema(pool);
+    // Existing objects are never reshaped: a partially-created or conflicting
+    // 0033 object must be repaired manually so existing production data is safe.
+    if (before.enumExists && (before.enumKind !== "e" || JSON.stringify(before.enumLabels) !== JSON.stringify(["PROCESSING", "COMPLETED", "FAILED"]))) {
+      throw new Error(`IranKetab preview-operation schema conflict: enum ${PREVIEW_OPERATION_ENUM} must be exactly ENUM ('PROCESSING','COMPLETED','FAILED')`);
+    }
+    if (before.tableExists) {
+      const failures = previewOperationSchemaFailures(before);
+      if (failures.length) throw new Error(`IranKetab preview-operation schema conflict: ${failures.join("; ")}`);
+      await pool.query("COMMIT");
+      log("IranKetab preview-operation schema already matches migration 0033.");
+      return;
+    }
+
+    if (!before.enumExists) {
+      await pool.query(`CREATE TYPE public."IranKetabPreviewOperationStatus" AS ENUM ('PROCESSING','COMPLETED','FAILED')`);
+    }
+    await pool.query(`CREATE TABLE public."IranKetabPreviewOperation" (
+      "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "source_identity" text NOT NULL,
+      "status" public."IranKetabPreviewOperationStatus" DEFAULT 'PROCESSING' NOT NULL,
+      "lease_expires_at" timestamp,
+      "expires_at" timestamp,
+      "result" jsonb,
+      "error_code" text,
+      "error_message" text,
+      "retryable" boolean DEFAULT false NOT NULL,
+      "generation" integer DEFAULT 1 NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_at" timestamp DEFAULT now() NOT NULL,
+      CONSTRAINT "IranKetabPreviewOperation_source_identity_unique" UNIQUE("source_identity")
+    )`);
+    await pool.query(`CREATE INDEX "IranKetabPreviewOperation_reclaim_idx" ON public."IranKetabPreviewOperation" ("status","lease_expires_at","expires_at")`);
+
+    const failures = previewOperationSchemaFailures(await inspectPreviewOperationSchema(pool));
+    if (failures.length) throw new Error(`IranKetab preview-operation post-repair verification failed: ${failures.join("; ")}`);
+    await pool.query("COMMIT");
+    log("IranKetab preview-operation schema created and verified.");
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    throw error;
+  }
+}
 
 const contributorStatements = [
   `CREATE TABLE IF NOT EXISTS "CatalogBookContributor" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "role" "CatalogBookContributorRole" NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text, CONSTRAINT "CatalogBookContributor_unique" UNIQUE("catalog_book_id","reference_item_id","role"))`,
@@ -592,6 +725,7 @@ async function verifyQuoteSchema(pool) {
 }
 
 async function main() {
+  const { loadScriptEnv } = await import("./load-script-env.mjs");
   const { loadedFiles } = loadScriptEnv();
   if (loadedFiles.length > 0) {
     log(`loaded env files: ${loadedFiles.join(", ")}`);
@@ -620,6 +754,7 @@ async function main() {
       await pool.query(statement);
     }
     for (const statement of importerEnumValueStatements) await pool.query(statement);
+    await repairPreviewOperationSchema(pool);
     await repairImporterSchema(pool);
     await repairContributorSchema(pool);
     await pool.query("BEGIN");
@@ -660,4 +795,6 @@ async function main() {
   }
 }
 
-void main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}
