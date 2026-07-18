@@ -100,6 +100,8 @@ COPY . .
 
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BASE_URL
+ARG GIT_COMMIT_SHA=unknown
+ARG IMAGE_BUILD_ID=unknown
 
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
@@ -114,21 +116,16 @@ RUN test -f /app/.next/standalone/server.js \
  && test -d /app/.next/static \
  && echo "Standalone output verified."
 
+# This manifest binds the runtime migration files to the release that built
+# them. It deliberately contains hashes and identifiers only, never secrets.
+RUN GIT_COMMIT_SHA=${GIT_COMMIT_SHA} IMAGE_BUILD_ID=${IMAGE_BUILD_ID} \
+    node /app/scripts/generate-migration-manifest.mjs /app/.runtime/migration-manifest.json
+
 # Bundle production startup scripts and their CommonJS dependencies.
 # pg is CommonJS; keeping this bundle CommonJS avoids esbuild's ESM dynamic
 # require shim failure ("Dynamic require of events is not supported").
 RUN mkdir -p /app/.runtime \
  && test -x /app/node_modules/.bin/esbuild \
- && /app/node_modules/.bin/esbuild \
-      /app/scripts/prod-db-repair.mjs \
-      --bundle \
-      --platform=node \
-      --target=node22 \
-      --format=cjs \
-      --external:pg-native \
-      --outfile=/app/.runtime/prod-db-repair.cjs \
- && test -f /app/.runtime/prod-db-repair.cjs \
- && node -e "const fs=require('fs'); const source=fs.readFileSync('/app/.runtime/prod-db-repair.cjs','utf8'); if (!source.includes('BookEditionContributor') || !source.includes('to_regclass')) process.exit(1); console.log('Repair SQL/schema embedded in CommonJS bundle.')" \
  && /app/node_modules/.bin/esbuild \
       /app/scripts/run-production-migrations.mjs \
       --bundle \
@@ -171,11 +168,6 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/public \
      ./public
 
-# Bundled DB repair executable.
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/.runtime/prod-db-repair.cjs \
-     ./scripts/prod-db-repair.cjs
-
 # The migration gate invokes the repository's official `npm run db:migrate`
 # command. Keep its isolated runtime inputs in the final image; no network
 # installation occurs when the container starts.
@@ -207,14 +199,18 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/.runtime/run-production-migrations.cjs \
      ./scripts/run-production-migrations.cjs
 
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/.runtime/migration-manifest.json \
+     ./migration/migration-manifest.json
+
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
      ./docker-entrypoint.sh
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
- && test -f ./scripts/prod-db-repair.cjs \
  && test -f ./scripts/run-production-migrations.cjs \
+ && test -f ./migration/migration-manifest.json \
  && test -f ./migration/drizzle/meta/_journal.json \
  && test -f ./migration/drizzle/0033_iranketab_preview_operations.sql \
  && test -x ./migration/node_modules/.bin/drizzle-kit
