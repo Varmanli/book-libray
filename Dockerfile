@@ -72,6 +72,14 @@ RUN --mount=type=cache,target=/root/.npm \
       --fetch-retry-maxtimeout=120000
 
 
+# `drizzle-kit` is a production dependency because container startup invokes
+# the official migration command. Prune only development dependencies for the
+# isolated migration workdir copied into the final image.
+FROM deps AS migration-deps
+
+RUN npm prune --omit=dev
+
+
 # =============================================================================
 # Next.js production build
 # =============================================================================
@@ -106,7 +114,7 @@ RUN test -f /app/.next/standalone/server.js \
  && test -d /app/.next/static \
  && echo "Standalone output verified."
 
-# Bundle the production DB repair script and its CommonJS dependencies.
+# Bundle production startup scripts and their CommonJS dependencies.
 # pg is CommonJS; keeping this bundle CommonJS avoids esbuild's ESM dynamic
 # require shim failure ("Dynamic require of events is not supported").
 RUN mkdir -p /app/.runtime \
@@ -121,6 +129,16 @@ RUN mkdir -p /app/.runtime \
       --outfile=/app/.runtime/prod-db-repair.cjs \
  && test -f /app/.runtime/prod-db-repair.cjs \
  && node -e "const fs=require('fs'); const source=fs.readFileSync('/app/.runtime/prod-db-repair.cjs','utf8'); if (!source.includes('BookEditionContributor') || !source.includes('to_regclass')) process.exit(1); console.log('Repair SQL/schema embedded in CommonJS bundle.')" \
+ && /app/node_modules/.bin/esbuild \
+      /app/scripts/run-production-migrations.mjs \
+      --bundle \
+      --platform=node \
+      --target=node22 \
+      --format=cjs \
+      --external:pg-native \
+      --outfile=/app/.runtime/run-production-migrations.cjs \
+ && test -f /app/.runtime/run-production-migrations.cjs \
+ && node -e "const fs=require('fs'); const source=fs.readFileSync('/app/.runtime/run-production-migrations.cjs','utf8'); if (!source.includes('pg_try_advisory_lock') || !source.includes('db:migrate')) process.exit(1); console.log('Migration gate embedded in CommonJS bundle.')" \
  && node /app/.runtime/prod-db-repair.cjs
 
 
@@ -158,10 +176,36 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/.runtime/prod-db-repair.cjs \
      ./scripts/prod-db-repair.cjs
 
-# Keep migration SQL files only if prod-db-repair reads them through fs.
+# The migration gate invokes the repository's official `npm run db:migrate`
+# command. Keep its isolated runtime inputs in the final image; no network
+# installation occurs when the container starts.
+COPY --from=migration-deps --chown=nextjs:nodejs \
+     /app/node_modules \
+     ./migration/node_modules
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/package.json \
+     /app/package-lock.json \
+     /app/drizzle.config.ts \
+     ./migration/
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/db/schema.ts \
+     ./migration/db/schema.ts
+
+# Keep the complete migration SQL directory, journal, and metadata in both
+# the migration workdir and the application workdir for existing repair code.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/drizzle \
+     ./migration/drizzle
+
 COPY --from=builder --chown=nextjs:nodejs \
      /app/drizzle \
      ./drizzle
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/.runtime/run-production-migrations.cjs \
+     ./scripts/run-production-migrations.cjs
 
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
@@ -169,7 +213,11 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
- && test -f ./scripts/prod-db-repair.cjs
+ && test -f ./scripts/prod-db-repair.cjs \
+ && test -f ./scripts/run-production-migrations.cjs \
+ && test -f ./migration/drizzle/meta/_journal.json \
+ && test -f ./migration/drizzle/0033_iranketab_preview_operations.sql \
+ && test -x ./migration/node_modules/.bin/drizzle-kit
 
 USER nextjs
 

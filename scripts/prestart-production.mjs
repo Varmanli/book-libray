@@ -26,11 +26,10 @@ async function runProductionRepair() {
 
 async function runMigrations() {
   return new Promise((resolve, reject) => {
-    const child = spawn("npm", ["run", "db:migrate"], {
+    const child = spawn(process.execPath, ["scripts/run-production-migrations.mjs"], {
       cwd: process.cwd(),
       env: { ...process.env },
       stdio: "inherit",
-      shell: process.platform === "win32",
     });
 
     child.on("exit", (code) => {
@@ -39,7 +38,7 @@ async function runMigrations() {
         return;
       }
 
-      reject(new Error(`database migration exited with code ${code ?? "unknown"}`));
+      reject(new Error(`production migration gate exited with code ${code ?? "unknown"}`));
     });
     child.on("error", reject);
   });

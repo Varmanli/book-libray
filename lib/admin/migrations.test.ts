@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
@@ -48,4 +48,35 @@ test("IranKetab preview-operation migration is journaled and has durable identit
   assert.match(previewMigration, /IranKetabPreviewOperation_source_identity_unique/);
   assert.match(previewMigration, /IranKetabPreviewOperation_reclaim_idx/);
   assert.doesNotMatch(previewMigration, /DROP\s|TRUNCATE\s|DELETE\s+FROM/i);
+});
+
+test("every committed SQL migration is represented exactly once in the Drizzle journal", () => {
+  const tags = journal.entries.map((entry) => entry.tag);
+  assert.equal(new Set(tags).size, tags.length);
+  for (const tag of tags) {
+    assert.ok(existsSync(`drizzle/${tag}.sql`), `missing SQL file for ${tag}`);
+  }
+
+  const sqlMigrationTags = readdirSync("drizzle")
+    .filter((name) => /^\d+_.+\.sql$/.test(name))
+    .map((name) => name.slice(0, -".sql".length));
+  assert.deepEqual(sqlMigrationTags.sort(), [...tags].sort());
+});
+
+test("production image startup gates server launch on the serialized official migration command", () => {
+  const dockerfile = readFileSync("Dockerfile", "utf8");
+  const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
+  const gate = readFileSync("scripts/run-production-migrations.mjs", "utf8");
+
+  assert.match(entrypoint, /MIGRATION_WORKDIR=\/app\/migration node scripts\/run-production-migrations\.cjs/);
+  assert.ok(entrypoint.indexOf("run-production-migrations.cjs") < entrypoint.indexOf('exec "$@"'));
+  assert.match(entrypoint, /set -eu/);
+  assert.match(dockerfile, /\/app\/package\.json/);
+  assert.match(dockerfile, /\.\/migration\/drizzle/);
+  assert.match(dockerfile, /\.\/migration\/node_modules/);
+  assert.match(dockerfile, /0033_iranketab_preview_operations\.sql/);
+  assert.match(gate, /DATABASE_URL is required/);
+  assert.match(gate, /npm run db:migrate/);
+  assert.match(gate, /pg_try_advisory_lock/);
+  assert.match(gate, /pg_advisory_unlock/);
 });
