@@ -1,5 +1,6 @@
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
 
+
 # =============================================================================
 # IranKetab extractor dependencies
 # =============================================================================
@@ -72,9 +73,14 @@ RUN --mount=type=cache,target=/root/.npm \
       --fetch-retry-maxtimeout=120000
 
 
-# `drizzle-kit` is a production dependency because container startup invokes
-# the official migration command. Prune only development dependencies for the
-# isolated migration workdir copied into the final image.
+# =============================================================================
+# Production migration dependencies
+# =============================================================================
+# drizzle-kit must be available inside the final image because the entrypoint
+# runs the repository's official migration command before starting Next.js.
+#
+# This stage produces an isolated production-only node_modules directory for
+# /app/migration. No dependency installation occurs during container startup.
 FROM deps AS migration-deps
 
 RUN npm prune --omit=dev
@@ -116,16 +122,29 @@ RUN test -f /app/.next/standalone/server.js \
  && test -d /app/.next/static \
  && echo "Standalone output verified."
 
-# This manifest binds the runtime migration files to the release that built
-# them. It deliberately contains hashes and identifiers only, never secrets.
-RUN GIT_COMMIT_SHA=${GIT_COMMIT_SHA} IMAGE_BUILD_ID=${IMAGE_BUILD_ID} \
-    node /app/scripts/generate-migration-manifest.mjs /app/.runtime/migration-manifest.json
 
-# Bundle production startup scripts and their CommonJS dependencies.
-# pg is CommonJS; keeping this bundle CommonJS avoids esbuild's ESM dynamic
-# require shim failure ("Dynamic require of events is not supported").
+# =============================================================================
+# Migration release manifest
+# =============================================================================
+# The manifest binds the runtime migration files to this build using hashes and
+# non-secret release identifiers.
 RUN mkdir -p /app/.runtime \
- && test -x /app/node_modules/.bin/esbuild \
+ && GIT_COMMIT_SHA="${GIT_COMMIT_SHA}" \
+    IMAGE_BUILD_ID="${IMAGE_BUILD_ID}" \
+    node /app/scripts/generate-migration-manifest.mjs \
+      /app/.runtime/migration-manifest.json \
+ && test -f /app/.runtime/migration-manifest.json
+
+
+# =============================================================================
+# Production migration gate bundle
+# =============================================================================
+# Bundle the migration runner as CommonJS. This avoids esbuild ESM dynamic
+# require issues with pg and Node built-ins.
+#
+# The legacy prod-db-repair script is intentionally not bundled or executed.
+# All production schema changes must pass through committed Drizzle migrations.
+RUN test -x /app/node_modules/.bin/esbuild \
  && /app/node_modules/.bin/esbuild \
       /app/scripts/run-production-migrations.mjs \
       --bundle \
@@ -135,8 +154,17 @@ RUN mkdir -p /app/.runtime \
       --external:pg-native \
       --outfile=/app/.runtime/run-production-migrations.cjs \
  && test -f /app/.runtime/run-production-migrations.cjs \
- && node -e "const fs=require('fs'); const source=fs.readFileSync('/app/.runtime/run-production-migrations.cjs','utf8'); if (!source.includes('pg_try_advisory_lock') || !source.includes('db:migrate')) process.exit(1); console.log('Migration gate embedded in CommonJS bundle.')" \
- && node /app/.runtime/prod-db-repair.cjs
+ && node -e "\
+const fs = require('fs'); \
+const source = fs.readFileSync('/app/.runtime/run-production-migrations.cjs', 'utf8'); \
+const requiredMarkers = ['pg_try_advisory_lock', 'db:migrate']; \
+for (const marker of requiredMarkers) { \
+  if (!source.includes(marker)) { \
+    console.error('Migration bundle is missing required marker:', marker); \
+    process.exit(1); \
+  } \
+} \
+console.log('Production migration gate verified.');"
 
 
 # =============================================================================
@@ -155,7 +183,7 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
  && apk add --no-cache curl
 
-# Standalone includes only the production dependencies traced by Next.
+# Next.js standalone application.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/.next/standalone \
      ./
@@ -168,9 +196,12 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/public \
      ./public
 
-# The migration gate invokes the repository's official `npm run db:migrate`
-# command. Keep its isolated runtime inputs in the final image; no network
-# installation occurs when the container starts.
+
+# =============================================================================
+# Runtime migration workdir
+# =============================================================================
+# Isolated dependencies required by:
+# npm run db:migrate
 COPY --from=migration-deps --chown=nextjs:nodejs \
      /app/node_modules \
      ./migration/node_modules
@@ -185,24 +216,22 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/db/schema.ts \
      ./migration/db/schema.ts
 
-# Keep the complete migration SQL directory, journal, and metadata in both
-# the migration workdir and the application workdir for existing repair code.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/drizzle \
      ./migration/drizzle
 
 COPY --from=builder --chown=nextjs:nodejs \
-     /app/drizzle \
-     ./drizzle
+     /app/.runtime/migration-manifest.json \
+     ./migration/migration-manifest.json
 
 COPY --from=builder --chown=nextjs:nodejs \
      /app/.runtime/run-production-migrations.cjs \
      ./scripts/run-production-migrations.cjs
 
-COPY --from=builder --chown=nextjs:nodejs \
-     /app/.runtime/migration-manifest.json \
-     ./migration/migration-manifest.json
 
+# =============================================================================
+# Container entrypoint
+# =============================================================================
 COPY --chown=nextjs:nodejs \
      docker-entrypoint.sh \
      ./docker-entrypoint.sh
@@ -210,19 +239,32 @@ COPY --chown=nextjs:nodejs \
 RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./server.js \
  && test -f ./scripts/run-production-migrations.cjs \
+ && test -f ./migration/package.json \
+ && test -f ./migration/package-lock.json \
+ && test -f ./migration/drizzle.config.ts \
+ && test -f ./migration/db/schema.ts \
  && test -f ./migration/migration-manifest.json \
  && test -f ./migration/drizzle/meta/_journal.json \
  && test -f ./migration/drizzle/0033_iranketab_preview_operations.sql \
- && test -x ./migration/node_modules/.bin/drizzle-kit
+ && test -x ./migration/node_modules/.bin/drizzle-kit \
+ && echo "Runtime application and migration assets verified."
 
 USER nextjs
 
 EXPOSE 3005
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+# Startup includes migration preflight, advisory-lock acquisition, migration,
+# and postflight verification. Give the container enough time to finish these
+# steps before Coolify starts counting healthcheck failures.
+HEALTHCHECK \
+  --interval=30s \
+  --timeout=5s \
+  --start-period=180s \
+  --retries=5 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
-# Standalone Next.js must run directly through server.js.
+# docker-entrypoint.sh runs the guarded migration process first and then uses
+# exec to launch this command.
 CMD ["node", "server.js"]
