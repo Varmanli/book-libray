@@ -109,7 +109,21 @@ function previewOperationSchemaFailures(schema) {
 
 async function inspectPreviewOperationSchema(pool) {
   const [enumResult, tableResult] = await Promise.all([
-    pool.query(`SELECT t.typtype AS enum_kind, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS enum_labels FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace LEFT JOIN pg_enum e ON e.enumtypid = t.oid WHERE n.nspname = 'public' AND t.typname = $1 GROUP BY t.typtype`, [PREVIEW_OPERATION_ENUM]),
+    // enumlabel is PostgreSQL's `name` type. `array_agg(enumlabel)` produces
+    // `name[]`, which node-postgres returns as a raw string instead of a JS
+    // array. JSON is parsed by node-postgres, keeping this validation stable.
+    pool.query(`SELECT
+      t.typtype AS enum_kind,
+      COALESCE(
+        json_agg(e.enumlabel ORDER BY e.enumsortorder)
+          FILTER (WHERE e.enumlabel IS NOT NULL),
+        '[]'::json
+      ) AS enum_labels
+      FROM pg_type t
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      LEFT JOIN pg_enum e ON e.enumtypid = t.oid
+      WHERE n.nspname = 'public' AND t.typname = $1
+      GROUP BY t.typtype`, [PREVIEW_OPERATION_ENUM]),
     pool.query(`SELECT to_regclass('public."IranKetabPreviewOperation"') AS table_name`),
   ]);
   const enumRow = enumResult.rows[0];

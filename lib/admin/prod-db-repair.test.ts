@@ -31,7 +31,7 @@ class PreviewSchemaPool {
   async query(statement: string, ..._parameters: unknown[]): Promise<{ rows: Row[] }> {
     this.statements.push(statement);
     if (statement.startsWith("BEGIN") || statement.startsWith("COMMIT") || statement.startsWith("ROLLBACK")) return { rows: [] };
-    if (statement.includes("FROM pg_type t JOIN pg_namespace")) {
+    if (statement.includes("FROM pg_type t")) {
       return { rows: this.enumExists ? [{ enum_kind: "e", enum_labels: this.enumLabels }] : [] };
     }
     if (statement.includes("to_regclass('public.\"IranKetabPreviewOperation\"')")) {
@@ -76,6 +76,16 @@ test("preview-operation repair creates 0033 objects once and preserves existing 
   await repairPreviewOperationSchema(pool);
   assert.equal(pool.statements.filter((statement) => statement.startsWith("CREATE ")).length, 3, "second execution must not recreate objects");
   assert.deepEqual(pool.data, [{ id: "existing-operation", source_identity: "existing" }]);
+});
+
+test("preview-operation enum inspection uses JSON so pg returns a JavaScript array", async () => {
+  const pool = new PreviewSchemaPool();
+
+  await repairPreviewOperationSchema(pool);
+
+  const enumInspection = pool.statements.find((statement) => statement.includes("FROM pg_type t"));
+  assert.match(enumInspection ?? "", /json_agg\(e\.enumlabel ORDER BY e\.enumsortorder\)/);
+  assert.doesNotMatch(enumInspection ?? "", /array_agg\(/);
 });
 
 test("preview-operation repair refuses incomplete or conflicting existing objects without touching data", async () => {
