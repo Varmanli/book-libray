@@ -11,6 +11,7 @@
     "start:prod": "npm run start:next",
     "lint": "eslint",
     "test": "tsx --test --test-concurrency=1 lib/**/*.test.ts",
+    "email:test": "tsx scripts/test-email.ts",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "db:history:inspect": "node scripts/inspect-drizzle-migration-history.mjs",
@@ -33,8 +34,8 @@
     "storage:inspect-local-paths": "tsx --env-file=.env scripts/inspect-local-image-paths.ts"
   },
   "dependencies": {
-    "@ghafaseh/iranketab-extractor": "file:packages/iranketab-extractor",
     "@aws-sdk/client-s3": "^3.1073.0",
+    "@ghafaseh/iranketab-extractor": "file:packages/iranketab-extractor",
     "@hookform/resolvers": "^5.2.1",
     "@prisma/extension-accelerate": "^2.0.2",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -66,6 +67,7 @@
     "next": "15.5.2",
     "next-pwa": "^5.6.0",
     "next-themes": "^0.4.6",
+    "nodemailer": "^9.0.3",
     "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -86,6 +88,7 @@
     "@types/minimatch": "^6.0.0",
     "@types/next-pwa": "^5.6.9",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
