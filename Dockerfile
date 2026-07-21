@@ -162,16 +162,6 @@ RUN chmod 0755 ./docker-entrypoint.sh \
  && test -f ./scripts/prod-db-repair.mjs \
  && echo "Runtime application assets verified."
 
-USER nextjs
-
-EXPOSE 3000
-
-HEALTHCHECK \
-  --interval=30s \
-  --timeout=5s \
-  --start-period=30s \
-  --retries=5 \
-  CMD curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
