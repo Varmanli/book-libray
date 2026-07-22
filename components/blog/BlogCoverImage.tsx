@@ -1,5 +1,3 @@
-"use client";
-
 import BookCoverImage from "@/components/books/BookCoverImage";
 
 const BLOG_FALLBACK = "/placeholder-cover.svg";

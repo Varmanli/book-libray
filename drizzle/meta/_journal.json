@@ -239,6 +239,34 @@
       "when": 1784208000000,
       "tag": "0033_iranketab_preview_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784290000000,
+      "tag": "0034_reading_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784380000000,
+      "tag": "0035_personal_book_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784381000000,
+      "tag": "0036_reading_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784382000000,
+      "tag": "0037_public_book_thoughts",
+      "breakpoints": true
     }
   ]
 }

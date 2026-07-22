@@ -10,6 +10,7 @@ import {
   BookEditionPublisher,
   Quote,
   QuoteLike,
+  ReadingEvent,
   ReferenceItem,
   User,
 } from "@/db/schema";
@@ -57,7 +58,7 @@ export type BookReferenceImages = {
   [K in keyof BookReferenceLinks]?: string | null;
 };
 
-export type BookStatus = "UNREAD" | "READING" | "FINISHED";
+export type BookStatus = "UNREAD" | "READING" | "PAUSED" | "FINISHED";
 
 export interface BookEditionSummary {
   id: string;
@@ -105,6 +106,10 @@ export interface ViewerLibraryEntry {
   moodTags: string[];
   editionId: string | null;
   catalogBookId: string | null;
+  pageCount: number | null;
+  currentPage: number;
+  progress: number | null;
+  readingUpdatedAt: Date | null;
 }
 
 export interface BookStats {
@@ -297,6 +302,10 @@ async function loadViewerEntry(
         moodTags: Book.moodTags,
         editionId: Book.editionId,
         catalogBookId: Book.catalogBookId,
+        pageCount: Book.pageCount,
+        currentPage: Book.currentPage,
+        progress: Book.progress,
+        readingUpdatedAt: Book.readingUpdatedAt,
       })
       .from(Book)
       .where(where)
@@ -312,6 +321,10 @@ async function loadViewerEntry(
         moodTags: entry.moodTags ?? [],
         editionId: entry.editionId,
         catalogBookId: entry.catalogBookId,
+        pageCount: entry.pageCount,
+        currentPage: entry.currentPage,
+        progress: entry.progress,
+        readingUpdatedAt: entry.readingUpdatedAt,
       };
     }
   }
@@ -803,25 +816,38 @@ export async function addBookToLibrary(
 
     if (existing) return { ok: true, bookId: existing.id, already: true };
 
-    const [created] = await db
-      .insert(Book)
-      .values({
-        title: edition.title,
-        author: edition.author,
-        description: edition.description,
-        genre: edition.genre ?? "نامشخص",
-        country: edition.country,
-        translator: edition.translator,
-        publisher: edition.publisher,
-        pageCount: edition.pageCount,
-        format: edition.format,
-        coverImage: edition.coverImage,
-        userId: viewerId,
-        status,
-        catalogBookId: edition.catalogBookId,
-        editionId: edition.editionId,
-      })
-      .returning({ id: Book.id });
+    const created = await db.transaction(async (tx) => {
+      const [book] = await tx
+        .insert(Book)
+        .values({
+          title: edition.title,
+          author: edition.author,
+          description: edition.description,
+          genre: edition.genre ?? "نامشخص",
+          country: edition.country,
+          translator: edition.translator,
+          publisher: edition.publisher,
+          pageCount: edition.pageCount,
+          format: edition.format,
+          coverImage: edition.coverImage,
+          userId: viewerId,
+          status,
+          catalogBookId: edition.catalogBookId,
+          editionId: edition.editionId,
+        })
+        .returning({ id: Book.id });
+
+      if (status === "READING") {
+        await tx.insert(ReadingEvent).values({
+          userId: viewerId,
+          bookId: book.id,
+          type: "START",
+          pageTo: 0,
+        });
+      }
+
+      return book;
+    });
 
     return { ok: true, bookId: created.id, already: false };
   }
@@ -878,25 +904,38 @@ export async function addBookToLibrary(
     if (existing) return { ok: true, bookId: existing.id, already: true };
   }
 
-  const [created] = await db
-    .insert(Book)
-    .values({
-      title: legacy.title,
-      author: legacy.author,
-      translator: legacy.translator,
-      publisher: legacy.publisher,
-      genre: legacy.genre,
-      country: legacy.country,
-      description: legacy.description,
-      coverImage: legacy.coverImage,
-      pageCount: legacy.pageCount,
-      format: legacy.format,
-      userId: viewerId,
-      status,
-      catalogBookId: legacy.catalogBookId,
-      editionId: legacy.editionId,
-    })
-    .returning({ id: Book.id });
+  const created = await db.transaction(async (tx) => {
+    const [book] = await tx
+      .insert(Book)
+      .values({
+        title: legacy.title,
+        author: legacy.author,
+        translator: legacy.translator,
+        publisher: legacy.publisher,
+        genre: legacy.genre,
+        country: legacy.country,
+        description: legacy.description,
+        coverImage: legacy.coverImage,
+        pageCount: legacy.pageCount,
+        format: legacy.format,
+        userId: viewerId,
+        status,
+        catalogBookId: legacy.catalogBookId,
+        editionId: legacy.editionId,
+      })
+      .returning({ id: Book.id });
+
+    if (status === "READING") {
+      await tx.insert(ReadingEvent).values({
+        userId: viewerId,
+        bookId: book.id,
+        type: "START",
+        pageTo: 0,
+      });
+    }
+
+    return book;
+  });
 
   return { ok: true, bookId: created.id, already: false };
 }

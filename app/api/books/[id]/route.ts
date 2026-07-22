@@ -83,6 +83,14 @@ export async function PUT(req: NextRequest) {
       updateData.moodTags = moods;
     }
 
+    // Keep completion metadata consistent for status changes made outside the
+    // dedicated reading-progress screen as well.
+    if (body.status === "FINISHED") {
+      updateData.completedAt = book.completedAt ?? new Date();
+    } else if (body.status && body.status !== "FINISHED") {
+      updateData.completedAt = null;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
         { error: "هیچ مقداری برای بروزرسانی ارسال نشده" },
@@ -110,6 +118,9 @@ export async function PUT(req: NextRequest) {
         publisher: Book.publisher,
         status: Book.status,
         progress: Book.progress,
+        currentPage: Book.currentPage,
+        readingUpdatedAt: Book.readingUpdatedAt,
+        completedAt: Book.completedAt,
         rating: Book.rating,
         review: Book.review,
         moodTags: Book.moodTags,

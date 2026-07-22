@@ -5,6 +5,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
+import { getSiteSettings } from "@/lib/settings/service";
 
 export default async function DashboardLayout({
   children,
@@ -17,6 +18,8 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/auth/login");
   }
+  const settings = await getSiteSettings();
+  const branding = { logoUrl: settings.logoUrl, siteName: settings.siteName };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -28,11 +31,13 @@ export default async function DashboardLayout({
           username: user.username,
         }}
         isAdmin={isAdmin(user)}
+        branding={branding}
       />
       <main className="flex-1">
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
       <SiteFooter
+        branding={branding}
         user={{
           name: user.name,
           email: user.email,

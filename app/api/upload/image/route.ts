@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
     const folder = rawFolder as ImageUploadFolder;
     let uploadOwnerId = user.id;
-    if (folder === "quotes" && typeof requestedOwnerId === "string" && requestedOwnerId !== user.id) {
+    if ((folder === "quotes" || folder === "avatars") && typeof requestedOwnerId === "string" && requestedOwnerId !== user.id) {
       if (!isAdmin(user)) {
         return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
       }

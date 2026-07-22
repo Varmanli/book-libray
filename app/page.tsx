@@ -24,14 +24,12 @@ export default async function HomePage() {
   const [
     user,
     featuredBooks,
-    popularBooks,
     recentQuotes,
     latestBlogPosts,
     dbHeroSlides,
   ] = await Promise.all([
     getCurrentUser(),
     getFeaturedBooks(12),
-    getPopularBooks(12),
     getRecentHomeQuotes(10),
     getLatestHomeBlogPosts(3),
     getHeroSlides(),
@@ -40,7 +38,9 @@ export default async function HomePage() {
   // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
   // کتاب‌های اخیر عمومی (به‌صورت شفاف با برچسب «تازه‌ترین‌ها»).
   const hasFeatured = featuredBooks.length > 0;
-  const showcaseBooks = hasFeatured ? featuredBooks : popularBooks;
+  const showcaseBooks = hasFeatured
+    ? featuredBooks
+    : await getPopularBooks(12);
 
   const isLoggedIn = !!user;
   const libraryHref = getLibraryPath(user?.username);
@@ -84,7 +84,7 @@ export default async function HomePage() {
         }));
 
   return (
-    <PublicShell>
+    <PublicShell user={user}>
       <div className="relative overflow-x-clip">
         <div
           aria-hidden="true"
@@ -93,21 +93,29 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:space-y-10">
           <HomeHeroSlider slides={heroSlides} />
 
-          <HomeQuickActions
-            isLoggedIn={isLoggedIn}
-            libraryHref={libraryHref}
-            profileHref={profileHref}
-          />
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_720px]">
+            <HomeQuickActions
+              isLoggedIn={isLoggedIn}
+              libraryHref={libraryHref}
+              profileHref={profileHref}
+            />
+          </div>
 
-          <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_650px]">
+            <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />
+          </div>
 
-          <HomeQuotesSection quotes={recentQuotes} isLoggedIn={isLoggedIn} />
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
+            <HomeQuotesSection quotes={recentQuotes} isLoggedIn={isLoggedIn} />
+          </div>
 
           {/* <HomeReadingListsPreview lists={HOME_PLACEHOLDER_LISTS} /> */}
 
           {/* <HomeFeatureCards /> */}
 
-          <HomeBlogPreview posts={latestBlogPosts} />
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_520px]">
+            <HomeBlogPreview posts={latestBlogPosts} />
+          </div>
         </div>
       </div>
     </PublicShell>

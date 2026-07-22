@@ -34,7 +34,7 @@ export const bookSchema = z.object({
     .min(1, "تعداد صفحات باید حداقل ۱ باشد"),
   // جلد اختیاری است
   cover: z.any().optional(),
-  status: z.enum(["UNREAD", "READING", "FINISHED"]).optional(),
+  status: z.enum(["UNREAD", "READING", "PAUSED", "FINISHED"]).optional(),
   progress: z.number().min(0).max(100).optional(),
 });
 
@@ -152,7 +152,7 @@ export default function BookForm({
       pageCount,
       cover: initialValues.cover ?? undefined,
       status:
-        (initialValues.status as "UNREAD" | "READING" | "FINISHED") ?? "UNREAD",
+        (initialValues.status as "UNREAD" | "READING" | "PAUSED" | "FINISHED") ?? "UNREAD",
       progress: initialValues.progress ?? 0,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

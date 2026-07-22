@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -184,7 +184,11 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
 
         {presentation.linkEditionId ? (
           <p className="mt-1 line-clamp-1 text-[11px] font-bold text-primary/85">
-            {[presentation.editionLabel, presentation.publisher, presentation.translator]
+            {[
+              presentation.editionLabel,
+              presentation.publisher,
+              presentation.translator,
+            ]
               .filter(Boolean)
               .join(" • ") || "نسخه انتخاب‌شده"}
           </p>
@@ -233,45 +237,90 @@ function Pagination({
 }) {
   if (archive.pageCount <= 1) return null;
 
+  const pageItems = getPaginationItems(archive.page, archive.pageCount);
+
   return (
     <nav
       aria-label="صفحه‌بندی کتاب‌ها"
-      className="flex flex-col items-center justify-between gap-3 rounded-[1.6rem] border border-border/75 bg-card/70 p-3 shadow-[0_20px_70px_-60px_rgba(0,0,0,0.75)] sm:flex-row"
+      className="flex items-center justify-between gap-2 rounded-[1.6rem] border border-border/75 bg-card/70 p-2.5 shadow-[0_20px_70px_-60px_rgba(0,0,0,0.75)] sm:p-3"
     >
       <Button
         type="button"
         variant="outline"
-        className="h-10 w-full rounded-2xl sm:w-auto"
+        className="h-9 shrink-0 rounded-xl px-2.5 text-xs sm:px-3"
         disabled={archive.page <= 1}
         onClick={() => onPatch({ page: archive.page - 1 })}
       >
         <ChevronRight className="h-4 w-4" />
-        صفحه قبل
+        <span className="hidden sm:inline">صفحه قبل</span>
       </Button>
 
-      <p className="order-first text-sm font-bold text-muted-foreground sm:order-none">
-        صفحه{" "}
-        <span className="text-foreground">
-          {archive.page.toLocaleString("fa-IR")}
-        </span>{" "}
-        از{" "}
-        <span className="text-foreground">
+      <div className="min-w-0">
+        <p className="text-xs font-bold text-muted-foreground sm:hidden">
+          {archive.page.toLocaleString("fa-IR")} از{" "}
           {archive.pageCount.toLocaleString("fa-IR")}
-        </span>
-      </p>
+        </p>
+
+        <div className="hidden items-center gap-1 sm:flex">
+          {pageItems.map((item, index) =>
+            item === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="flex h-9 w-7 items-center justify-center text-sm text-muted-foreground"
+              >
+                …
+              </span>
+            ) : (
+              <Button
+                key={item}
+                type="button"
+                variant={item === archive.page ? "default" : "ghost"}
+                aria-label={`صفحه ${item.toLocaleString("fa-IR")}`}
+                aria-current={item === archive.page ? "page" : undefined}
+                onClick={() => onPatch({ page: item })}
+                className="h-9 min-w-9 rounded-xl px-2 text-xs font-bold tabular-nums"
+              >
+                {item.toLocaleString("fa-IR")}
+              </Button>
+            ),
+          )}
+        </div>
+      </div>
 
       <Button
         type="button"
         variant="outline"
-        className="h-10 w-full rounded-2xl sm:w-auto"
+        className="h-9 shrink-0 rounded-xl px-2.5 text-xs sm:px-3"
         disabled={archive.page >= archive.pageCount}
         onClick={() => onPatch({ page: archive.page + 1 })}
       >
-        صفحه بعد
+        <span className="hidden sm:inline">صفحه بعد</span>
         <ChevronLeft className="h-4 w-4" />
       </Button>
     </nav>
   );
+}
+
+function getPaginationItems(currentPage: number, pageCount: number) {
+  const pages = new Set([
+    1,
+    pageCount,
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+  ]);
+  const sortedPages = [...pages]
+    .filter((page) => page >= 1 && page <= pageCount)
+    .sort((left, right) => left - right);
+  const items: Array<number | "ellipsis"> = [];
+
+  sortedPages.forEach((page, index) => {
+    const previous = sortedPages[index - 1];
+    if (previous && page - previous > 1) items.push("ellipsis");
+    items.push(page);
+  });
+
+  return items;
 }
 
 export default function BookArchiveFilters({
@@ -301,6 +350,8 @@ export default function BookArchiveFilters({
   const [isPending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState(filters);
+  const [searchQuery, setSearchQuery] = useState(filters.q);
+  const hasPendingSearchRef = useRef(false);
 
   const currentParams = useMemo(
     () => toBookArchiveSearchParams(filters).toString(),
@@ -313,8 +364,15 @@ export default function BookArchiveFilters({
   );
 
   useEffect(() => {
+    // A URL response can arrive after the user has typed another character but
+    // before its debounce runs. Keep the input's local value authoritative
+    // until the server has returned results for that exact query.
+    if (hasPendingSearchRef.current && filters.q !== searchQuery) return;
+
     setDraft(filters);
-  }, [filters]);
+    setSearchQuery(filters.q);
+    hasPendingSearchRef.current = false;
+  }, [filters, searchQuery]);
 
   useEffect(() => {
     const nextParams = toBookArchiveSearchParams(draft).toString();
@@ -370,16 +428,26 @@ export default function BookArchiveFilters({
 
             <input
               type="search"
-              value={draft.q}
-              onChange={(event) =>
+              dir="rtl"
+              name="book-search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="search"
+              value={searchQuery}
+              onChange={(event) => {
+                const value = event.target.value;
+                hasPendingSearchRef.current = true;
+                setSearchQuery(value);
                 setDraft((current) => ({
                   ...current,
-                  q: event.target.value,
+                  q: value,
                   page: 1,
-                }))
-              }
+                }));
+              }}
               placeholder={searchPlaceholder}
-              className="h-14 w-full rounded-[1.45rem] border border-border/70 bg-background/70 pr-12 pl-4 text-right text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground/75 focus:border-primary/35 focus:bg-background focus:ring-4 focus:ring-primary/10 sm:text-base"
+              className="h-14 w-full rounded-[1.45rem] border border-border/70 bg-background/70 pr-12 pl-4 text-right text-sm font-semibold text-foreground outline-none transition placeholder:text-right [unicode-bidi:plaintext] focus:border-primary/35 focus:bg-background focus:ring-4 focus:ring-primary/10 sm:text-base"
             />
           </div>
 

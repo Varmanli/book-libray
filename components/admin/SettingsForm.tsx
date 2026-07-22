@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, RotateCcw, Save } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -30,6 +31,7 @@ export default function SettingsForm({
   initialSettings: SiteSettings;
 }) {
   const [settings, setSettings] = React.useState<SiteSettings>(initialSettings);
+  const router = useRouter();
   // مرجع آخرین مقدار ذخیره‌شده برای تشخیص تغییر و امکان «بازگردانی».
   const [saved, setSaved] = React.useState<SiteSettings>(initialSettings);
   const [saving, setSaving] = React.useState(false);
@@ -75,13 +77,14 @@ export default function SettingsForm({
 
       setSettings(data.settings);
       setSaved(data.settings);
+      router.refresh();
       toast.success(data.message || "تنظیمات ذخیره شد");
     } catch {
       toast.error("ارتباط با سرور ممکن نشد.");
     } finally {
       setSaving(false);
     }
-  }, [saving, isUploading, settings]);
+  }, [router, saving, isUploading, settings]);
 
   const reset = React.useCallback(() => {
     setSettings(saved);

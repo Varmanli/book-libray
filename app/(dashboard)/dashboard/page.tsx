@@ -80,7 +80,7 @@ export default async function DashboardPage() {
     data.stats.totalBooks === 0
       ? { text: "اولین کتابت را اضافه کن", cta: "افزودن کتاب", href: "/books/add" }
       : data.stats.reading > 0
-      ? { text: "مطالعه‌ات را ادامه بده", cta: "ادامه‌ی مطالعه", href: `${libraryHref}?filter=READING` }
+      ? { text: "مطالعه‌ات را ادامه بده", cta: "ادامه‌ی مطالعه", href: "/reading" }
       : data.stats.unread > 0
       ? { text: "یکی از کتاب‌های ذخیره‌شده را شروع کن", cta: "انتخاب کتاب", href: `${libraryHref}?filter=UNREAD` }
       : { text: "کتاب تازه‌ای به قفسه اضافه کن", cta: "افزودن کتاب", href: "/books/add" };
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
             action={
               data.currentlyReading.length > 0 ? (
                 <Link
-                  href={`${libraryHref}?filter=READING`}
+                  href="/reading"
                   className="text-xs font-medium text-primary hover:underline"
                 >
                   مشاهده همه

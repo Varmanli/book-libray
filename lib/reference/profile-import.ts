@@ -13,6 +13,7 @@ import {
   getFilenameExtension,
 } from "@/lib/server/upload-key";
 import { validateImageFile } from "@/lib/upload";
+import { REFERENCE_DESCRIPTION_LIMITS } from "@/lib/reference/limits";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 
 export const SUPPORTED_REFERENCE_PROFILE_TYPES = [
@@ -77,8 +78,8 @@ const profileSchema = z
     name: z.string().trim().min(1).max(200),
     slug: z.string().trim().max(200).nullish(),
     originalName: nullableString(200),
-    description: nullableString(5000),
-    shortDescription: nullableString(300),
+    description: nullableString(REFERENCE_DESCRIPTION_LIMITS.full),
+    shortDescription: nullableString(REFERENCE_DESCRIPTION_LIMITS.short),
     imageFilename: nullableString(255),
     imageUrl: nullableUrl,
     sourceName: nullableString(200),

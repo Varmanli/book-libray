@@ -19,7 +19,20 @@ export const BookFormat = pgEnum("BookFormat", ["PHYSICAL", "ELECTRONIC"]);
 export const BookStatus = pgEnum("BookStatus", [
   "UNREAD",
   "READING",
+  "PAUSED",
   "FINISHED",
+]);
+
+export const ReadingEventType = pgEnum("ReadingEventType", [
+  "START",
+  "PROGRESS",
+  "FINISH",
+]);
+
+export const PublicBookThoughtType = pgEnum("PublicBookThoughtType", [
+  "THOUGHT",
+  "QUOTE",
+  "REFLECTION",
 ]);
 
 export const PurchasePriority = pgEnum("PurchasePriority", [
@@ -442,6 +455,12 @@ export const Book = pgTable("Book", {
     .references(() => User.id, { onDelete: "cascade" }),
   status: BookStatus("status").default("UNREAD").notNull(),
   progress: integer("progress"),
+  // Reading progress is kept on the existing personal-library record so it
+  // stays tied to the user's chosen edition and never creates a second status
+  // system.
+  currentPage: integer("current_page").default(0).notNull(),
+  readingUpdatedAt: timestamp("reading_updated_at", { mode: "date" }),
+  completedAt: timestamp("completed_at", { mode: "date" }),
   rating: integer("rating"),
   review: text("review"),
   // حس/حال‌وهوای شخصی کاربر از کتاب (چندتایی). nullable برای سازگاری با ردیف‌های قدیمی.
@@ -489,6 +508,89 @@ export const Quote = pgTable(
     userIdx: index("Quote_user_id_idx").on(table.userId),
     createdAtIdx: index("Quote_created_at_idx").on(table.createdAt),
     updatedAtIdx: index("Quote_updated_at_idx").on(table.updatedAt),
+  }),
+);
+
+// ---------------- PersonalBookNote (دفترچه‌ی خصوصی مطالعه) ----------------
+// این یادداشت‌ها جدا از یادداشت‌های منتشرشده‌اند و فقط به رکورد کتابِ شخصیِ
+// کاربر وصل می‌شوند؛ بنابراین هرگز در پروفایل یا صفحه‌ی عمومی نمایش داده نمی‌شوند.
+export const PersonalBookNote = pgTable(
+  "PersonalBookNote",
+  {
+    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    bookId: varchar("book_id").notNull().references(() => Book.id, { onDelete: "cascade" }),
+    userId: varchar("user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    pageNumber: integer("page_number"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    bookUserIdx: index("PersonalBookNote_book_user_idx").on(table.bookId, table.userId),
+    createdAtIdx: index("PersonalBookNote_created_at_idx").on(table.createdAt),
+  }),
+);
+
+// ---------------- PublicBookThought (لحظه‌ی منتخبِ عمومی) ----------------
+// انتشار فقط با انتخاب صریح کاربر انجام می‌شود. متن اصلی PersonalBookNote
+// همچنان خصوصی است و این ردیف یک نسخه‌ی مستقل برای صفحه‌ی عمومی کتاب است.
+export const PublicBookThought = pgTable(
+  "PublicBookThought",
+  {
+    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    catalogBookId: varchar("catalog_book_id")
+      .notNull()
+      .references(() => CatalogBook.id, { onDelete: "cascade" }),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "cascade" }),
+    sourcePersonalNoteId: varchar("source_personal_note_id").references(
+      () => PersonalBookNote.id,
+      { onDelete: "set null" },
+    ),
+    content: text("content").notNull(),
+    pageNumber: integer("page_number"),
+    type: PublicBookThoughtType("type").default("THOUGHT").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sourceNoteUnique: uniqueIndex("PublicBookThought_source_note_unique").on(
+      table.sourcePersonalNoteId,
+    ),
+    bookCreatedIdx: index("PublicBookThought_book_created_idx").on(
+      table.catalogBookId,
+      table.createdAt,
+    ),
+    userIdx: index("PublicBookThought_user_idx").on(table.userId),
+  }),
+);
+
+// ---------------- ReadingEvent (مسیر خصوصی مطالعه) ----------------
+// وضعیت و صفحه‌ی فعلی همچنان روی Book نگهداری می‌شوند؛ این جدول فقط رخدادهای
+// مهم مسیر مطالعه را برای دفترچه‌ی شخصی کاربر ثبت می‌کند.
+export const ReadingEvent = pgTable(
+  "ReadingEvent",
+  {
+    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "cascade" }),
+    bookId: varchar("book_id")
+      .notNull()
+      .references(() => Book.id, { onDelete: "cascade" }),
+    type: ReadingEventType("type").notNull(),
+    pageFrom: integer("page_from"),
+    pageTo: integer("page_to"),
+    pagesRead: integer("pages_read"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userBookCreatedIdx: index("ReadingEvent_user_book_created_idx").on(
+      table.userId,
+      table.bookId,
+      table.createdAt,
+    ),
   }),
 );
 
@@ -827,6 +929,7 @@ export const UserRelations = relations(User, ({ many }) => ({
   wishlist: many(Wishlist),
   passwordResetTokens: many(PasswordResetToken),
   blogPosts: many(BlogPost),
+  publicThoughts: many(PublicBookThought),
 }));
 
 export const BookEditionContributor = pgTable("BookEditionContributor", {
@@ -853,6 +956,7 @@ export const CatalogBookRelations = relations(CatalogBook, ({ many }) => ({
   editions: many(BookEdition),
   externalLinks: many(BookExternalLink),
   notes: many(PublishedBookNote),
+  publicThoughts: many(PublicBookThought),
   quotes: many(Quote),
 }));
 
@@ -932,6 +1036,24 @@ export const PublishedBookNoteRelations = relations(
       references: [BookEdition.id],
     }),
     likes: many(PublishedBookNoteLike),
+  }),
+);
+
+export const PublicBookThoughtRelations = relations(
+  PublicBookThought,
+  ({ one }) => ({
+    user: one(User, {
+      fields: [PublicBookThought.userId],
+      references: [User.id],
+    }),
+    catalogBook: one(CatalogBook, {
+      fields: [PublicBookThought.catalogBookId],
+      references: [CatalogBook.id],
+    }),
+    sourcePersonalNote: one(PersonalBookNote, {
+      fields: [PublicBookThought.sourcePersonalNoteId],
+      references: [PersonalBookNote.id],
+    }),
   }),
 );
 

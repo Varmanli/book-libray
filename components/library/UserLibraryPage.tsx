@@ -39,12 +39,13 @@ type PublicLibraryResult = Extract<
   { found: true; isPrivate: false }
 >;
 
-type FilterKey = "ALL" | "READING" | "FINISHED" | "UNREAD" | "FAVORITES";
+type FilterKey = "ALL" | "READING" | "PAUSED" | "FINISHED" | "UNREAD" | "FAVORITES";
 type SortKey = "NEWEST" | "TITLE" | "RATING";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "ALL", label: "همه کتاب‌ها" },
   { key: "READING", label: "در حال خواندن" },
+  { key: "PAUSED", label: "متوقف‌شده" },
   { key: "FINISHED", label: "خوانده‌شده" },
   { key: "UNREAD", label: "نخوانده" },
   { key: "FAVORITES", label: "علاقه‌مندی‌ها" },
@@ -59,12 +60,14 @@ const SORTS: { key: SortKey; label: string }[] = [
 function nextStatus(status: LibraryBook["status"]): LibraryBook["status"] {
   if (status === "UNREAD") return "READING";
   if (status === "READING") return "FINISHED";
+  if (status === "PAUSED") return "READING";
   return "UNREAD";
 }
 
 const FILTER_KEYS: FilterKey[] = [
   "ALL",
   "READING",
+  "PAUSED",
   "FINISHED",
   "UNREAD",
   "FAVORITES",
@@ -128,6 +131,7 @@ export default function UserLibraryPage({
     () => ({
       ALL: books.length,
       READING: books.filter((book) => book.status === "READING").length,
+      PAUSED: books.filter((book) => book.status === "PAUSED").length,
       FINISHED: books.filter((book) => book.status === "FINISHED").length,
       UNREAD: books.filter((book) => book.status === "UNREAD").length,
       FAVORITES: books.filter((book) => book.isFavorite).length,

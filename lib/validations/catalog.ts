@@ -5,7 +5,7 @@ import { ADMIN_BOOK_STRING_LIMITS } from "@/lib/validations/catalog-limits";
 import { isAllowedPersistedImageUrl } from "@/lib/storage/image-url";
 
 // وضعیت مطالعه — هم‌راستا با enum موجود BookStatus در دیتابیس
-export const readingStatusSchema = z.enum(["UNREAD", "READING", "FINISHED"]);
+export const readingStatusSchema = z.enum(["UNREAD", "READING", "PAUSED", "FINISHED"]);
 
 export const bookFormatSchema = z.enum(["PHYSICAL", "ELECTRONIC"]);
 

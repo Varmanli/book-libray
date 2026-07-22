@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaBookOpen } from "react-icons/fa";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import MobileNav from "@/components/layout/MobileNav";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import type { LayoutUser } from "@/components/layout/types";
@@ -21,24 +21,28 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Brand({ compact = false }: { compact?: boolean }) {
+function Brand({
+  logoUrl,
+  siteName,
+  compact = false,
+}: {
+  logoUrl: string;
+  siteName: string;
+  compact?: boolean;
+}) {
   return (
     <Link
       href="/"
-      aria-label="صفحه اصلی قفسه"
+      aria-label={`صفحه اصلی ${siteName}`}
       className="group flex items-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/80 bg-primary/12 text-primary shadow-sm shadow-black/5 transition-colors group-hover:border-primary/25 group-hover:bg-primary/18">
-        <FaBookOpen className="h-4 w-4" />
-      </span>
-      <span
-        className={cn(
-          "font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary",
-          compact ? "text-lg" : "text-xl",
-        )}
-      >
-        قفسه
-      </span>
+      <BrandLogo
+        logoUrl={logoUrl}
+        siteName={siteName}
+        size={compact ? "mobile" : "header"}
+        nameClassName="transition-colors group-hover:text-primary"
+        fallbackClassName="transition-colors group-hover:border-primary/25 group-hover:bg-primary/18"
+      />
     </Link>
   );
 }
@@ -46,9 +50,11 @@ function Brand({ compact = false }: { compact?: boolean }) {
 export default function SiteHeader({
   user,
   isAdmin = false,
+  branding,
 }: {
   user?: HeaderUser | null;
   isAdmin?: boolean;
+  branding: { logoUrl: string; siteName: string };
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -60,7 +66,7 @@ export default function SiteHeader({
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="hidden h-[4.35rem] items-center gap-4 lg:flex">
           <div className="flex min-w-[11rem] items-center">
-            <Brand />
+            <Brand {...branding} />
           </div>
 
           <nav
@@ -110,7 +116,7 @@ export default function SiteHeader({
               onOpenChange={setMobileOpen}
             />
 
-            <Brand compact />
+            <Brand {...branding} compact />
 
             <div className="flex items-center gap-2">
               <ThemeToggle />

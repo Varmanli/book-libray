@@ -1,7 +1,11 @@
-import { FaBookOpen } from "react-icons/fa";
 import { BookOpenText, LibraryBig, Quote, Sparkles } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
-export function AuthBrandPanel() {
+export function AuthBrandPanel({
+  branding,
+}: {
+  branding: { logoUrl: string; siteName: string };
+}) {
   return (
     <aside className="relative hidden w-[48%] overflow-hidden border-l border-white/8 lg:flex lg:flex-col">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(146,214,185,0.16),transparent_22%),radial-gradient(circle_at_75%_30%,rgba(83,157,124,0.14),transparent_24%),linear-gradient(160deg,rgba(255,255,255,0.03),rgba(255,255,255,0))]" />
@@ -9,11 +13,14 @@ export function AuthBrandPanel() {
       <div className="absolute bottom-20 left-10 h-52 w-52 rounded-full bg-emerald-500/10 blur-3xl" />
 
       <div className="relative z-10 flex items-center gap-3 px-10 pt-10">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/8 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          <FaBookOpen className="text-emerald-200" />
-        </span>
+        <BrandLogo
+          {...branding}
+          size="auth"
+          showName={false}
+          fallbackClassName="border-white/10 bg-white/8 text-emerald-200 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl"
+        />
         <div>
-          <p className="text-2xl font-black tracking-tight text-white">قفسه</p>
+          <p className="text-2xl font-black tracking-tight text-white">{branding.siteName}</p>
           <p className="text-sm text-white/45">پلتفرم مطالعه‌ی هوشمند</p>
         </div>
       </div>
@@ -58,7 +65,7 @@ export function AuthBrandPanel() {
       </div>
 
       <div className="relative z-10 px-10 pb-10 text-sm text-white/38">
-        © {new Date().getFullYear()} قفسه
+        © {new Date().getFullYear()} {branding.siteName}
       </div>
     </aside>
   );

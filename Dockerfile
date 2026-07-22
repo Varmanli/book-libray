@@ -104,6 +104,10 @@ RUN echo "=== NEXT BUILD START ===" \
     && date -u \
     && echo "=== NEXT BUILD END ==="
 
+RUN node scripts/generate-migration-manifest.mjs /app/migration-manifest.json \
+    && test -f /app/migration-manifest.json \
+    && test -f /app/drizzle/0037_public_book_thoughts.sql
+
 RUN test -f /app/.next/standalone/server.js \
     && test -d /app/.next/static \
     && echo "Standalone output verified"
@@ -123,7 +127,9 @@ ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs \
-    && apk add --no-cache curl
+    && apk add --no-cache curl postgresql-client \
+    && mkdir -p /app/backups \
+    && chown nextjs:nodejs /app/backups
 
 COPY --from=builder --chown=nextjs:nodejs \
      /app/.next/standalone \
@@ -144,8 +150,23 @@ COPY --from=deps --chown=nextjs:nodejs \
      ./node_modules
 
 COPY --from=builder --chown=nextjs:nodejs \
-     /app/scripts/prod-db-repair.mjs \
-     /app/scripts/load-script-env.mjs \
+     /app/package.json \
+     /app/drizzle.config.ts \
+     /app/migration-manifest.json \
+     ./
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/drizzle \
+     ./drizzle
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/db \
+     ./db
+
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/scripts/migration-preflight.mjs \
+     /app/scripts/run-production-migrations.mjs \
+     /app/scripts/backup-production-db.mjs \
      ./scripts/
 
 
@@ -158,12 +179,17 @@ COPY --chown=nextjs:nodejs \
 
 RUN chmod 0755 ./docker-entrypoint.sh \
     && test -f ./server.js \
-    && test -f ./scripts/prod-db-repair.mjs \
+    && test -f ./scripts/run-production-migrations.mjs \
+    && test -f ./scripts/backup-production-db.mjs \
+    && test -f ./drizzle/0037_public_book_thoughts.sql \
+    && test -f ./migration-manifest.json \
     && echo "Runtime application assets verified"
 
 USER nextjs
 
 EXPOSE 3000
+
+VOLUME ["/app/backups"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
     CMD curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1

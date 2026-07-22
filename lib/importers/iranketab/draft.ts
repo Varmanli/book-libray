@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeIsbn } from "@/lib/books/import/isbn";
+import { REFERENCE_DESCRIPTION_LIMITS } from "@/lib/reference/limits";
 import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor";
 import type { IranKetabMatchAnalysis } from "./match-analysis";
 import { boundedArray, formatIranKetabSchemaIssues, IRANKETAB_COLLECTION_LIMITS as LIMITS } from "./collection-limits";
@@ -16,8 +17,8 @@ const entityProfile = z.object({
   originalName: z.string().nullable().optional(),
   slug: z.string().nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
-  description: z.string().nullable().optional(),
-  shortDescription: z.string().nullable().optional(),
+  description: z.string().max(REFERENCE_DESCRIPTION_LIMITS.full).nullable().optional(),
+  shortDescription: z.string().max(REFERENCE_DESCRIPTION_LIMITS.short).nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
   bannerImageUrl: z.string().url().nullable().optional(),
   birthYear: z.number().int().nullable().optional(),

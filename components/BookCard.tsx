@@ -19,15 +19,17 @@ interface BookCardProps {
   book: BookType;
   onStatusChange: (
     id: string,
-    newStatus: "UNREAD" | "READING" | "FINISHED"
+    newStatus: "UNREAD" | "READING" | "PAUSED" | "FINISHED"
   ) => void;
 }
-const getStatusLabel = (status: "UNREAD" | "READING" | "FINISHED") => {
+const getStatusLabel = (status: "UNREAD" | "READING" | "PAUSED" | "FINISHED") => {
   switch (status) {
     case "UNREAD":
       return "خوانده نشده";
     case "READING":
       return "در حال خواندن";
+    case "PAUSED":
+      return "متوقف‌شده";
     case "FINISHED":
       return "خوانده شده";
   }
@@ -42,7 +44,7 @@ const BookCard = memo(function BookCard({
 
   // تغییر وضعیت خواندن کتاب (UNREAD -> READING -> FINISHED) - memoized
   const handleStatusToggle = useCallback(() => {
-    let newStatus: "UNREAD" | "READING" | "FINISHED";
+    let newStatus: "UNREAD" | "READING" | "PAUSED" | "FINISHED";
 
     if (status === "UNREAD") newStatus = "READING";
     else if (status === "READING") newStatus = "FINISHED";

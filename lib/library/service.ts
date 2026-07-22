@@ -16,13 +16,17 @@ export interface LibraryBook {
   title: string;
   author: string;
   coverImage: string | null;
-  status: "UNREAD" | "READING" | "FINISHED";
+  status: "UNREAD" | "READING" | "PAUSED" | "FINISHED";
   rating: number | null;
   translator: string | null;
   publisher: string | null;
   genre: string;
   createdAt: Date;
   isFavorite: boolean;
+  pageCount: number | null;
+  currentPage: number;
+  progress: number | null;
+  readingUpdatedAt: Date | null;
 }
 
 export interface LibraryProfile {
@@ -124,6 +128,10 @@ export async function getLibraryByUsername(
       genre: Book.genre,
       createdAt: Book.createdAt,
       isFavorite: Book.isFavorite,
+      pageCount: Book.pageCount,
+      currentPage: Book.currentPage,
+      progress: Book.progress,
+      readingUpdatedAt: Book.readingUpdatedAt,
     })
     .from(Book)
     .where(eq(Book.userId, user.id))

@@ -1,7 +1,7 @@
 // The desktop archive uses a five-column grid, so a full page is a complete
-// 5 × 5 set of cards.  All archive limit/offset/page-count math derives from
+// 5 × 6 set of cards. All archive limit/offset/page-count math derives from
 // this single constant.
-export const BOOK_ARCHIVE_PAGE_SIZE = 25;
+export const BOOK_ARCHIVE_PAGE_SIZE = 30;
 
 export const BOOK_ARCHIVE_SORT_OPTIONS = [
   { value: "NEWEST", label: "جدیدترین" },
@@ -119,7 +119,11 @@ export function parseBookArchiveSearchParams(
   );
 
   return {
-    q: firstOf(searchParams.q).trim(),
+    // Preserve the exact query text for the controlled RTL input. Trimming it
+    // here feeds a modified value back from the URL and can move the caret or
+    // discard characters while a user is typing. `query` is accepted as a
+    // shareable URL alias while existing `q` links remain compatible.
+    q: firstOf(searchParams.q) || firstOf(searchParams.query),
     genre: firstOf(searchParams.genre).trim(),
     author: firstOf(searchParams.author).trim(),
     translator: firstOf(searchParams.translator).trim(),

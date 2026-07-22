@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
+import { count, eq } from "drizzle-orm";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { adminSetUserRole } from "@/lib/admin/service";
 import { setRoleSchema } from "@/lib/validations/admin";
+import { db } from "@/db";
+import { User } from "@/db/schema";
 
 export async function PUT(
   req: NextRequest,
@@ -29,6 +32,17 @@ export async function PUT(
   const parsed = setRoleSchema.safeParse(body);
   if (!parsed.success) {
     return apiError(parsed.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+  }
+
+  if (parsed.data.role === "USER") {
+    const [target, [admins]] = await Promise.all([
+      db.select({ role: User.role }).from(User).where(eq(User.id, id)).limit(1),
+      db.select({ value: count() }).from(User).where(eq(User.role, "ADMIN")),
+    ]);
+    if (!target[0]) return apiError("کاربر پیدا نشد", 404, "NOT_FOUND");
+    if (target[0].role === "ADMIN" && admins.value <= 1) {
+      return apiError("نمی‌توان آخرین مدیر سامانه را حذف کرد", 400, "LAST_ADMIN");
+    }
   }
 
   await adminSetUserRole(id, parsed.data.role);

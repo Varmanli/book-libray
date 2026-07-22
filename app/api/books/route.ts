@@ -16,7 +16,7 @@ interface BookBody {
   pageCount?: number;
   format?: "PHYSICAL" | "ELECTRONIC";
   publisher?: string;
-  status?: "UNREAD" | "READING" | "FINISHED";
+  status?: "UNREAD" | "READING" | "PAUSED" | "FINISHED";
   progress?: number;
 }
 

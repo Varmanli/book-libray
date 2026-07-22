@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REFERENCE_DESCRIPTION_LIMITS } from "@/lib/reference/limits";
 
 const nullableTrimmedString = (max: number) =>
   z
@@ -59,9 +60,9 @@ export const updateReferenceSchema = z.object({
   slug: z.string().trim().max(200).optional(),
   coverImage: z.string().max(2000).nullish(),
   bannerImage: z.string().max(2000).nullish(),
-  description: z.string().max(5000).nullish(),
+  description: z.string().max(REFERENCE_DESCRIPTION_LIMITS.full).nullish(),
   originalName: nullableTrimmedString(200),
-  shortDescription: nullableTrimmedString(300),
+  shortDescription: nullableTrimmedString(REFERENCE_DESCRIPTION_LIMITS.short),
   imageFilename: nullableTrimmedString(255),
   sourceName: nullableTrimmedString(200),
   sourceUrl: nullableUrl,

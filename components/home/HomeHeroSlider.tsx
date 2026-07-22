@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import useEmblaCarousel from "embla-carousel-react";
 import { BookOpen } from "lucide-react";
@@ -28,61 +29,38 @@ export default function HomeHeroSlider({
 
   const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions);
 
-  const reInitSlider = useCallback(() => {
-    if (!emblaApi) return;
-
-    emblaApi.reInit();
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const handleSelect = () => {
-      // این handler فعلاً فقط برای پایدار نگه داشتن lifecycle امبلاست.
-      // اگر بعداً dot/pagination اضافه کردی، selected index را همین‌جا set کن.
-      emblaApi.selectedScrollSnap();
-    };
-
-    handleSelect();
-
-    emblaApi.on("select", handleSelect);
-    emblaApi.on("reInit", handleSelect);
-
-    return () => {
-      emblaApi.off("select", handleSelect);
-      emblaApi.off("reInit", handleSelect);
-    };
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      reInitSlider();
-
-      const timeout = window.setTimeout(() => {
-        reInitSlider();
-      }, 120);
-
-      return () => window.clearTimeout(timeout);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [emblaApi, slides.length, reInitSlider]);
-
   useEffect(() => {
     if (!emblaApi || slides.length < 2) return;
 
-    const timer = window.setInterval(() => {
-      if (!emblaApi.canScrollNext()) {
-        emblaApi.scrollTo(0);
-        return;
+    let timer: number | undefined;
+
+    const stop = () => {
+      if (timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
       }
+    };
+    const start = () => {
+      stop();
+      if (document.hidden) return;
+      timer = window.setInterval(() => emblaApi.scrollNext(), 7000);
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) stop();
+      else start();
+    };
 
-      emblaApi.scrollNext();
-    }, 7000);
+    start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    emblaApi.on("pointerDown", stop);
+    emblaApi.on("pointerUp", start);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      emblaApi.off("pointerDown", stop);
+      emblaApi.off("pointerUp", start);
+    };
   }, [emblaApi, slides.length]);
 
   if (!slides.length) return null;
@@ -95,10 +73,10 @@ export default function HomeHeroSlider({
       />
 
       <div className="overflow-hidden" ref={emblaRef} dir="rtl">
-        <div className="flex">
-          {slides.map((slide) => (
+        <div className="flex will-change-transform">
+          {slides.map((slide, index) => (
             <div key={slide.id} className="min-w-0 shrink-0 grow-0 basis-full">
-              <HeroSlide slide={slide} />
+              <HeroSlide slide={slide} priority={index === 0} />
             </div>
           ))}
         </div>
@@ -107,7 +85,13 @@ export default function HomeHeroSlider({
   );
 }
 
-function HeroSlide({ slide }: { slide: HeroSlideView }) {
+function HeroSlide({
+  slide,
+  priority,
+}: {
+  slide: HeroSlideView;
+  priority: boolean;
+}) {
   return (
     <article className="relative grid min-h-[540px] gap-8 overflow-hidden p-5 sm:min-h-[500px] sm:p-7 lg:min-h-[480px] lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-center lg:gap-10 lg:p-10">
       <div
@@ -120,14 +104,15 @@ function HeroSlide({ slide }: { slide: HeroSlideView }) {
       />
 
       {slide.imageUrl ? (
-        <div
+        <Image
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.16]"
-          style={{
-            backgroundImage: `url(${slide.imageUrl})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+          src={slide.imageUrl}
+          alt=""
+          fill
+          priority={priority}
+          sizes="100vw"
+          quality={75}
+          className="pointer-events-none object-cover opacity-[0.16]"
         />
       ) : null}
 
@@ -177,7 +162,7 @@ function HeroSlide({ slide }: { slide: HeroSlideView }) {
         ) : null}
       </div>
 
-      <HeroVisual books={slide.books} />
+      <HeroVisual books={slide.books} priority={priority} />
     </article>
   );
 }
@@ -186,7 +171,13 @@ function HeroSlide({ slide }: { slide: HeroSlideView }) {
  * ناحیه‌ی بصری اسلاید:
  * کاور کتاب‌های انتخابی به‌صورت استک ظریف، یا fallback تزئینی.
  */
-function HeroVisual({ books }: { books: HeroSlideBook[] }) {
+function HeroVisual({
+  books,
+  priority,
+}: {
+  books: HeroSlideBook[];
+  priority: boolean;
+}) {
   const visibleBooks = books.slice(0, 3);
 
   return (
@@ -210,6 +201,7 @@ function HeroVisual({ books }: { books: HeroSlideBook[] }) {
               book={book}
               index={index}
               count={visibleBooks.length}
+              priority={priority && index === 1}
             />
           ))}
         </div>
@@ -243,10 +235,12 @@ function HeroBookCover({
   book,
   index,
   count,
+  priority = false,
 }: {
   book: HeroSlideBook;
   index: number;
   count: number;
+  priority?: boolean;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
 
@@ -279,14 +273,15 @@ function HeroBookCover({
     >
       <div className="overflow-hidden rounded-[1.3rem] border border-border/70 bg-card p-2 shadow-[0_22px_55px_-30px_rgba(0,0,0,0.6)]">
         <div className="relative aspect-[2/3] overflow-hidden rounded-[1rem] bg-muted/40">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={src}
             alt={book.title}
-            loading="lazy"
-            decoding="async"
+            fill
+            priority={priority}
+            sizes="(max-width: 640px) 108px, 124px"
+            quality={75}
             onError={() => setHasImageError(true)}
-            className="h-full w-full object-cover"
+            className="object-cover"
           />
         </div>
 

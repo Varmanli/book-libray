@@ -12,12 +12,14 @@ import type { LibraryBook } from "@/lib/library/service";
 const STATUS_LABELS: Record<LibraryBook["status"], string> = {
   UNREAD: "خوانده‌نشده",
   READING: "درحال خواندن",
+  PAUSED: "متوقف‌شده",
   FINISHED: "خوانده‌شده",
 };
 
 const STATUS_STYLES: Record<LibraryBook["status"], string> = {
   UNREAD: "bg-background/80 text-muted-foreground ring-border",
   READING: "bg-primary/15 text-primary ring-primary/25",
+  PAUSED: "bg-amber-500/15 text-amber-700 ring-amber-500/25 dark:text-amber-300",
   FINISHED:
     "bg-emerald-500/15 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300",
 };

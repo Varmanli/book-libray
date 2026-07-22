@@ -24,6 +24,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { ImageUploader } from "@/components/upload/ImageUploader";
+import { REFERENCE_DESCRIPTION_LIMITS } from "@/lib/reference/limits";
 import {
   AdminActionButton,
   AdminBadge,
@@ -441,8 +442,10 @@ export default function ReferenceManager({
                   setForm((f) => ({ ...f, description: e.target.value }))
                 }
                 className="min-h-28"
-                placeholder="بیوگرافی/توضیح کوتاه..."
+                maxLength={REFERENCE_DESCRIPTION_LIMITS.full}
+                placeholder="بیوگرافی یا توضیح کامل..."
               />
+              <p className="text-left text-xs tabular-nums text-muted-foreground">{form.description.length.toLocaleString("fa-IR")} / {REFERENCE_DESCRIPTION_LIMITS.full.toLocaleString("fa-IR")}</p>
             </div>
 
             <div className="space-y-1.5">
@@ -454,8 +457,10 @@ export default function ReferenceManager({
                   setForm((f) => ({ ...f, shortDescription: e.target.value }))
                 }
                 className="min-h-20"
+                maxLength={REFERENCE_DESCRIPTION_LIMITS.short}
                 placeholder="خلاصه‌ی کوتاه برای کارت‌ها و سئو"
               />
+              <p className="text-left text-xs tabular-nums text-muted-foreground">{form.shortDescription.length.toLocaleString("fa-IR")} / {REFERENCE_DESCRIPTION_LIMITS.short.toLocaleString("fa-IR")}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

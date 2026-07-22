@@ -175,7 +175,7 @@ export default async function ReferencePublicView({
 
               {entity.description ? (
                 <div className=" border-t  border-border/50 pt-5">
-                  <p className="max-w-none text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
+                  <p className="max-w-none whitespace-pre-line break-words text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
                     {entity.description}
                   </p>
                 </div>

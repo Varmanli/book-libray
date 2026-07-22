@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: "آرشیو کتاب‌ها",
-    description: "جست‌وجو، فیلتر و کشف کتاب‌های عمومی قفسه با مسیرهای کانونی مبتنی بر اسلاگ.",
+    description:
+      "جست‌وجو، فیلتر و کشف کتاب‌های عمومی قفسه با مسیرهای کانونی مبتنی بر اسلاگ.",
     path: "/books",
   });
 }

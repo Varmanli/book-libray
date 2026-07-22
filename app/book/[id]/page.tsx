@@ -14,7 +14,6 @@ import {
   FiUserCheck,
   FiUserPlus,
 } from "react-icons/fi";
-import { BookOpenText } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
@@ -29,7 +28,7 @@ import BookNotesTabsSection from "@/components/books/BookNotesTabsSection";
 import BookEditionSelector from "@/components/books/BookEditionSelector";
 import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
 import BookCoverImage from "@/components/books/BookCoverImage";
-import RichTextContent from "@/components/content/RichTextContent";
+import BookIntroduction from "@/components/books/BookIntroduction";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
   buildBreadcrumbJsonLd,
@@ -115,7 +114,9 @@ export default async function BookPage({
   if (ref !== book.slug) {
     permanentRedirect(
       `/book/${encodeURIComponent(book.slug)}${
-        selectedEdition?.id ? `?edition=${encodeURIComponent(selectedEdition.id)}` : ""
+        selectedEdition?.id
+          ? `?edition=${encodeURIComponent(selectedEdition.id)}`
+          : ""
       }`,
     );
   }
@@ -146,7 +147,9 @@ export default async function BookPage({
         ?.replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim() || undefined,
-    image: book.displayCoverImage ? [toAbsoluteUrl(book.displayCoverImage)] : undefined,
+    image: book.displayCoverImage
+      ? [toAbsoluteUrl(book.displayCoverImage)]
+      : undefined,
     inLanguage: book.language || "fa",
     numberOfPages: presentation.pageCount ?? undefined,
     datePublished:
@@ -330,7 +333,8 @@ export default async function BookPage({
                       />
                       {presentation.edition ? (
                         <p className="px-1 text-[11px] font-bold leading-5 text-muted-foreground">
-                          در حال مشاهده: {[
+                          در حال مشاهده:{" "}
+                          {[
                             presentation.editionLabel,
                             presentation.publisher,
                             presentation.translator,
@@ -344,12 +348,13 @@ export default async function BookPage({
 
                   <ReadingStatusControl
                     subjectBookId={book.id}
+                    bookTitle={book.title}
                     viewer={entry}
                     isLoggedIn={isLoggedIn}
                     loginHref={loginHref}
                     averageRating={stats.averageRating}
-                    ratingCount={stats.ratingCount}
                     selectedEditionId={selectedEdition?.id ?? null}
+                    hidePersonalRating
                   />
                 </div>
 
@@ -528,66 +533,9 @@ export default async function BookPage({
             />
           ) : null}
 
-          <section className="relative mt-9 overflow-hidden rounded-[2rem] border border-border/70 bg-card/70 p-5 shadow-[0_24px_80px_-58px_rgba(0,0,0,0.45)] backdrop-blur-md dark:bg-card/65 dark:shadow-[0_24px_80px_-52px_rgba(0,0,0,0.85)] sm:p-6 lg:p-7">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent dark:via-white/15" />
-            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl dark:bg-emerald-400/5" />
-
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-20 dark:opacity-25"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 1px 1px, rgba(128,167,150,0.16) 1px, transparent 0)",
-                backgroundSize: "18px 18px",
-              }}
-            />
-
-            <div className="relative flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20 shadow-[0_18px_45px_-34px_rgba(128,167,150,0.9)]">
-                <BookOpenText className="h-5 w-5" />
-              </span>
-
-              <div>
-                <h2 className="text-base font-black text-foreground">
-                  درباره کتاب
-                </h2>
-              </div>
-            </div>
-
-            <div className="relative mt-5 overflow-hidden rounded-[1.6rem] border border-border/70 bg-background/55 px-4 py-5 shadow-inner dark:bg-background/40 sm:px-5 sm:py-6">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 opacity-14 dark:opacity-20"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(135deg, rgba(128,167,150,0.12) 25%, transparent 25%, transparent 50%, rgba(128,167,150,0.12) 50%, rgba(128,167,150,0.12) 75%, transparent 75%, transparent)",
-                  backgroundSize: "26px 26px",
-                }}
-              />
-
-              <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-primary/70 via-primary/35 to-transparent" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-l from-primary/[0.06] via-transparent to-transparent" />
-
-              {book.description ? (
-                <RichTextContent
-                  content={book.description}
-                  className="relative z-10 space-y-4 pr-5 text-start text-sm font-medium sm:text-[15px] sm:leading-9"
-                />
-              ) : (
-                <div className="relative z-10 flex min-h-32 flex-col items-center justify-center rounded-[1.2rem] border border-dashed border-border/75 bg-card/45 px-4 py-8 text-center">
-                  <p className="text-sm font-black text-foreground">
-                    هنوز توضیحی برای این کتاب ثبت نشده
-                  </p>
-
-                  <p className="mt-2 max-w-xl text-xs leading-6 text-muted-foreground">
-                    وقتی خلاصه یا معرفی کتاب اضافه شود، این بخش اطلاعات
-                    خواندنی‌تری از فضای اثر به خواننده می‌دهد.
-                  </p>
-                </div>
-              )}
-            </div>
-          </section>
+          <div className="mt-9">
+            <BookIntroduction content={book.description} />
+          </div>
         </section>
 
         <div className="mt-10 lg:mt-12">

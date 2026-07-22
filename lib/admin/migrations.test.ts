@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
-import { assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
+import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
 const importerMigration = readFileSync(
@@ -64,54 +64,59 @@ test("every committed SQL migration is represented exactly once in the Drizzle j
   assert.deepEqual(sqlMigrationTags.sort(), [...tags].sort());
 });
 
-test("production image validates env, repairs the database, then starts Next.js", () => {
+test("production image backs up, migrates, verifies, then starts Next.js", () => {
   const dockerfile = readFileSync("Dockerfile", "utf8");
   const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
 
   assert.match(entrypoint, /set -eu/);
   assert.match(entrypoint, /DATABASE_URL is required/);
   assert.match(entrypoint, /JWT_SECRET is required/);
-  assert.match(entrypoint, /node \.\/scripts\/prod-db-repair\.mjs/);
+  assert.match(entrypoint, /run-production-migrations\.mjs preflight/);
+  assert.match(entrypoint, /backup-production-db\.mjs/);
+  assert.match(entrypoint, /npm run db:migrate/);
+  assert.match(entrypoint, /run-production-migrations\.mjs postflight/);
   assert.match(entrypoint, /exec "\$@"/);
-  assert.ok(entrypoint.indexOf(": \"\${DATABASE_URL") < entrypoint.indexOf("node ./scripts/prod-db-repair.mjs"));
-  assert.ok(entrypoint.indexOf("node ./scripts/prod-db-repair.mjs") < entrypoint.indexOf('exec "$@"'));
-  assert.equal((entrypoint.match(/node \.\/scripts\/prod-db-repair\.mjs/g) ?? []).length, 1);
+  assert.ok(entrypoint.indexOf("preflight") < entrypoint.indexOf("backup-production-db"));
+  assert.ok(entrypoint.indexOf("backup-production-db") < entrypoint.indexOf("npm run db:migrate"));
+  assert.ok(entrypoint.indexOf("npm run db:migrate") < entrypoint.indexOf("postflight"));
+  assert.ok(entrypoint.indexOf("postflight") < entrypoint.indexOf('exec "$@"'));
   assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3000\//);
-  assert.match(dockerfile, /\/app\/scripts\/prod-db-repair\.mjs/);
+  assert.match(dockerfile, /\/app\/scripts\/run-production-migrations\.mjs/);
+  assert.match(dockerfile, /\/app\/drizzle/);
+  assert.match(dockerfile, /postgresql-client/);
   assert.match(dockerfile, /\/app\/node_modules/);
-  assert.doesNotMatch(entrypoint, /drizzle-kit|db:migrate|db:push|run-production-migrations/);
-  assert.doesNotMatch(dockerfile, /drizzle-kit migrate|db:push|run-production-migrations|migration-manifest/);
-  assert.doesNotMatch(readFileSync("scripts/prestart-production.mjs", "utf8"), /db:migrate|db:push|prod-db-repair|run-production-migrations/);
+  assert.doesNotMatch(entrypoint, /db:push/);
+  assert.match(dockerfile, /migration-manifest/);
 });
 
 function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; hash: string; created_at: number }> }> = {}) {
   const entries = journal.entries.map((entry) => ({ ...entry, hash: `hash-${entry.idx}` }));
   return {
     journalEntries: entries,
-    ledgerRows: entries.slice(0, 33).map((entry, index) => ({ id: index + 1, hash: entry.hash, created_at: entry.when })),
+    ledgerRows: entries.slice(0, journal.entries.findIndex((entry) => entry.tag === PRODUCTION_MIGRATION_BASELINE) + 1).map((entry, index) => ({ id: index + 1, hash: entry.hash, created_at: entry.when })),
     canonicalTablesExist: true,
     ...overrides,
   };
 }
 
-test("production preflight permits only pending 0033 with verified historical hashes", () => {
+test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
-  assert.equal(result.latestEntry.tag, "0032_iranketab_edition_contributors");
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0033_iranketab_preview_operations"]);
+  assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts"]);
 });
 
 test("production preflight refuses empty or incomplete historical ledgers", () => {
   assert.throws(() => validatePreflight(preflightFixture({ ledgerRows: [] })), /ledger is empty/);
-  assert.throws(() => validatePreflight(preflightFixture({ ledgerRows: preflightFixture().ledgerRows.slice(0, 1) })), /missing ledger row/);
+  assert.throws(() => validatePreflight(preflightFixture({ ledgerRows: preflightFixture().ledgerRows.slice(0, 1) })), /historical migration is unexpectedly pending/);
 });
 
-test("production preflight refuses historical hash mismatches and missing 0033", () => {
+test("production preflight refuses historical hash mismatches and a missing baseline", () => {
   const mismatch = preflightFixture();
   mismatch.ledgerRows[0].hash = "wrong";
-  assert.throws(() => validatePreflight(mismatch), /hash mismatch/);
-  const no0033 = preflightFixture();
-  no0033.journalEntries = no0033.journalEntries.slice(0, -1);
-  assert.throws(() => validatePreflight(no0033), /0033_iranketab_preview_operations is missing/);
+  assert.throws(() => validatePreflight(mismatch), /not an exact runtime migration match/);
+  const noBaseline = preflightFixture();
+  noBaseline.journalEntries = noBaseline.journalEntries.filter((entry) => entry.tag !== PRODUCTION_MIGRATION_BASELINE);
+  assert.throws(() => validatePreflight(noBaseline), /0033_iranketab_preview_operations is missing/);
 });
 
 test("production preflight refuses a database target that changes before execution", () => {

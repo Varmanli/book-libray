@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BookMarked,
@@ -8,7 +9,7 @@ import {
   ChevronLeft,
   Loader2,
   LogIn,
-  NotebookPen,
+  LibraryBig,
   Star,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import MoodChips from "@/components/books/MoodChips";
 import { cn } from "@/lib/utils";
 import type { BookStatus, ViewerLibraryEntry } from "@/lib/book/detail-service";
@@ -28,33 +30,42 @@ import type { BookStatus, ViewerLibraryEntry } from "@/lib/book/detail-service";
 const STATUSES: { key: BookStatus; label: string; hint: string }[] = [
   { key: "UNREAD", label: "می‌خواهم بخوانم", hint: "برای بعد نگه‌دار" },
   { key: "READING", label: "درحال خواندن", hint: "در جریان مطالعه" },
+  { key: "PAUSED", label: "متوقف‌شده", hint: "برای ادامه در زمان دیگر" },
   { key: "FINISHED", label: "خوانده‌شده", hint: "کتاب را تمام کرده‌ای" },
 ];
 
 const STATUS_LABEL: Record<BookStatus, string> = {
   UNREAD: "می‌خواهم بخوانم",
   READING: "درحال خواندن",
+  PAUSED: "متوقف‌شده",
   FINISHED: "خوانده‌شده",
 };
 
 export default function ReadingStatusControl({
   subjectBookId,
+  bookTitle,
   viewer,
   isLoggedIn,
   loginHref,
   selectedEditionId = null,
+  showPersonalBookLink = true,
+  hidePersonalRating = false,
 }: {
   subjectBookId: string;
+  bookTitle: string;
   viewer: ViewerLibraryEntry | null;
   isLoggedIn: boolean;
   loginHref: string;
   averageRating?: number | null;
   ratingCount?: number;
   selectedEditionId?: string | null;
+  showPersonalBookLink?: boolean;
+  hidePersonalRating?: boolean;
 }) {
   const router = useRouter();
 
   const [statusOpen, setStatusOpen] = useState(false);
+  const [startOpen, setStartOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -63,6 +74,7 @@ export default function ReadingStatusControl({
   const [followRating, setFollowRating] = useState(0);
   const [followNote, setFollowNote] = useState("");
   const [followMoods, setFollowMoods] = useState<string[]>([]);
+  const [startingPage, setStartingPage] = useState("0");
 
   async function patch(entryId: string, body: Record<string, unknown>) {
     const res = await fetch(`/api/books/${entryId}`, {
@@ -78,6 +90,12 @@ export default function ReadingStatusControl({
   }
 
   async function chooseStatus(status: BookStatus) {
+    if (status === "READING") {
+      setStartingPage(String(viewer?.currentPage ?? 0));
+      setStatusOpen(false);
+      setStartOpen(true);
+      return;
+    }
     setBusy(true);
 
     try {
@@ -105,7 +123,7 @@ export default function ReadingStatusControl({
       setStatusOpen(false);
       toast.success("وضعیت خواندن ذخیره شد");
 
-      if (status === "READING" || status === "FINISHED") {
+      if (status === "FINISHED") {
         setFollowEntryId(entryId);
         setFollowStatus(status);
         setFollowRating(viewer?.rating ?? 0);
@@ -117,6 +135,69 @@ export default function ReadingStatusControl({
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "خطا");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startReading() {
+    const page = Number(startingPage);
+    if (
+      !Number.isInteger(page) ||
+      page < 0 ||
+      (viewer?.pageCount && page > viewer.pageCount)
+    ) {
+      toast.error(
+        viewer?.pageCount
+          ? `شماره صفحه باید بین ۰ تا ${viewer.pageCount} باشد`
+          : "شماره صفحه نامعتبر است",
+      );
+      return;
+    }
+
+    setBusy(true);
+    try {
+      let entryId = viewer?.id ?? null;
+      if (entryId) {
+        const response = await fetch(`/api/books/${entryId}/reading-progress`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "READING", currentPage: page }),
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "شروع مطالعه ناموفق بود");
+      } else {
+        const response = await fetch(`/api/book/${subjectBookId}/library`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "READING",
+            editionId: selectedEditionId ?? undefined,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "خطا در افزودن کتاب");
+        entryId = data.bookId as string;
+        const progressResponse = await fetch(
+          `/api/books/${entryId}/reading-progress`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "READING", currentPage: page }),
+          },
+        );
+        const progressData = await progressResponse.json();
+        if (!progressResponse.ok)
+          throw new Error(progressData.error || "ثبت صفحه‌ی شروع ناموفق بود");
+      }
+      setStartOpen(false);
+      toast.success("مطالعه را شروع کردی");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "خطا در شروع مطالعه",
+      );
     } finally {
       setBusy(false);
     }
@@ -165,22 +246,6 @@ export default function ReadingStatusControl({
     }
   }
 
-  async function savePersonalNote(value: string) {
-    if (!viewer) return;
-
-    setBusy(true);
-
-    try {
-      await patch(viewer.id, { review: value || null });
-      toast.success("یادداشت شخصی ذخیره شد");
-      router.refresh();
-    } catch {
-      toast.error("خطا در ذخیره یادداشت");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!isLoggedIn) {
     return (
       <div className="w-full rounded-[1.6rem] border border-border/75 bg-background/60 p-3 shadow-[0_16px_44px_-34px_rgba(0,0,0,0.45)] backdrop-blur-md">
@@ -220,20 +285,20 @@ export default function ReadingStatusControl({
           <ChevronLeft className="h-4 w-4 shrink-0 opacity-75 transition-transform group-hover:-translate-x-0.5" />
         </button>
 
-        {viewer ? (
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <RatingSummary
-              value={viewer.rating ?? 0}
-              moods={viewer.moodTags ?? []}
-              onSubmit={saveRatingAndMoods}
-              disabled={busy}
-            />
+        {viewer && (showPersonalBookLink || !hidePersonalRating) ? (
+          <div className="grid grid-cols-1 gap-2.5 ">
+            {!hidePersonalRating ? (
+              <RatingSummary
+                value={viewer.rating ?? 0}
+                moods={viewer.moodTags ?? []}
+                onSubmit={saveRatingAndMoods}
+                disabled={busy}
+              />
+            ) : null}
 
-            <PersonalNoteButton
-              initial={viewer.privateNote ?? ""}
-              disabled={busy}
-              onSave={savePersonalNote}
-            />
+            {showPersonalBookLink ? (
+              <PersonalBookLink bookId={subjectBookId} />
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -284,6 +349,58 @@ export default function ReadingStatusControl({
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={startOpen} onOpenChange={setStartOpen}>
+        <DialogContent className="rounded-3xl border-border bg-card p-5 shadow-2xl sm:max-w-sm">
+          <DialogTitle className="text-base font-black text-foreground">
+            شروع مطالعه
+          </DialogTitle>
+          <DialogDescription className="text-xs leading-6 text-muted-foreground">
+            صفحه‌ای که از آن شروع می‌کنی را ثبت کن تا همیشه جای خودت را داشته
+            باشی.
+          </DialogDescription>
+          <div className="mt-5 rounded-2xl border border-primary/15 bg-primary/[0.06] p-3">
+            <p className="text-xs text-muted-foreground">کتاب</p>
+            <p className="mt-1 text-sm font-black text-foreground">
+              {bookTitle}
+            </p>
+          </div>
+          <div className="mt-4 space-y-2">
+            <label className="text-xs font-bold text-foreground">
+              صفحه‌ی فعلی
+              {viewer?.pageCount
+                ? ` از ${viewer.pageCount.toLocaleString("fa-IR")}`
+                : ""}
+            </label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max={viewer?.pageCount ?? undefined}
+              value={startingPage}
+              onChange={(event) => setStartingPage(event.target.value)}
+              className="h-11 rounded-xl"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              می‌توانی از صفحه‌ی صفر شروع کنی یا شماره‌ی صفحه‌ای که در آن هستی
+              را وارد کنی.
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={startReading}
+            className="mt-5 w-full rounded-xl"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <BookMarked className="h-4 w-4" />
+            )}
+            شروع مطالعه
+          </Button>
         </DialogContent>
       </Dialog>
 
@@ -487,7 +604,7 @@ function RatingSummary({
   );
 }
 
-function RatingPicker({
+export function RatingPicker({
   value,
   onPick,
   disabled,
@@ -544,136 +661,29 @@ function RatingPicker({
   );
 }
 
-function PersonalNoteButton({
-  initial,
-  onSave,
-  disabled,
+function PersonalBookLink({
+  bookId,
+  href = `/book/${encodeURIComponent(bookId)}/my`,
 }: {
-  initial: string;
-  onSave: (value: string) => Promise<void>;
-  disabled?: boolean;
+  bookId: string;
+  href?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(initial);
-  const [saving, setSaving] = useState(false);
-
-  const hasNote = initial.trim().length > 0;
-  const dirty = value.trim() !== initial.trim();
-
-  async function save() {
-    setSaving(true);
-
-    try {
-      await onSave(value.trim());
-      setOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          setValue(initial);
-          setOpen(true);
-        }}
-        className={cn(
-          "group flex h-12 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-xs transition-all disabled:pointer-events-none disabled:opacity-60",
-          hasNote
-            ? "border-primary/25 bg-primary/[0.08] text-primary hover:bg-primary/[0.12]"
-            : "border-border/80 bg-background/55 text-foreground hover:border-primary/25 hover:bg-background/80",
-        )}
-      >
-        <span className="inline-flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
-              hasNote
-                ? "border-primary/25 bg-primary/12 text-primary"
-                : "border-border/70 bg-card/70 text-muted-foreground group-hover:text-primary",
-            )}
-          >
-            <NotebookPen className="h-4 w-4" />
+    <Link
+      href={href}
+      className="group flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/[0.07] px-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.11]"
+    >
+      <span className="inline-flex min-w-0 items-center gap-2.5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/12 text-primary">
+          <LibraryBig className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-black text-foreground">
+            مطالعه من
           </span>
         </span>
-
-        <span
-          className={cn(
-            "shrink-0 rounded-xl border px-2.5 py-1 text-[8px] font-black",
-            hasNote
-              ? "border-primary/20 bg-primary/12 text-primary"
-              : "border-border/70 bg-card/75 text-muted-foreground",
-          )}
-        >
-          {hasNote ? "دارد" : "یادداشت شخصی"}
-        </span>
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-3xl border-border bg-card p-5 shadow-2xl sm:max-w-md">
-          <DialogTitle className="text-base font-black text-foreground">
-            یادداشت شخصی
-          </DialogTitle>
-
-          <DialogDescription className="text-xs leading-6 text-muted-foreground">
-            این یادداشت فقط برای خودت ذخیره می‌شود و در پروفایل یا صفحه کتاب
-            نمایش داده نمی‌شود.
-          </DialogDescription>
-
-          <div className="mt-4 space-y-3">
-            <Textarea
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              placeholder="برداشت خصوصی‌ات از این کتاب..."
-              className="min-h-36 rounded-2xl border-border bg-background/55 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
-            />
-
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setValue("")}
-                disabled={saving || !value.trim()}
-                className="rounded-xl text-xs text-muted-foreground hover:bg-background/70 hover:text-foreground dark:hover:bg-white/[0.05]"
-              >
-                پاک کردن
-              </Button>
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setValue(initial);
-                    setOpen(false);
-                  }}
-                  disabled={saving}
-                  className="rounded-xl text-foreground hover:bg-background/70 dark:hover:bg-white/[0.05]"
-                >
-                  بستن
-                </Button>
-
-                <Button
-                  type="button"
-                  disabled={saving || !dirty}
-                  onClick={save}
-                  className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  ذخیره
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      </span>
+      <ChevronLeft className="h-4 w-4 shrink-0 text-primary/70 transition-transform group-hover:-translate-x-0.5" />
+    </Link>
   );
 }

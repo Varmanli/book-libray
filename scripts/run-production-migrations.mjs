@@ -1,21 +1,12 @@
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-
 import pg from "pg";
+import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "./migration-preflight.mjs";
 
-import { NEXT_MIGRATION_TAG, assertUnchangedTargetFingerprint, validatePreflight } from "./migration-preflight.mjs";
-
-const MIGRATION_LOCK_NAME = "ghafaseh:drizzle:migrations";
-const DEFAULT_LOCK_TIMEOUT_MS = 90_000;
-const LOCK_RETRY_MS = 1_000;
 const hash = (value) => createHash("sha256").update(value).digest("hex");
-
-function getLockTimeoutMs() {
-  const value = Number.parseInt(process.env.DATABASE_MIGRATION_LOCK_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(value) && value > 0 ? Math.min(value, 300_000) : DEFAULT_LOCK_TIMEOUT_MS;
-}
+const mode = process.argv[2];
+if (mode !== "preflight" && mode !== "postflight") throw new Error("Usage: run-production-migrations.mjs <preflight|postflight>");
 
 function targetDetails(databaseUrl) {
   const parsed = new URL(databaseUrl);
@@ -24,109 +15,101 @@ function targetDetails(databaseUrl) {
   }
   const database = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
   const sslmode = parsed.searchParams.get("sslmode") ?? (parsed.searchParams.get("ssl") === "true" ? "require" : "unspecified");
-  return { host: parsed.hostname, port: parsed.port || "5432", database, sslmode, fingerprint: hash(databaseUrl), sanitized: `${parsed.hostname}:${parsed.port || "5432"}/${database}?sslmode=${sslmode}` };
+  return { fingerprint: hash(databaseUrl), sanitized: `${parsed.hostname}:${parsed.port || "5432"}/${database}?sslmode=${sslmode}` };
 }
 
-async function readArtifacts(migrationRoot) {
-  const drizzle = join(migrationRoot, "drizzle");
+function assertExpectedTarget(target) {
+  if (process.env.EXPECTED_DATABASE_TARGET && process.env.EXPECTED_DATABASE_TARGET !== target.sanitized) {
+    throw new Error("Migration refused: database target does not match EXPECTED_DATABASE_TARGET.");
+  }
+  if (process.env.EXPECTED_DATABASE_FINGERPRINT && process.env.EXPECTED_DATABASE_FINGERPRINT !== target.fingerprint) {
+    throw new Error("Migration refused: database fingerprint does not match EXPECTED_DATABASE_FINGERPRINT.");
+  }
+}
+
+async function readArtifacts(root) {
+  const drizzle = join(root, "drizzle");
   const journalPath = join(drizzle, "meta", "_journal.json");
-  const manifestPath = join(migrationRoot, "migration-manifest.json");
-  await Promise.all([access(journalPath), access(join(migrationRoot, "drizzle.config.ts")), access(join(migrationRoot, "db", "schema.ts")), access(manifestPath)]);
+  const manifestPath = join(root, "migration-manifest.json");
+  await Promise.all([access(journalPath), access(manifestPath), access(join(root, "drizzle.config.ts"))]);
   const [journalBytes, manifestBytes] = await Promise.all([readFile(journalPath), readFile(manifestPath)]);
   const journal = JSON.parse(journalBytes);
   const manifest = JSON.parse(manifestBytes);
-  if (!Array.isArray(journal.entries)) throw new Error("Migration journal has no entries.");
-  const entries = await Promise.all(journal.entries.map(async (entry) => {
-    const bytes = await readFile(join(drizzle, `${entry.tag}.sql`));
-    return { ...entry, hash: hash(bytes) };
-  }));
-  const latest = entries.at(-1);
-  if (!latest || latest.tag !== NEXT_MIGRATION_TAG) throw new Error(`Runtime journal must end with ${NEXT_MIGRATION_TAG}.`);
-  if (manifest.journalEntries !== entries.length || manifest.latestMigration !== latest.tag || manifest.journalSha256 !== hash(journalBytes) || manifest.latestMigrationSha256 !== latest.hash) {
-    throw new Error("Runtime migration manifest does not match journal artifacts.");
-  }
+  if (!Array.isArray(journal.entries) || !Array.isArray(manifest.migrations)) throw new Error("Runtime migration artifacts are malformed.");
+  const entries = await Promise.all(journal.entries.map(async (entry) => ({ ...entry, hash: hash(await readFile(join(drizzle, `${entry.tag}.sql`)))})));
+  const filesHash = hash(entries.map((entry) => `${entry.tag}:${entry.hash}`).join("\n"));
+  const exactManifest = manifest.journalEntries === entries.length
+    && manifest.migrationFiles === entries.length
+    && manifest.journalSha256 === hash(journalBytes)
+    && manifest.migrationFilesSha256 === filesHash
+    && manifest.latestMigration === entries.at(-1)?.tag
+    && manifest.latestMigrationSha256 === entries.at(-1)?.hash
+    && JSON.stringify(manifest.migrations) === JSON.stringify(entries.map(({ idx, tag, when, hash: sha256 }) => ({ index: idx, tag, when, sha256 })));
+  if (!exactManifest) throw new Error("Runtime migration manifest does not exactly match the journal and SQL artifacts.");
   const expectedCommit = process.env.EXPECTED_RELEASE_SHA ?? process.env.RELEASE_COMMIT_SHA;
-  if (expectedCommit && manifest.releaseCommit !== "unknown" && manifest.releaseCommit !== expectedCommit) {
-    throw new Error("Runtime release commit does not match EXPECTED_RELEASE_SHA.");
-  }
+  if (expectedCommit && manifest.releaseCommit !== "unknown" && manifest.releaseCommit !== expectedCommit) throw new Error("Runtime release commit does not match the expected release.");
   return { entries, manifest };
 }
 
-function runMigrations(migrationRoot, databaseUrl) {
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  return new Promise((resolvePromise, reject) => {
-    const child = spawn(npm, ["run", "db:migrate"], { cwd: migrationRoot, env: { ...process.env, DATABASE_URL: databaseUrl }, stdio: "inherit" });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => code === 0 ? resolvePromise() : reject(new Error(`npm run db:migrate exited with ${signal ? `signal ${signal}` : `code ${code ?? "unknown"}`}.`)));
-  });
+async function ledgerRows(client) {
+  const exists = await client.query("select to_regclass('drizzle.__drizzle_migrations') as table_name");
+  if (!exists.rows[0]?.table_name) return [];
+  return (await client.query("select id, hash, created_at from drizzle.__drizzle_migrations order by created_at, id")).rows;
 }
 
-const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
-async function acquireMigrationLock(client, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  do {
-    const result = await client.query("SELECT pg_try_advisory_lock(hashtext($1)) AS acquired", [MIGRATION_LOCK_NAME]);
-    if (result.rows[0]?.acquired) return;
-    await delay(LOCK_RETRY_MS);
-  } while (Date.now() < deadline);
-  throw new Error(`Timed out waiting ${timeoutMs}ms for the production migration lock.`);
+async function canonicalTablesExist(client) {
+  const result = await client.query("select exists(select 1 from information_schema.tables where table_schema='public' and table_name in ('Book','User','BookEdition','CatalogBook')) as exists");
+  return result.rows[0].exists;
 }
 
-async function readPreflight(client, entries) {
-  await client.query("BEGIN READ ONLY");
-  try {
-    const [identity, ledger, canonical] = await Promise.all([
-      client.query("select current_database(), current_user, version()"),
-      client.query("select id, hash, created_at from drizzle.__drizzle_migrations order by created_at"),
-      client.query("select exists(select 1 from information_schema.tables where table_schema='public' and table_name in ('Book','User','BookEdition','CatalogBook')) as exists"),
-    ]);
-    await client.query("ROLLBACK");
-    return { identity: identity.rows[0], ledgerRows: ledger.rows, canonicalTablesExist: canonical.rows[0].exists, ...validatePreflight({ journalEntries: entries, ledgerRows: ledger.rows, canonicalTablesExist: canonical.rows[0].exists }) };
-  } catch (error) { await client.query("ROLLBACK").catch(() => {}); throw error; }
-}
-
-async function readPostflight(client, beforeLedgerRows, pending, nextEntry, bookFormatColumns) {
-  const [ledger, objects, bookFormat] = await Promise.all([
-    client.query("select id, hash, created_at from drizzle.__drizzle_migrations order by created_at"),
-    client.query("select to_regtype('public.\"IranKetabPreviewOperationStatus\"') as enum_type, to_regclass('public.\"IranKetabPreviewOperation\"') as table_name, exists(select 1 from pg_constraint where conname='IranKetabPreviewOperation_source_identity_unique') as unique_constraint, exists(select 1 from pg_indexes where schemaname='public' and indexname='IranKetabPreviewOperation_reclaim_idx') as reclaim_index"),
-    client.query("select c.relname as table_name, a.attname as column_name, t.typname as type_name from pg_depend d join pg_type t on t.oid=d.refobjid join pg_class c on c.oid=d.objid join pg_attribute a on a.attrelid=c.oid and a.attnum=d.objsubid where t.typname='BookFormat' and c.relname in ('Book','BookEdition') order by c.relname,a.attname"),
+async function verifyRequiredSchema(client) {
+  const [columns, enumRows, indexes, constraints] = await Promise.all([
+    client.query("select table_name, column_name, data_type from information_schema.columns where table_schema='public' and table_name in ('Book','PersonalBookNote','ReadingEvent','PublicBookThought','ReferenceItem')"),
+    client.query("select t.typname, e.enumlabel from pg_type t join pg_namespace n on n.oid=t.typnamespace join pg_enum e on e.enumtypid=t.oid where n.nspname='public' and t.typname in ('BookStatus','ReadingEventType','PublicBookThoughtType') order by t.typname, e.enumsortorder"),
+    client.query("select indexname from pg_indexes where schemaname='public' and tablename in ('PersonalBookNote','ReadingEvent','PublicBookThought')"),
+    client.query("select conrelid::regclass::text as table_name, pg_get_constraintdef(oid) as definition from pg_constraint where contype='f' and conrelid in ('public.\"PersonalBookNote\"'::regclass, 'public.\"ReadingEvent\"'::regclass, 'public.\"PublicBookThought\"'::regclass)"),
   ]);
-  const expectedRows = beforeLedgerRows.length + (pending.length ? 1 : 0);
-  if (ledger.rows.length !== expectedRows || !ledger.rows.some((row) => Number(row.created_at) === Number(nextEntry.when) && row.hash === nextEntry.hash)) throw new Error("Post-migration verification failed: ledger did not record exactly 0033.");
-  const result = objects.rows[0];
-  if (!result.enum_type || !result.table_name || !result.unique_constraint || !result.reclaim_index) throw new Error("Post-migration verification failed: 0033 objects are incomplete.");
-  if (JSON.stringify(bookFormat.rows) !== JSON.stringify(bookFormatColumns)) throw new Error("Post-migration verification failed: BookFormat dependents changed.");
+  const columnSet = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}:${row.data_type}`));
+  const requiredColumns = ["Book.current_page:integer", "Book.reading_updated_at:timestamp without time zone", "Book.completed_at:timestamp without time zone", "PersonalBookNote.book_id:character varying", "PersonalBookNote.user_id:character varying", "PersonalBookNote.content:text", "PersonalBookNote.page_number:integer", "PersonalBookNote.created_at:timestamp without time zone", "PersonalBookNote.updated_at:timestamp without time zone", "ReadingEvent.user_id:character varying", "ReadingEvent.book_id:character varying", "ReadingEvent.type:USER-DEFINED", "ReadingEvent.created_at:timestamp without time zone", "PublicBookThought.catalog_book_id:character varying", "PublicBookThought.user_id:character varying", "PublicBookThought.source_personal_note_id:character varying", "PublicBookThought.content:text", "PublicBookThought.type:USER-DEFINED", "ReferenceItem.description:text", "ReferenceItem.short_description:text"];
+  const missingColumns = requiredColumns.filter((value) => !columnSet.has(value));
+  const labels = new Map();
+  for (const row of enumRows.rows) labels.set(row.typname, [...(labels.get(row.typname) ?? []), row.enumlabel]);
+  const expectedEnums = { BookStatus: ["UNREAD", "READING", "FINISHED", "PAUSED"], ReadingEventType: ["START", "PROGRESS", "FINISH"], PublicBookThoughtType: ["THOUGHT", "QUOTE", "REFLECTION"] };
+  const enumFailures = Object.entries(expectedEnums).filter(([name, values]) => !values.every((value) => labels.get(name)?.includes(value))).map(([name]) => name);
+  const indexSet = new Set(indexes.rows.map((row) => row.indexname));
+  const requiredIndexes = ["PersonalBookNote_book_user_idx", "PersonalBookNote_created_at_idx", "ReadingEvent_user_book_created_idx", "PublicBookThought_source_note_unique", "PublicBookThought_book_created_idx", "PublicBookThought_user_idx"];
+  const missingIndexes = requiredIndexes.filter((name) => !indexSet.has(name));
+  const foreignKeys = constraints.rows.map((row) => `${row.table_name}:${row.definition}`);
+  const requiredForeignKeys = ["PersonalBookNote:FOREIGN KEY (book_id) REFERENCES \"Book\"(id) ON DELETE CASCADE", "PersonalBookNote:FOREIGN KEY (user_id) REFERENCES \"User\"(id) ON DELETE CASCADE", "ReadingEvent:FOREIGN KEY (user_id) REFERENCES \"User\"(id) ON DELETE CASCADE", "ReadingEvent:FOREIGN KEY (book_id) REFERENCES \"Book\"(id) ON DELETE CASCADE", "PublicBookThought:FOREIGN KEY (catalog_book_id) REFERENCES \"CatalogBook\"(id) ON DELETE CASCADE", "PublicBookThought:FOREIGN KEY (user_id) REFERENCES \"User\"(id) ON DELETE CASCADE", "PublicBookThought:FOREIGN KEY (source_personal_note_id) REFERENCES \"PersonalBookNote\"(id) ON DELETE SET NULL"];
+  const missingForeignKeys = requiredForeignKeys.filter((expected) => !foreignKeys.some((actual) => actual.includes(expected)));
+  if (missingColumns.length || enumFailures.length || missingIndexes.length || missingForeignKeys.length) throw new Error(`Post-migration schema verification failed: ${[...missingColumns, ...enumFailures.map((value) => `enum:${value}`), ...missingIndexes, ...missingForeignKeys].join(", ")}`);
 }
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required before production migrations can run.");
+  if (!databaseUrl) throw new Error("DATABASE_URL is required.");
   const target = targetDetails(databaseUrl);
-  const migrationRoot = resolve(process.env.MIGRATION_WORKDIR ?? process.cwd());
-  const artifacts = await readArtifacts(migrationRoot);
+  assertExpectedTarget(target);
+  const root = resolve(process.env.MIGRATION_WORKDIR ?? process.cwd());
+  const artifacts = await readArtifacts(root);
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
-  let locked = false;
   try {
-    await acquireMigrationLock(client, getLockTimeoutMs()); locked = true;
-    const bookFormat = await client.query("select c.relname as table_name, a.attname as column_name, t.typname as type_name from pg_depend d join pg_type t on t.oid=d.refobjid join pg_class c on c.oid=d.objid join pg_attribute a on a.attrelid=c.oid and a.attnum=d.objsubid where t.typname='BookFormat' and c.relname in ('Book','BookEdition') order by c.relname,a.attname");
-    const preflight = await readPreflight(client, artifacts.entries);
-    if (preflight.identity.current_database !== target.database) throw new Error("Migration refused: configured DATABASE_URL database does not match connected database.");
-    console.log(`[migrations] release_commit=${artifacts.manifest.releaseCommit}`);
-    console.log(`[migrations] build_id=${artifacts.manifest.buildId}`);
-    console.log(`[migrations] database_target=${target.sanitized}`);
-    console.log(`[migrations] database_fingerprint=${target.fingerprint}`);
-    console.log(`[migrations] ledger_rows=${preflight.ledgerRows.length}`);
-    console.log(`[migrations] latest_recorded=${preflight.latestEntry.tag}`);
-    console.log(`[migrations] journal_rows=${artifacts.entries.length}`);
-    console.log(`[migrations] latest_journal=${artifacts.entries.at(-1).tag}`);
-    console.log(`[migrations] pending=${preflight.pending.map((entry) => entry.tag).join(",") || "none"}`);
-    console.log("[migrations] historical_hashes=verified");
-    assertUnchangedTargetFingerprint(target.fingerprint, targetDetails(databaseUrl).fingerprint);
-    await runMigrations(migrationRoot, databaseUrl);
-    await readPostflight(client, preflight.ledgerRows, preflight.pending, artifacts.entries.find((entry) => entry.tag === NEXT_MIGRATION_TAG), bookFormat.rows);
-    console.log("[migrations] postflight=verified");
-  } finally { if (locked) await client.query("SELECT pg_advisory_unlock(hashtext($1))", [MIGRATION_LOCK_NAME]); await client.end(); }
+    const currentTarget = targetDetails(databaseUrl);
+    assertUnchangedTargetFingerprint(target.fingerprint, currentTarget.fingerprint);
+    const ledger = await ledgerRows(client);
+    if (mode === "preflight") {
+      const result = validatePreflight({ journalEntries: artifacts.entries, ledgerRows: ledger, canonicalTablesExist: await canonicalTablesExist(client), baselineTag: process.env.MIGRATION_BASELINE_TAG ?? PRODUCTION_MIGRATION_BASELINE });
+      console.log(`[migrations] phase=preflight target=${target.sanitized} fingerprint=${target.fingerprint}`);
+      console.log(`[migrations] release_commit=${artifacts.manifest.releaseCommit} journal_rows=${artifacts.entries.length} latest=${artifacts.entries.at(-1).tag}`);
+      console.log(`[migrations] ledger_rows=${ledger.length} pending=${result.pending.map((entry) => entry.tag).join(",") || "none"}`);
+      return;
+    }
+    validatePreflight({ journalEntries: artifacts.entries, ledgerRows: ledger, canonicalTablesExist: await canonicalTablesExist(client), baselineTag: process.env.MIGRATION_BASELINE_TAG ?? PRODUCTION_MIGRATION_BASELINE });
+    if (ledger.length !== artifacts.entries.length) throw new Error("Post-migration verification failed: migrations remain pending.");
+    await verifyRequiredSchema(client);
+    console.log(`[migrations] phase=postflight target=${target.sanitized} ledger_rows=${ledger.length} schema=verified`);
+  } finally { await client.end(); }
 }
 
 void main().catch((error) => { console.error(`[migrations] failed: ${error instanceof Error ? error.message : String(error)}`); process.exit(1); });

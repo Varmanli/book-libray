@@ -8,10 +8,13 @@ export default function MoodChips({
   value,
   onChange,
   disabled,
+  suggestedTags = [],
 }: {
   value: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  /** Suggested tags are shown first; every supported tag remains selectable. */
+  suggestedTags?: string[];
 }) {
   const toggle = (tag: string) => {
     if (disabled) return;
@@ -20,9 +23,18 @@ export default function MoodChips({
     );
   };
 
+  const orderedTags = [...MOOD_TAGS].sort((a, b) => {
+    const aIndex = suggestedTags.indexOf(a);
+    const bIndex = suggestedTags.indexOf(b);
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
+
   return (
     <div className="flex flex-wrap gap-2">
-      {MOOD_TAGS.map((tag) => {
+      {orderedTags.map((tag) => {
         const active = value.includes(tag);
         return (
           <button

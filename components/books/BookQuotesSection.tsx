@@ -219,7 +219,8 @@ export default function BookQuotesSection({
   }
 
   function renderQuoteCard(quote: PublicQuote) {
-    const canManage = viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
+    const canManage =
+      viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
 
     return (
       <QuoteCard
@@ -241,36 +242,26 @@ export default function BookQuotesSection({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/55 shadow-[0_22px_70px_-48px_rgba(0,0,0,0.65)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%)]" />
-
+    <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-md transition-all hover:border-border/80">
       <div className="relative">
-        <div className="relative overflow-hidden border-b border-border/70 px-4 py-5 sm:px-6 lg:px-7">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-45"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.16) 1px, transparent 0)",
-              backgroundSize: "18px 18px",
-            }}
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-l from-primary/10 via-transparent to-transparent" />
-
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-b border-border/40 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20 shadow-lg shadow-primary/10">
-                <Quote className="h-5 w-5" />
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <Quote className="h-4 w-4" />
               </span>
 
               <div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-black text-foreground sm:text-xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-bold text-foreground sm:text-lg">
                     تکه‌های کتاب
                   </h2>
                   {hasQuotes ? (
-                    <span className="rounded-full border border-border/70 bg-background/45 px-2.5 py-1 text-[11px] font-bold text-muted-foreground backdrop-blur">
-                      {(totalQuoteCount ?? quotes.length).toLocaleString("fa-IR")} تکه
+                    <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {(totalQuoteCount ?? quotes.length).toLocaleString(
+                        "fa-IR",
+                      )}{" "}
+                      تکه
                     </span>
                   ) : null}
                 </div>
@@ -281,10 +272,10 @@ export default function BookQuotesSection({
               {showViewAll && viewAllHref ? (
                 <Link
                   href={viewAllHref}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-2xl border border-border/70 bg-background/45 px-3.5 text-sm font-bold text-foreground backdrop-blur transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-3 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                 >
                   مشاهده همه
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-3.5 w-3.5" />
                 </Link>
               ) : null}
 
@@ -292,9 +283,9 @@ export default function BookQuotesSection({
                 <Button
                   type="button"
                   onClick={openAdd}
-                  className="h-10 rounded-2xl px-4 text-sm font-black shadow-lg shadow-primary/15"
+                  className="h-8 gap-1.5 rounded-xl px-3 text-xs font-semibold"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
                   افزودن تکه
                 </Button>
               ) : null}
@@ -302,7 +293,7 @@ export default function BookQuotesSection({
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6 lg:px-7">
+        <div className="p-4 sm:p-5">
           {!hasQuotes ? (
             <EmptyQuotesState isLoggedIn={isLoggedIn} onAdd={openAdd} />
           ) : variant === "preview" ? (
@@ -352,23 +343,13 @@ function EmptyQuotesState({
   onAdd: () => void;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-dashed border-border/80 bg-background/35 px-4 py-10 text-center">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-35"
-        style={{
-          backgroundImage:
-            "linear-gradient(135deg, rgba(255,255,255,0.08) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.08) 75%, transparent 75%, transparent)",
-          backgroundSize: "22px 22px",
-        }}
-      />
-
-      <div className="relative">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+    <div className="rounded-xl border border-dashed border-border/70 bg-background/30 px-4 py-8 text-center">
+      <div>
+        <div className="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary/70">
           <BookOpenText className="h-6 w-6" />
         </div>
 
-        <p className="mt-4 text-sm font-black text-foreground">
+        <p className="mt-3 text-sm font-semibold text-foreground">
           هنوز تکه‌ای منتشر نشده
         </p>
 
@@ -382,9 +363,9 @@ function EmptyQuotesState({
           <Button
             type="button"
             onClick={onAdd}
-            className="mt-5 h-10 rounded-2xl px-4 text-sm font-bold"
+            className="mt-4 h-8 rounded-xl px-3 text-xs font-semibold"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             افزودن اولین تکه
           </Button>
         ) : null}
@@ -428,25 +409,15 @@ function QuoteDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-24px)] overflow-y-auto rounded-[1.75rem] border-border bg-card p-0 shadow-2xl sm:max-w-2xl">
-        <div className="relative border-b border-border/70 px-5 py-5">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-35"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.14) 1px, transparent 0)",
-              backgroundSize: "16px 16px",
-            }}
-          />
-
-          <div className="relative flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
-              <Sparkles className="h-5 w-5" />
+      <DialogContent className="max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border-border/80 bg-card p-0 shadow-xl sm:max-w-xl">
+        <div className="border-b border-border/40 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+              <Sparkles className="h-4 w-4" />
             </span>
 
             <div>
-              <DialogTitle className="text-base font-black text-foreground">
+              <DialogTitle className="text-base font-bold text-foreground">
                 {editing ? "ویرایش تکه کتاب" : "افزودن تکه کتاب"}
               </DialogTitle>
 
@@ -458,16 +429,16 @@ function QuoteDialog({
           </div>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="space-y-4 p-4 sm:p-5">
           <Textarea
             {...getQuoteTextareaDirectionProps(content)}
             value={content}
             onChange={(event) => onContentChange(event.target.value)}
             placeholder="یک تکه از کتاب را نقل کن..."
-            className="min-h-40 resize-none rounded-2xl border-border bg-background/45 text-sm leading-7 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/25"
+            className="min-h-40 resize-none rounded-xl border-border/60 bg-background/40 text-xs leading-6 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40 sm:text-sm sm:leading-7"
           />
 
-          <div className="rounded-2xl border border-border/70 bg-background/30 p-3">
+          <div className="rounded-xl border border-border/50 bg-background/30 p-2.5">
             <ImageUploader
               value={imagePreview}
               onChange={onImagePreviewChange}
@@ -482,7 +453,7 @@ function QuoteDialog({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-border bg-background/45 px-3 sm:w-auto">
+            <label className="flex h-9 w-full items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 sm:w-auto">
               <span className="text-xs font-medium text-muted-foreground">
                 شماره صفحه
               </span>
@@ -494,7 +465,7 @@ function QuoteDialog({
                 }
                 inputMode="numeric"
                 placeholder="اختیاری"
-                className="h-9 w-24 bg-transparent text-left text-sm font-bold tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
+                className="h-8 w-24 bg-transparent text-left text-xs font-medium tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
               />
             </label>
 
@@ -504,7 +475,7 @@ function QuoteDialog({
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
                 disabled={busy || uploading}
-                className="h-10 rounded-xl px-4 text-foreground hover:bg-white/[0.05]"
+                className="h-8 rounded-xl px-3 text-xs font-semibold text-foreground hover:bg-white/[0.05]"
               >
                 بستن
               </Button>
@@ -514,7 +485,7 @@ function QuoteDialog({
                 onClick={onSubmit}
                 disabled={busy || uploading || (!content.trim() && !imageKey)}
                 className={cn(
-                  "h-10 rounded-xl px-4 font-bold",
+                  "h-8 rounded-xl px-3 text-xs font-semibold",
                   "disabled:cursor-not-allowed disabled:opacity-40",
                 )}
               >

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Menu } from "lucide-react";
-import { FaBookOpen } from "react-icons/fa";
+import { BrandLogo } from "@/components/BrandLogo";
 
 import {
   Sheet,
@@ -23,14 +23,12 @@ interface AdminUser {
   image: string | null;
 }
 
-function Brand() {
+function Brand({ branding }: { branding: { logoUrl: string; siteName: string } }) {
   return (
     <Link href="/admin" className="flex items-center gap-2.5">
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20">
-        <FaBookOpen className="h-4 w-4" />
-      </span>
+      <BrandLogo {...branding} size="admin" />
       <span className="text-base font-extrabold tracking-tight text-foreground">
-        قفسه <span className="text-muted-foreground">— مدیریت</span>
+        <span className="text-muted-foreground">— مدیریت</span>
       </span>
     </Link>
   );
@@ -57,9 +55,11 @@ function UserChip({ user }: { user: AdminUser }) {
 export default function AdminShell({
   user,
   children,
+  branding,
 }: {
   user: AdminUser;
   children: React.ReactNode;
+  branding: { logoUrl: string; siteName: string };
 }) {
   const [open, setOpen] = useState(false);
 
@@ -85,7 +85,7 @@ export default function AdminShell({
               >
                 <SheetHeader className="border-b border-border p-4 text-right">
                   <SheetTitle>
-                    <Brand />
+                    <Brand branding={branding} />
                   </SheetTitle>
                 </SheetHeader>
                 <div className="flex-1 overflow-y-auto p-3">
@@ -96,7 +96,7 @@ export default function AdminShell({
                 </div>
               </SheetContent>
             </Sheet>
-            <Brand />
+            <Brand branding={branding} />
           </div>
 
           <div className="flex items-center gap-2">

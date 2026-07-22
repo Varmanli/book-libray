@@ -18,7 +18,7 @@ export interface DashboardBookPreview {
   title: string;
   author: string;
   coverImage: string | null;
-  status: "UNREAD" | "READING" | "FINISHED";
+  status: "UNREAD" | "READING" | "PAUSED" | "FINISHED";
   rating: number | null;
   createdAt: Date;
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Loader2, Shield, ShieldOff } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
 import {
@@ -160,7 +161,7 @@ export default function AdminUsersPage() {
         {rows.map((u) => (
           <AdminDataTableRow key={u.id}>
             <AdminDataTableCell>
-              <div className="flex items-center gap-2.5">
+              <Link href={`/admin/users/${u.id}`} className="flex items-center gap-2.5">
                 <Avatar className="h-9 w-9 ring-1 ring-inset ring-border">
                   {u.image && (
                     <AvatarImage src={u.image} alt="" className="object-cover" />
@@ -172,7 +173,7 @@ export default function AdminUsersPage() {
                 <span className="font-medium text-foreground">
                   {u.name || "—"}
                 </span>
-              </div>
+              </Link>
             </AdminDataTableCell>
             <AdminDataTableCell className="text-muted-foreground">
               <span dir="ltr" className="block text-right">
