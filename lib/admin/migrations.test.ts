@@ -75,9 +75,13 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /backup-production-db\.mjs/);
   assert.match(entrypoint, /npm run db:migrate/);
   assert.match(entrypoint, /run-production-migrations\.mjs postflight/);
+  assert.match(entrypoint, /RUN_MIGRATION_BASELINE/);
+  assert.match(entrypoint, /baseline-production-migrations\.mjs/);
   assert.match(entrypoint, /exec "\$@"/);
-  assert.ok(entrypoint.indexOf("preflight") < entrypoint.indexOf("backup-production-db"));
-  assert.ok(entrypoint.indexOf("backup-production-db") < entrypoint.indexOf("npm run db:migrate"));
+  const normalPreflight = entrypoint.lastIndexOf("preflight");
+  const normalBackup = entrypoint.lastIndexOf("backup-production-db");
+  assert.ok(normalPreflight < normalBackup);
+  assert.ok(normalBackup < entrypoint.indexOf("npm run db:migrate"));
   assert.ok(entrypoint.indexOf("npm run db:migrate") < entrypoint.indexOf("postflight"));
   assert.ok(entrypoint.indexOf("postflight") < entrypoint.indexOf('exec "$@"'));
   assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3000\//);
