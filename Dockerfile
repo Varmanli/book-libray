@@ -167,6 +167,7 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/scripts/migration-preflight.mjs \
      /app/scripts/run-production-migrations.mjs \
      /app/scripts/backup-production-db.mjs \
+     /app/scripts/baseline-production-migrations.mjs \
      ./scripts/
 
 

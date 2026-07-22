@@ -14,6 +14,7 @@
     "email:test": "tsx scripts/test-email.ts",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "db:baseline": "node scripts/baseline-production-migrations.mjs",
     "db:history:inspect": "node scripts/inspect-drizzle-migration-history.mjs",
     "migrate:favicon": "tsx --env-file=.env scripts/migrate-local-favicon-to-s3.ts",
     "backfill:usernames": "tsx scripts/backfill-usernames.ts",
