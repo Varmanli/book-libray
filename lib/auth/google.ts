@@ -22,7 +22,30 @@ function getGoogleClientSecret() {
 }
 
 export function getGoogleRedirectUri(origin: string) {
-  return process.env.GOOGLE_REDIRECT_URI || `${origin}/api/auth/google/callback`;
+  const configuredUri = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (configuredUri) return configuredUri;
+
+  const configuredAppUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.APP_URL?.trim();
+  const baseUrl = configuredAppUrl || origin;
+
+  if (process.env.NODE_ENV === "production" && !configuredAppUrl) {
+    throw new Error(
+      "[auth] GOOGLE_REDIRECT_URI باید در production تنظیم شود تا آدرس callback پشت reverse proxy تغییر نکند."
+    );
+  }
+
+  return `${baseUrl.replace(/\/$/, "")}/api/auth/google/callback`;
+}
+
+export function isGoogleOAuthDebugEnabled() {
+  return process.env.GOOGLE_OAUTH_DEBUG === "true";
+}
+
+export function redactGoogleAuthorizationUrl(url: string) {
+  const safeUrl = new URL(url);
+  safeUrl.searchParams.set("state", "[redacted]");
+  return safeUrl.toString();
 }
 
 export function createGoogleState() {
@@ -71,9 +94,17 @@ export async function exchangeGoogleCode(input: {
 
   const tokenData = (await tokenRes.json()) as {
     access_token?: string;
+    token_type?: string;
+    expires_in?: number;
   };
 
-  if (!tokenData.access_token) {
+  if (
+    !tokenData.access_token ||
+    tokenData.token_type?.toLowerCase() !== "bearer" ||
+    typeof tokenData.expires_in !== "number" ||
+    !Number.isFinite(tokenData.expires_in) ||
+    tokenData.expires_in <= 0
+  ) {
     throw new AuthError("ورود با گوگل ناموفق بود.", 400, "GOOGLE_TOKEN_MISSING");
   }
 
