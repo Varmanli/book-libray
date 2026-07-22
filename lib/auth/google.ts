@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { AuthError } from "@/lib/auth/service";
+import { getPublicAppOrigin } from "@/lib/auth/redirects";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -21,21 +22,10 @@ function getGoogleClientSecret() {
   return secret;
 }
 
-export function getGoogleRedirectUri(origin: string) {
+export function getGoogleRedirectUri() {
   const configuredUri = process.env.GOOGLE_REDIRECT_URI?.trim();
   if (configuredUri) return configuredUri;
-
-  const configuredAppUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.APP_URL?.trim();
-  const baseUrl = configuredAppUrl || origin;
-
-  if (process.env.NODE_ENV === "production" && !configuredAppUrl) {
-    throw new Error(
-      "[auth] GOOGLE_REDIRECT_URI باید در production تنظیم شود تا آدرس callback پشت reverse proxy تغییر نکند."
-    );
-  }
-
-  return `${baseUrl.replace(/\/$/, "")}/api/auth/google/callback`;
+  return `${getPublicAppOrigin()}/api/auth/google/callback`;
 }
 
 export function isGoogleOAuthDebugEnabled() {
@@ -52,13 +42,10 @@ export function createGoogleState() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-export function buildGoogleAuthUrl(input: {
-  origin: string;
-  state: string;
-}) {
+export function buildGoogleAuthUrl(input: { state: string }) {
   const params = new URLSearchParams({
     client_id: getGoogleClientId(),
-    redirect_uri: getGoogleRedirectUri(input.origin),
+    redirect_uri: getGoogleRedirectUri(),
     response_type: "code",
     scope: "openid email profile",
     state: input.state,
@@ -69,15 +56,12 @@ export function buildGoogleAuthUrl(input: {
   return `${GOOGLE_AUTH_URL}?${params.toString()}`;
 }
 
-export async function exchangeGoogleCode(input: {
-  origin: string;
-  code: string;
-}) {
+export async function exchangeGoogleCode(input: { code: string }) {
   const body = new URLSearchParams({
     code: input.code,
     client_id: getGoogleClientId(),
     client_secret: getGoogleClientSecret(),
-    redirect_uri: getGoogleRedirectUri(input.origin),
+    redirect_uri: getGoogleRedirectUri(),
     grant_type: "authorization_code",
   });
 

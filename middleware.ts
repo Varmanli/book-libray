@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE } from "@/lib/auth/constants";
+import { resolveInternalRedirect } from "@/lib/auth/redirects";
 
 /**
  * بررسی سبک در لبه (edge): فقط وجود کوکی توکن را چک می‌کند.
@@ -23,14 +24,13 @@ export function middleware(req: NextRequest) {
 
   // کاربر احرازنشده‌ای که سراغ صفحه‌ی محافظت‌شده می‌رود → ورود
   if (isProtected && !hasToken) {
-    const loginUrl = new URL("/auth/login", req.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    const loginUrl = resolveInternalRedirect(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
     return NextResponse.redirect(loginUrl);
   }
 
   // کاربر واردشده‌ای که سراغ صفحات ورود/ثبت‌نام می‌رود → کتابخانه
   if (isAuthPage && hasToken) {
-    return NextResponse.redirect(new URL("/books", req.url));
+    return NextResponse.redirect(resolveInternalRedirect("/books"));
   }
 
   return NextResponse.next();

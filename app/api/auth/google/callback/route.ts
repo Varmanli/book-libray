@@ -4,6 +4,7 @@ import { setAuthCookie } from "@/lib/auth/cookies";
 import { findOrCreateGoogleUser, createAuthTokenForUser } from "@/lib/auth/service";
 import { exchangeGoogleCode } from "@/lib/auth/google";
 import { isGoogleOAuthDebugEnabled } from "@/lib/auth/google";
+import { getPublicAppOriginSource, resolveInternalRedirect } from "@/lib/auth/redirects";
 
 const GOOGLE_STATE_COOKIE = "google_oauth_state";
 const GOOGLE_REDIRECT_COOKIE = "google_oauth_redirect";
@@ -32,7 +33,8 @@ export async function GET(req: NextRequest) {
   if (isGoogleOAuthDebugEnabled()) {
     console.info("[auth] Google OAuth callback", {
       environment: process.env.NODE_ENV,
-      callbackUrl: `${req.nextUrl.origin}${req.nextUrl.pathname}`,
+      callbackUrl: "/api/auth/google/callback",
+      publicOriginSource: getPublicAppOriginSource(),
       hasCode: Boolean(code),
       hasState: Boolean(state),
     });
@@ -40,25 +42,22 @@ export async function GET(req: NextRequest) {
 
   if (!state || !code || !storedState || !statesMatch(state, storedState)) {
     return clearOAuthCookies(NextResponse.redirect(
-      new URL("/auth/login?google_error=1", req.nextUrl.origin)
+      resolveInternalRedirect("/auth/login?google_error=1")
     ));
   }
 
   try {
-    const googleUser = await exchangeGoogleCode({
-      origin: req.nextUrl.origin,
-      code,
-    });
+    const googleUser = await exchangeGoogleCode({ code });
 
     const user = await findOrCreateGoogleUser(googleUser);
     const token = await createAuthTokenForUser(user.id);
-    const response = NextResponse.redirect(new URL(redirect, req.nextUrl.origin));
+    const response = NextResponse.redirect(resolveInternalRedirect(redirect));
     setAuthCookie(response, token, true);
     return clearOAuthCookies(response);
   } catch {
     console.error("[auth] Google OAuth callback failed.");
     return clearOAuthCookies(NextResponse.redirect(
-      new URL("/auth/login?google_error=1", req.nextUrl.origin)
+      resolveInternalRedirect("/auth/login?google_error=1")
     ));
   }
 }
