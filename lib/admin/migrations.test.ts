@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
+import { missingRequiredForeignKeys } from "../../scripts/run-production-migrations.mjs";
 import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
 import { oneTimeRecoveryState, validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
@@ -148,6 +149,20 @@ test("0038 reconciliation is additive and restores the reading schema without da
   assert.match(migration0038, /to_regclass\('public\."CatalogBook_slug_unique"'\) IS NULL/);
   assert.match(migration0038, /CREATE UNIQUE INDEX IF NOT EXISTS "ReferenceItem_type_name_unique"/);
   assert.doesNotMatch(migration0038, /\b(DROP\s+(?:TABLE|TYPE|INDEX|COLUMN)|TRUNCATE|DELETE\s+FROM|UPDATE\s+(?:"|[A-Za-z]))\b/i);
+});
+
+test("postflight foreign-key verification is structural and ignores constraint names", () => {
+  const foreignKeys = [
+    ["PersonalBookNote", ["book_id"], "Book", ["id"], "c"], ["PersonalBookNote", ["user_id"], "User", ["id"], "c"],
+    ["ReadingEvent", ["user_id"], "User", ["id"], "c"], ["ReadingEvent", ["book_id"], "Book", ["id"], "c"],
+    ["PublicBookThought", ["catalog_book_id"], "CatalogBook", ["id"], "c"], ["PublicBookThought", ["user_id"], "User", ["id"], "c"],
+    ["PublicBookThought", ["source_personal_note_id"], "PersonalBookNote", ["id"], "n"],
+  ].map(([table, columns, referencedTable, referencedColumns, onDelete], index) => ({ name: `production_fk_${index}`, table, columns, referencedTable, referencedColumns, onDelete }));
+  assert.deepEqual(missingRequiredForeignKeys(foreignKeys), []);
+  assert.equal(missingRequiredForeignKeys([{ ...foreignKeys[0], onDelete: "a" }]).length, 7);
+  const verifier = readFileSync("scripts/run-production-migrations.mjs", "utf8");
+  assert.match(verifier, /unnest\(constraint\.conkey\) with ordinality/);
+  assert.doesNotMatch(verifier, /pg_get_constraintdef/);
 });
 
 test("migration audit log summary prints complete diagnostics without target fingerprints", () => {
