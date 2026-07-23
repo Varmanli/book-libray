@@ -61,14 +61,20 @@ async function canonicalTablesExist(client) {
   return result.rows[0].exists;
 }
 
+const DELETE_ACTIONS = { c: "CASCADE", n: "SET NULL", r: "RESTRICT", a: "NO ACTION" };
+
+export function normalizeDeleteAction(code) {
+  return DELETE_ACTIONS[code] ?? null;
+}
+
 const REQUIRED_FOREIGN_KEYS = [
-  { table: "PersonalBookNote", columns: ["book_id"], referencedTable: "Book", referencedColumns: ["id"], onDelete: "c" },
-  { table: "PersonalBookNote", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "c" },
-  { table: "ReadingEvent", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "c" },
-  { table: "ReadingEvent", columns: ["book_id"], referencedTable: "Book", referencedColumns: ["id"], onDelete: "c" },
-  { table: "PublicBookThought", columns: ["catalog_book_id"], referencedTable: "CatalogBook", referencedColumns: ["id"], onDelete: "c" },
-  { table: "PublicBookThought", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "c" },
-  { table: "PublicBookThought", columns: ["source_personal_note_id"], referencedTable: "PersonalBookNote", referencedColumns: ["id"], onDelete: "n" },
+  { table: "PersonalBookNote", columns: ["book_id"], referencedTable: "Book", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "PersonalBookNote", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "ReadingEvent", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "ReadingEvent", columns: ["book_id"], referencedTable: "Book", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "PublicBookThought", columns: ["catalog_book_id"], referencedTable: "CatalogBook", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "PublicBookThought", columns: ["user_id"], referencedTable: "User", referencedColumns: ["id"], onDelete: "CASCADE" },
+  { table: "PublicBookThought", columns: ["source_personal_note_id"], referencedTable: "PersonalBookNote", referencedColumns: ["id"], onDelete: "SET NULL" },
 ];
 
 export function missingRequiredForeignKeys(foreignKeys) {
@@ -114,7 +120,7 @@ async function verifyRequiredSchema(client) {
   const indexSet = new Set(indexes.rows.map((row) => row.indexname));
   const requiredIndexes = ["PersonalBookNote_book_user_idx", "PersonalBookNote_created_at_idx", "ReadingEvent_user_book_created_idx", "PublicBookThought_source_note_unique", "PublicBookThought_book_created_idx", "PublicBookThought_user_idx"];
   const missingIndexes = requiredIndexes.filter((name) => !indexSet.has(name));
-  const foreignKeys = constraints.rows.map((row) => ({ table: row.table_name, columns: row.columns, referencedTable: row.referenced_table, referencedColumns: row.referenced_columns, onDelete: row.on_delete }));
+  const foreignKeys = constraints.rows.map((row) => ({ table: row.table_name, columns: row.columns, referencedTable: row.referenced_table, referencedColumns: row.referenced_columns, onDelete: normalizeDeleteAction(row.on_delete) }));
   const missingForeignKeys = missingRequiredForeignKeys(foreignKeys).map((foreignKey) => `foreign_key:${foreignKey.table}(${foreignKey.columns.join(",")})→${foreignKey.referencedTable}(${foreignKey.referencedColumns.join(",")}) on_delete=${foreignKey.onDelete}`);
   if (missingColumns.length || enumFailures.length || missingIndexes.length || missingForeignKeys.length) throw new Error(`Post-migration schema verification failed: ${[...missingColumns, ...enumFailures.map((value) => `enum:${value}`), ...missingIndexes, ...missingForeignKeys].join(", ")}`);
 }

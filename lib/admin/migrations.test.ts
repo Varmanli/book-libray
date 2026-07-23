@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
-import { missingRequiredForeignKeys } from "../../scripts/run-production-migrations.mjs";
+import { missingRequiredForeignKeys, normalizeDeleteAction } from "../../scripts/run-production-migrations.mjs";
 import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
 import { oneTimeRecoveryState, validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
@@ -157,9 +157,14 @@ test("postflight foreign-key verification is structural and ignores constraint n
     ["ReadingEvent", ["user_id"], "User", ["id"], "c"], ["ReadingEvent", ["book_id"], "Book", ["id"], "c"],
     ["PublicBookThought", ["catalog_book_id"], "CatalogBook", ["id"], "c"], ["PublicBookThought", ["user_id"], "User", ["id"], "c"],
     ["PublicBookThought", ["source_personal_note_id"], "PersonalBookNote", ["id"], "n"],
-  ].map(([table, columns, referencedTable, referencedColumns, onDelete], index) => ({ name: `production_fk_${index}`, table, columns, referencedTable, referencedColumns, onDelete }));
+  ].map(([table, columns, referencedTable, referencedColumns, onDelete], index) => ({ name: `production_fk_${index}`, table, columns, referencedTable, referencedColumns, onDelete: normalizeDeleteAction(onDelete) }));
   assert.deepEqual(missingRequiredForeignKeys(foreignKeys), []);
-  assert.equal(missingRequiredForeignKeys([{ ...foreignKeys[0], onDelete: "a" }]).length, 7);
+  assert.equal(normalizeDeleteAction("c"), "CASCADE");
+  assert.equal(normalizeDeleteAction("n"), "SET NULL");
+  assert.equal(normalizeDeleteAction("r"), "RESTRICT");
+  assert.equal(normalizeDeleteAction("a"), "NO ACTION");
+  assert.equal(normalizeDeleteAction("x"), null);
+  assert.equal(missingRequiredForeignKeys([{ ...foreignKeys[0], onDelete: "NO ACTION" }]).length, 7);
   const verifier = readFileSync("scripts/run-production-migrations.mjs", "utf8");
   assert.match(verifier, /from pg_constraint fk/);
   assert.match(verifier, /unnest\(fk\.conkey\) with ordinality/);
