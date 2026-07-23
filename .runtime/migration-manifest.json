@@ -1,0 +1,246 @@
+{
+  "releaseCommit": "unknown",
+  "buildId": "unknown",
+  "journalEntries": 39,
+  "journalSha256": "09f1036260fea08e2c5e59057df1bd683f1bfd2196233cb0caf7a22df2233496",
+  "migrationFiles": 39,
+  "migrationFilesSha256": "524fd749599765824f6f1e9a3304b42e388519cf21a7d0922c6aaba316752041",
+  "latestMigration": "0038_production_schema_reconciliation",
+  "latestMigrationSha256": "a58076659481836d47f7a46c961cf7f37b1ad31f84071ff944fafbe637283119",
+  "migrations": [
+    {
+      "index": 0,
+      "tag": "0000_groovy_black_bolt",
+      "when": 1757636293557,
+      "sha256": "b3492f8534ae21ba26de2426679792ce77e2179317494047643f5c5ed92175b1"
+    },
+    {
+      "index": 1,
+      "tag": "0001_motionless_randall_flagg",
+      "when": 1757636293558,
+      "sha256": "90e44203cc0a5c72808f220fd731d151d736f2efbb980f88cfa106e8b8368c45"
+    },
+    {
+      "index": 2,
+      "tag": "0002_add_password_reset",
+      "when": 1757636293559,
+      "sha256": "38e45e1833586c6204aaefcc6dae8d482826b9e1c839690b9ec87ee251d874b4"
+    },
+    {
+      "index": 3,
+      "tag": "0003_catalog_and_editions",
+      "when": 1757636293560,
+      "sha256": "6478254a0dd20a81e690c64c6a52b274f751b24a73ab6118082cb532c6fc805e"
+    },
+    {
+      "index": 4,
+      "tag": "0004_user_profiles",
+      "when": 1757636293561,
+      "sha256": "7f6b65ba4328a43c4b793a1d65829184117f776a55c9fdedd09bdafe9969dc1f"
+    },
+    {
+      "index": 5,
+      "tag": "0005_admin_reference_approval",
+      "when": 1757636293562,
+      "sha256": "cc278e12c60a702853d3e6c6cb659d0dee053c661b636871ee3388e955f21ed4"
+    },
+    {
+      "index": 6,
+      "tag": "0006_quote_likes",
+      "when": 1757636293563,
+      "sha256": "7f8f3ee6eeb05c7f8cd21da099a017bd2da898048f1df863d3ebe260e06e40df"
+    },
+    {
+      "index": 7,
+      "tag": "0007_banner_and_notes",
+      "when": 1757636293564,
+      "sha256": "48ad662953dadd3c7ff6ae153a9a94e256260bf51313bef065834bb08794a8e6"
+    },
+    {
+      "index": 8,
+      "tag": "0008_book_favorite",
+      "when": 1757636293565,
+      "sha256": "85adadbd986c156b287f2de50aae1cfa610c7541fa5caf772578e09855e524e8"
+    },
+    {
+      "index": 9,
+      "tag": "0009_note_likes",
+      "when": 1757636293566,
+      "sha256": "58a2c9d49b69767e37a745edbf2a64a6f2743d82c7544b4683a9f90874e6dedb"
+    },
+    {
+      "index": 10,
+      "tag": "0010_blog_posts",
+      "when": 1757636293567,
+      "sha256": "d5e5b77d2f9f02382cdc81ef5a12d2e21ec6c0d526b54f47038eda869b126ec0"
+    },
+    {
+      "index": 11,
+      "tag": "0011_blog_categories",
+      "when": 1757636293568,
+      "sha256": "6ad10c4ab370b8b089557846fd7dfa8e10576d42bb4b515675ebd646105254f6"
+    },
+    {
+      "index": 12,
+      "tag": "0012_catalog_public_slug",
+      "when": 1757636293569,
+      "sha256": "91593fe74f187ba0945bd2ad0e2ddb281df5292dd45d7d6596d55698944e43bc"
+    },
+    {
+      "index": 13,
+      "tag": "0013_home_content_catalog",
+      "when": 1757636293570,
+      "sha256": "1bff659de919f70a4dbce9078302e47050a02d58d5a774e5a018f56b57692721"
+    },
+    {
+      "index": 14,
+      "tag": "0014_book_external_links",
+      "when": 1757636293571,
+      "sha256": "818b4d719b8a63435c8cf4d73365125fec5718dbbe966e060b30a2565e5d560c"
+    },
+    {
+      "index": 15,
+      "tag": "0015_site_settings",
+      "when": 1757636293572,
+      "sha256": "4ce45fbb5991429f9d0d2b1df75f489893710963fb1cc15ca6d2387052dd10ba"
+    },
+    {
+      "index": 16,
+      "tag": "0016_static_pages",
+      "when": 1757636293573,
+      "sha256": "e44a1b2c492c0ba372eafb737e66a3a5d68ce6e5e871379f009572bf09cd0fdc"
+    },
+    {
+      "index": 17,
+      "tag": "0017_verification_codes",
+      "when": 1757636293574,
+      "sha256": "f86284ae5742555d29eb90eaac7cd13edfec60b702d8653be24734ccad8fce66"
+    },
+    {
+      "index": 18,
+      "tag": "0018_auth_provider_and_google",
+      "when": 1757636293575,
+      "sha256": "e06f855f0a69eb9993c14fbde64444e74368263041e121020a6c261f89555baa"
+    },
+    {
+      "index": 19,
+      "tag": "0019_book_edition_notes_architecture",
+      "when": 1757636293576,
+      "sha256": "7df4359cdf68471645a01ed1d5af66ff22b9690ad5f1e5f4fad4b7a77c4c2ca1"
+    },
+    {
+      "index": 20,
+      "tag": "0020_book_edition_cover_filename",
+      "when": 1757636293577,
+      "sha256": "b192b117f00aa7ba6cfeb7ecd0d5d0dab30bf47c432758db9d1354f89f49a43c"
+    },
+    {
+      "index": 21,
+      "tag": "0021_reference_profile_fields",
+      "when": 1783431000000,
+      "sha256": "73db201455087dd4b8dbe714c53d5d4bdde7aa5ba24c3f4afc46c5a2928d1f2c"
+    },
+    {
+      "index": 22,
+      "tag": "0022_catalog_book_primary_edition",
+      "when": 1783440000000,
+      "sha256": "73f0c75f87665d160b3d6536877c1432860100f0ce730d21ea146dda034c4c73"
+    },
+    {
+      "index": 23,
+      "tag": "0023_catalog_book_primary_edition_parent_guard",
+      "when": 1783441000000,
+      "sha256": "5305730b2256d86d487ca5ec8d4aa7aff6f45717078ee8ee569fecd2a5728a1b"
+    },
+    {
+      "index": 24,
+      "tag": "0024_quote_catalog_edition_sync",
+      "when": 1783442000000,
+      "sha256": "f921a559d0a252290283486364b7db17906c30a071f3ae4a29403423066edfc6"
+    },
+    {
+      "index": 25,
+      "tag": "0025_public_profile_default",
+      "when": 1784016000000,
+      "sha256": "530f531369c790a3ae102d37e3acd0d096b5154070afb9602aae54862eaf2378"
+    },
+    {
+      "index": 26,
+      "tag": "0026_quote_image",
+      "when": 1784017000000,
+      "sha256": "6847d02baa9881117a96e7bfefcdf0587cd35a127670c957bb29e2b400f08c37"
+    },
+    {
+      "index": 27,
+      "tag": "0027_admin_content_timestamps",
+      "when": 1784018000000,
+      "sha256": "0fc99a7adc20fe7c644059e7675ded49a1599997775f469f8ba54969a3a021a0"
+    },
+    {
+      "index": 28,
+      "tag": "0028_iranketab_import_sessions",
+      "when": 1784020000000,
+      "sha256": "2e9c21ed7c3001c46a28c9ef8d7ab62de653e044f32ace24b04a77949d9fb781"
+    },
+    {
+      "index": 29,
+      "tag": "0029_iranketab_reference_links",
+      "when": 1784021000000,
+      "sha256": "a1c1b3296af7c959fae59a8743a65c5862b43af86d59879a3f2dab4cd2108440"
+    },
+    {
+      "index": 30,
+      "tag": "0030_iranketab_contributor_events",
+      "when": 1784022000000,
+      "sha256": "7f689a50c09e46d7c1a90fc5ae994c5a38b6c1eab8cd5dc4623f15e216ae03fb"
+    },
+    {
+      "index": 31,
+      "tag": "0031_iranketab_reference_step",
+      "when": 1784023000000,
+      "sha256": "0cc004fff0f9457983e0248a71286e2d1ef54d17e062420a0146b5eb09241dc3"
+    },
+    {
+      "index": 32,
+      "tag": "0032_iranketab_edition_contributors",
+      "when": 1784207340000,
+      "sha256": "dd7d7cf094d9b72cdc9918f3ca44060922dbc7b527955adeba2febfd2728a736"
+    },
+    {
+      "index": 33,
+      "tag": "0033_iranketab_preview_operations",
+      "when": 1784208000000,
+      "sha256": "07c4317867f1d45350b4db485f5db74448325abde5ad317b9f29df05962348c7"
+    },
+    {
+      "index": 34,
+      "tag": "0034_reading_progress",
+      "when": 1784290000000,
+      "sha256": "c8133ae097ea8ee63f07a0cd6d28c07c818e1448ffc1147ede7bc9565d3dedf1"
+    },
+    {
+      "index": 35,
+      "tag": "0035_personal_book_notes",
+      "when": 1784380000000,
+      "sha256": "1b1df5fc7ab721d1a6d7097a8e4b9e69bb8d5130d5b8b886f160758b3a9cee0e"
+    },
+    {
+      "index": 36,
+      "tag": "0036_reading_history",
+      "when": 1784381000000,
+      "sha256": "6b51a22eb141bedb594d6c72177b737e48fd5f47f5b8c239958534beafe87452"
+    },
+    {
+      "index": 37,
+      "tag": "0037_public_book_thoughts",
+      "when": 1784382000000,
+      "sha256": "97e998d602fc26e096f4f840cb30420adf3ec91b82cddd57c14167eafa586f64"
+    },
+    {
+      "index": 38,
+      "tag": "0038_production_schema_reconciliation",
+      "when": 1784779399124,
+      "sha256": "a58076659481836d47f7a46c961cf7f37b1ad31f84071ff944fafbe637283119"
+    }
+  ]
+}

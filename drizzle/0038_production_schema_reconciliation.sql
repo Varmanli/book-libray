@@ -1,126 +1,123 @@
--- Production-only reconciliation for a database whose legacy schema predates
--- its Drizzle ledger. This is additive: it never drops, rewrites, or backfills
--- application data. It is intentionally the first migration executed after
--- the legacy ledger recovery records 0000 through 0037.
+-- Reconciles the audited production schema after the ledger records 0000..0037.
+-- Deliberately additive: no DROP, DELETE, or data UPDATE is permitted here.
+-- Every historical artifact below is guarded so an already-ahead production schema
+-- keeps its existing rows and objects intact.
 
-DO $$ BEGIN
-  CREATE TYPE "ReadingEventType" AS ENUM ('START', 'PROGRESS', 'FINISH');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
---> statement-breakpoint
-DO $$ BEGIN
-  CREATE TYPE "PublicBookThoughtType" AS ENUM ('THOUGHT', 'QUOTE', 'REFLECTION');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
---> statement-breakpoint
+-- Enum creation is guarded because PostgreSQL has no CREATE TYPE IF NOT EXISTS.
+DO $$ BEGIN CREATE TYPE "ProfileVisibility" AS ENUM ('PUBLIC','PRIVATE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "UserRole" AS ENUM ('USER','ADMIN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ApprovalStatus" AS ENUM ('PENDING','APPROVED','REJECTED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ReferenceType" AS ENUM ('AUTHOR','GENRE','TRANSLATOR','PUBLISHER','COUNTRY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "BlogPostStatus" AS ENUM ('DRAFT','PUBLISHED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ExternalLinkProvider" AS ENUM ('taaghche','fidibo','iranketab','ketabrah','digikala','publisher','other'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ExternalLinkType" AS ENUM ('print','ebook','audiobook','unknown'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "StaticPageStatus" AS ENUM ('DRAFT','PUBLISHED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "VerificationCodePurpose" AS ENUM ('email_verification','login','password_reset'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "AuthProvider" AS ENUM ('password','google','otp'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "NoteScope" AS ENUM ('book','edition'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "CatalogBookContributorRole" AS ENUM ('AUTHOR','TRANSLATOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "IranKetabImportStatus" AS ENUM ('CREATED','EXTRACTING','PREVIEW_READY','DRAFT_REVIEW','COVER_PREPARATION','READY_TO_COMMIT','COMMITTING','SUCCESS','FAILED','CANCELLED','IMPORTING_REFERENCES'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "IranKetabImportEventType" AS ENUM ('SESSION_CREATED','EXTRACTION_STARTED','EXTRACTION_COMPLETED','DRAFT_SAVED','COVER_PREPARATION_STARTED','COVER_PREPARATION_COMPLETED','COMMIT_STARTED','COMMIT_COMPLETED','COMMIT_FAILED','CONTRIBUTOR_STEP_STARTED','CONTRIBUTOR_PROFILE_FETCH_STARTED','CONTRIBUTOR_PROFILE_FETCH_COMPLETED','CONTRIBUTOR_MATCHED','CONTRIBUTOR_CREATED','CONTRIBUTOR_UPDATED','CONTRIBUTOR_IGNORED','CONTRIBUTOR_IMAGE_STAGED','CONTRIBUTOR_FAILED','CONTRIBUTOR_STEP_COMPLETED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "IranKetabPreviewOperationStatus" AS ENUM ('PROCESSING','COMPLETED','FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ReadingEventType" AS ENUM ('START','PROGRESS','FINISH'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "PublicBookThoughtType" AS ENUM ('THOUGHT','QUOTE','REFLECTION'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TYPE "BookStatus" ADD VALUE IF NOT EXISTS 'PAUSED';
 --> statement-breakpoint
 
--- Reading progress is safe to add to populated personal Book rows because the
--- non-null counter has a durable default and the timestamps remain nullable.
-ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "current_page" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "reading_updated_at" timestamp;
-ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "completed_at" timestamp;
---> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "username" varchar(30);
-ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "profile_banner_image" text;
+-- Extensions to the pre-0003 application tables.
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "username" varchar(30), ADD COLUMN IF NOT EXISTS "bio" varchar(500), ADD COLUMN IF NOT EXISTS "location" varchar(100), ADD COLUMN IF NOT EXISTS "website" text, ADD COLUMN IF NOT EXISTS "instagram" varchar(100), ADD COLUMN IF NOT EXISTS "twitter" varchar(100), ADD COLUMN IF NOT EXISTS "linkedin" text, ADD COLUMN IF NOT EXISTS "telegram" varchar(100), ADD COLUMN IF NOT EXISTS "profile_visibility" "ProfileVisibility" DEFAULT 'PRIVATE' NOT NULL, ADD COLUMN IF NOT EXISTS "role" "UserRole" DEFAULT 'USER' NOT NULL, ADD COLUMN IF NOT EXISTS "profile_banner_image" text, ADD COLUMN IF NOT EXISTS "auth_provider" "AuthProvider" DEFAULT 'password' NOT NULL, ADD COLUMN IF NOT EXISTS "google_id" text, ADD COLUMN IF NOT EXISTS "password_hash" text, ADD COLUMN IF NOT EXISTS "session_version" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar, ADD COLUMN IF NOT EXISTS "edition_id" varchar, ADD COLUMN IF NOT EXISTS "is_favorite" boolean DEFAULT false NOT NULL, ADD COLUMN IF NOT EXISTS "current_page" integer DEFAULT 0 NOT NULL, ADD COLUMN IF NOT EXISTS "reading_updated_at" timestamp, ADD COLUMN IF NOT EXISTS "completed_at" timestamp;
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar, ADD COLUMN IF NOT EXISTS "book_edition_id" varchar, ADD COLUMN IF NOT EXISTS "image_key" text, ADD COLUMN IF NOT EXISTS "created_at" timestamp, ADD COLUMN IF NOT EXISTS "updated_at" timestamp, ADD COLUMN IF NOT EXISTS "user_id" varchar;
 --> statement-breakpoint
 
-CREATE TABLE IF NOT EXISTS "PersonalBookNote" (
-  "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "book_id" varchar NOT NULL,
-  "user_id" varchar NOT NULL,
-  "content" text NOT NULL,
-  "page_number" integer,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."PersonalBookNote"'::regclass AND contype='f' AND confrelid='public."Book"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."PersonalBookNote"'::regclass AND contype='f' AND confrelid='public."User"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
-  END IF;
-END $$;
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "PersonalBookNote_book_user_idx" ON "PersonalBookNote" USING btree ("book_id", "user_id");
-CREATE INDEX IF NOT EXISTS "PersonalBookNote_created_at_idx" ON "PersonalBookNote" USING btree ("created_at");
+CREATE TABLE IF NOT EXISTS "CatalogBook" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "title" text NOT NULL, "original_title" text, "description" text, "author" text NOT NULL, "language" varchar(50), "genre" text, "country" text, "created_by_id" varchar, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, "status" "ApprovalStatus" DEFAULT 'APPROVED' NOT NULL, "slug" text, "cover_image" text, "subtitle" text, "first_published_year" integer, "source_name" text, "source_url" text, "primary_edition_id" varchar);
+CREATE TABLE IF NOT EXISTS "BookEdition" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "translator" text, "publisher" text, "isbn" varchar(20), "format" "BookFormat" DEFAULT 'PHYSICAL' NOT NULL, "cover_image" text, "published_year" integer, "edition_label" text, "page_count" integer, "language" varchar(50), "created_by_id" varchar, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, "status" "ApprovalStatus" DEFAULT 'APPROVED' NOT NULL, "title_override" text, "isbn10" varchar(20), "isbn13" varchar(20), "edition_description" text, "source_name" text, "source_url" text, "source_edition_code" text, "cover_filename" text);
+CREATE TABLE IF NOT EXISTS "ReferenceItem" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "type" "ReferenceType" NOT NULL, "name" text NOT NULL, "status" "ApprovalStatus" DEFAULT 'PENDING' NOT NULL, "created_by_id" varchar, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, "original_name" text, "short_description" text, "image_filename" text, "source_name" text, "source_url" text, "seo_title" text, "seo_description" text, "metadata" jsonb, "birth_year" integer, "death_year" integer, "country_name" text, "country_slug" text, "website" text, "description" text);
+ALTER TABLE "CatalogBook" ADD COLUMN IF NOT EXISTS "status" "ApprovalStatus" DEFAULT 'APPROVED' NOT NULL, ADD COLUMN IF NOT EXISTS "slug" text, ADD COLUMN IF NOT EXISTS "cover_image" text, ADD COLUMN IF NOT EXISTS "subtitle" text, ADD COLUMN IF NOT EXISTS "first_published_year" integer, ADD COLUMN IF NOT EXISTS "source_name" text, ADD COLUMN IF NOT EXISTS "source_url" text, ADD COLUMN IF NOT EXISTS "primary_edition_id" varchar;
+ALTER TABLE "BookEdition" ADD COLUMN IF NOT EXISTS "status" "ApprovalStatus" DEFAULT 'APPROVED' NOT NULL, ADD COLUMN IF NOT EXISTS "title_override" text, ADD COLUMN IF NOT EXISTS "isbn10" varchar(20), ADD COLUMN IF NOT EXISTS "isbn13" varchar(20), ADD COLUMN IF NOT EXISTS "edition_description" text, ADD COLUMN IF NOT EXISTS "source_name" text, ADD COLUMN IF NOT EXISTS "source_url" text, ADD COLUMN IF NOT EXISTS "source_edition_code" text, ADD COLUMN IF NOT EXISTS "cover_filename" text;
+ALTER TABLE "ReferenceItem" ADD COLUMN IF NOT EXISTS "original_name" text, ADD COLUMN IF NOT EXISTS "short_description" text, ADD COLUMN IF NOT EXISTS "image_filename" text, ADD COLUMN IF NOT EXISTS "source_name" text, ADD COLUMN IF NOT EXISTS "source_url" text, ADD COLUMN IF NOT EXISTS "seo_title" text, ADD COLUMN IF NOT EXISTS "seo_description" text, ADD COLUMN IF NOT EXISTS "metadata" jsonb, ADD COLUMN IF NOT EXISTS "birth_year" integer, ADD COLUMN IF NOT EXISTS "death_year" integer, ADD COLUMN IF NOT EXISTS "country_name" text, ADD COLUMN IF NOT EXISTS "country_slug" text, ADD COLUMN IF NOT EXISTS "website" text, ADD COLUMN IF NOT EXISTS "description" text;
 --> statement-breakpoint
 
-CREATE TABLE IF NOT EXISTS "ReadingEvent" (
-  "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "user_id" varchar NOT NULL,
-  "book_id" varchar NOT NULL,
-  "type" "ReadingEventType" NOT NULL,
-  "page_from" integer,
-  "page_to" integer,
-  "pages_read" integer,
-  "created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."ReadingEvent"'::regclass AND contype='f' AND confrelid='public."User"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."ReadingEvent"'::regclass AND contype='f' AND confrelid='public."Book"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE;
-  END IF;
-END $$;
---> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "ReadingEvent_user_book_created_idx" ON "ReadingEvent" USING btree ("user_id", "book_id", "created_at");
+CREATE TABLE IF NOT EXISTS "QuoteLike" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "quote_id" varchar NOT NULL, "user_id" varchar NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, CONSTRAINT "QuoteLike_quote_user_unique" UNIQUE("quote_id","user_id"));
+CREATE TABLE IF NOT EXISTS "PublishedBookNote" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "user_id" varchar NOT NULL, "book_id" varchar, "content" text NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, "catalog_book_id" varchar, "book_edition_id" varchar, "scope" "NoteScope" DEFAULT 'book' NOT NULL);
+CREATE TABLE IF NOT EXISTS "PublishedBookNoteLike" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "note_id" varchar NOT NULL, "user_id" varchar NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, CONSTRAINT "PublishedBookNoteLike_note_user_unique" UNIQUE("note_id","user_id"));
+CREATE TABLE IF NOT EXISTS "BlogPost" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "title" text NOT NULL, "slug" text NOT NULL, "excerpt" text, "content" text NOT NULL, "banner_image" text NOT NULL, "status" "BlogPostStatus" DEFAULT 'DRAFT' NOT NULL, "created_by_id" varchar, "published_at" timestamp, "reading_time" integer, "seo_title" text, "seo_description" text, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, "category_id" varchar, CONSTRAINT "BlogPost_slug_unique" UNIQUE("slug"));
+CREATE TABLE IF NOT EXISTS "BlogCategory" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "name" text NOT NULL, "slug" text NOT NULL, "description" text, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, CONSTRAINT "BlogCategory_slug_unique" UNIQUE("slug"));
+CREATE TABLE IF NOT EXISTS "BookExternalLink" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "edition_id" varchar, "provider" "ExternalLinkProvider" NOT NULL, "label" text, "url" text NOT NULL, "type" "ExternalLinkType" DEFAULT 'unknown' NOT NULL, "is_active" boolean DEFAULT true NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "SiteSetting" ("key" varchar(100) PRIMARY KEY NOT NULL, "value" text, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "StaticPage" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "slug" varchar(100) NOT NULL, "title" text NOT NULL, "subtitle" text, "content" text DEFAULT '' NOT NULL, "seo_title" text, "seo_description" text, "status" "StaticPageStatus" DEFAULT 'PUBLISHED' NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, CONSTRAINT "StaticPage_slug_unique" UNIQUE("slug"));
+CREATE TABLE IF NOT EXISTS "VerificationCode" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "email" varchar(255) NOT NULL, "code_hash" text NOT NULL, "purpose" "VerificationCodePurpose" NOT NULL, "expires_at" timestamp NOT NULL, "consumed_at" timestamp, "attempts" integer DEFAULT 0 NOT NULL, "max_attempts" integer DEFAULT 5 NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "IranKetabImportSession" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "admin_id" varchar NOT NULL, "source_url" text NOT NULL, "canonical_source_url" text NOT NULL, "source_name" text DEFAULT 'iranketab' NOT NULL, "status" "IranKetabImportStatus" DEFAULT 'CREATED' NOT NULL, "started_at" timestamp, "completed_at" timestamp, "draft_version" integer DEFAULT 1 NOT NULL, "catalog_id" varchar, "draft" jsonb, "extraction" jsonb, "extraction_fingerprint" text, "prepared_covers" jsonb, "result_summary" jsonb, "error_code" text, "error_message" text, "retryable" boolean DEFAULT false NOT NULL, "metadata" jsonb, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "IranKetabImportEvent" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "session_id" varchar NOT NULL, "type" "IranKetabImportEventType" NOT NULL, "metadata" jsonb, "created_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "IranKetabPreviewOperation" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "source_identity" text NOT NULL, "status" "IranKetabPreviewOperationStatus" DEFAULT 'PROCESSING' NOT NULL, "lease_expires_at" timestamp, "expires_at" timestamp, "result" jsonb, "error_code" text, "error_message" text, "retryable" boolean DEFAULT false NOT NULL, "generation" integer DEFAULT 1 NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL, CONSTRAINT "IranKetabPreviewOperation_source_identity_unique" UNIQUE("source_identity"));
+-- CREATE TABLE IF NOT EXISTS does not repair a pre-existing partial table.
+ALTER TABLE "PublishedBookNote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar, ADD COLUMN IF NOT EXISTS "book_edition_id" varchar, ADD COLUMN IF NOT EXISTS "scope" "NoteScope" DEFAULT 'book' NOT NULL;
+ALTER TABLE "BlogPost" ADD COLUMN IF NOT EXISTS "category_id" varchar;
+ALTER TABLE "PersonalBookNote" ADD COLUMN IF NOT EXISTS "book_id" varchar, ADD COLUMN IF NOT EXISTS "user_id" varchar, ADD COLUMN IF NOT EXISTS "content" text, ADD COLUMN IF NOT EXISTS "page_number" integer, ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now() NOT NULL, ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now() NOT NULL;
+ALTER TABLE "ReadingEvent" ADD COLUMN IF NOT EXISTS "user_id" varchar, ADD COLUMN IF NOT EXISTS "book_id" varchar, ADD COLUMN IF NOT EXISTS "type" "ReadingEventType", ADD COLUMN IF NOT EXISTS "page_from" integer, ADD COLUMN IF NOT EXISTS "page_to" integer, ADD COLUMN IF NOT EXISTS "pages_read" integer, ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now() NOT NULL;
+ALTER TABLE "PublicBookThought" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar, ADD COLUMN IF NOT EXISTS "user_id" varchar, ADD COLUMN IF NOT EXISTS "source_personal_note_id" varchar, ADD COLUMN IF NOT EXISTS "content" text, ADD COLUMN IF NOT EXISTS "page_number" integer, ADD COLUMN IF NOT EXISTS "type" "PublicBookThoughtType" DEFAULT 'THOUGHT' NOT NULL, ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now() NOT NULL, ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now() NOT NULL;
 --> statement-breakpoint
 
-CREATE TABLE IF NOT EXISTS "PublicBookThought" (
-  "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "catalog_book_id" varchar NOT NULL,
-  "user_id" varchar NOT NULL,
-  "source_personal_note_id" varchar,
-  "content" text NOT NULL,
-  "page_number" integer,
-  "type" "PublicBookThoughtType" DEFAULT 'THOUGHT' NOT NULL,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  "updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."PublicBookThought"'::regclass AND contype='f' AND confrelid='public."CatalogBook"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."PublicBookThought"'::regclass AND contype='f' AND confrelid='public."User"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."PublicBookThought"'::regclass AND contype='f' AND confrelid='public."PersonalBookNote"'::regclass AND confdeltype='n') THEN
-    ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_source_personal_note_id_PersonalBookNote_id_fk" FOREIGN KEY ("source_personal_note_id") REFERENCES "PersonalBookNote"("id") ON DELETE SET NULL;
-  END IF;
-END $$;
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "PublicBookThought_source_note_unique" ON "PublicBookThought" USING btree ("source_personal_note_id");
-CREATE INDEX IF NOT EXISTS "PublicBookThought_book_created_idx" ON "PublicBookThought" USING btree ("catalog_book_id", "created_at");
-CREATE INDEX IF NOT EXISTS "PublicBookThought_user_idx" ON "PublicBookThought" USING btree ("user_id");
+CREATE TABLE IF NOT EXISTS "PersonalBookNote" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "book_id" varchar NOT NULL, "user_id" varchar NOT NULL, "content" text NOT NULL, "page_number" integer, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "ReadingEvent" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "user_id" varchar NOT NULL, "book_id" varchar NOT NULL, "type" "ReadingEventType" NOT NULL, "page_from" integer, "page_to" integer, "pages_read" integer, "created_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "PublicBookThought" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "user_id" varchar NOT NULL, "source_personal_note_id" varchar, "content" text NOT NULL, "page_number" integer, "type" "PublicBookThoughtType" DEFAULT 'THOUGHT' NOT NULL, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL);
+CREATE TABLE IF NOT EXISTS "CatalogBookContributor" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "catalog_book_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "role" "CatalogBookContributorRole" NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text, CONSTRAINT "CatalogBookContributor_unique" UNIQUE("catalog_book_id","reference_item_id","role"));
+CREATE TABLE IF NOT EXISTS "BookEditionPublisher" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "book_edition_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text, CONSTRAINT "BookEditionPublisher_unique" UNIQUE("book_edition_id","reference_item_id"));
+CREATE TABLE IF NOT EXISTS "BookEditionContributor" ("id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "book_edition_id" varchar NOT NULL, "reference_item_id" varchar NOT NULL, "role" "CatalogBookContributorRole" NOT NULL, "sort_order" integer DEFAULT 0 NOT NULL, "source_name" text, "source_url" text);
 --> statement-breakpoint
 
--- Durable legacy catalog lookup indexes that are still used by current reads.
-CREATE INDEX IF NOT EXISTS "CatalogBook_title_idx" ON "CatalogBook" ("title");
-CREATE INDEX IF NOT EXISTS "CatalogBook_author_idx" ON "CatalogBook" ("author");
-CREATE INDEX IF NOT EXISTS "BookEdition_catalog_book_id_idx" ON "BookEdition" ("catalog_book_id");
-CREATE INDEX IF NOT EXISTS "BookEdition_isbn_idx" ON "BookEdition" ("isbn");
-CREATE UNIQUE INDEX IF NOT EXISTS "User_username_lower_unique" ON "User" (lower("username"));
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "QuoteLike" (
-  "id" varchar PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  "quote_id" varchar NOT NULL,
-  "user_id" varchar NOT NULL,
-  "created_at" timestamp DEFAULT now() NOT NULL,
-  CONSTRAINT "QuoteLike_quote_user_unique" UNIQUE("quote_id", "user_id")
-);
---> statement-breakpoint
+-- Foreign keys and unique constraints are guarded by their historical names.
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."QuoteLike"'::regclass AND contype='f' AND confrelid='public."Quote"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_quote_id_Quote_id_fk" FOREIGN KEY ("quote_id") REFERENCES "Quote"("id") ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public."QuoteLike"'::regclass AND contype='f' AND confrelid='public."User"'::regclass AND confdeltype='c') THEN
-    ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE;
-  END IF;
-END $$;
+  ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "User"("id") ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "User"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "ReferenceItem" ADD CONSTRAINT "ReferenceItem_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "User"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_quote_id_Quote_id_fk" FOREIGN KEY ("quote_id") REFERENCES "Quote"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_note_id_fk" FOREIGN KEY ("note_id") REFERENCES "PublishedBookNote"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "User"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_category_id_BlogCategory_id_fk" FOREIGN KEY ("category_id") REFERENCES "BlogCategory"("id") ON DELETE RESTRICT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_slug_unique" UNIQUE("slug"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_provider_url_unique" UNIQUE("catalog_book_id","provider","url"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_catalog_book_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_edition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_primary_edition_id_BookEdition_id_fk" FOREIGN KEY ("primary_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "Book"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_source_personal_note_id_PersonalBookNote_id_fk" FOREIGN KEY ("source_personal_note_id") REFERENCES "PersonalBookNote"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "ReferenceItem"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_admin_id_User_id_fk" FOREIGN KEY ("admin_id") REFERENCES "User"("id") ON DELETE RESTRICT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_catalog_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "IranKetabImportEvent" ADD CONSTRAINT "IranKetabImportEvent_session_id_IranKetabImportSession_id_fk" FOREIGN KEY ("session_id") REFERENCES "IranKetabImportSession"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+
+-- Catalog/reference, user, quote, reading, and content lookup indexes.
+CREATE INDEX IF NOT EXISTS "CatalogBook_title_idx" ON "CatalogBook" ("title"); CREATE INDEX IF NOT EXISTS "CatalogBook_author_idx" ON "CatalogBook" ("author"); CREATE INDEX IF NOT EXISTS "CatalogBook_status_idx" ON "CatalogBook" ("status"); CREATE INDEX IF NOT EXISTS "CatalogBook_slug_idx" ON "CatalogBook" ("slug");
+CREATE INDEX IF NOT EXISTS "BookEdition_catalog_book_id_idx" ON "BookEdition" ("catalog_book_id"); CREATE INDEX IF NOT EXISTS "BookEdition_isbn_idx" ON "BookEdition" ("isbn"); CREATE UNIQUE INDEX IF NOT EXISTS "ReferenceItem_type_name_unique" ON "ReferenceItem" ("type", lower("name")); CREATE INDEX IF NOT EXISTS "ReferenceItem_type_status_idx" ON "ReferenceItem" ("type","status"); CREATE UNIQUE INDEX IF NOT EXISTS "User_username_lower_unique" ON "User" (lower("username")); CREATE UNIQUE INDEX IF NOT EXISTS "Quote_image_key_unique" ON "Quote" ("image_key");
+CREATE INDEX IF NOT EXISTS "Quote_book_id_idx" ON "Quote" ("book_id"); CREATE INDEX IF NOT EXISTS "Quote_user_id_idx" ON "Quote" ("user_id"); CREATE INDEX IF NOT EXISTS "Quote_created_at_idx" ON "Quote" ("created_at"); CREATE INDEX IF NOT EXISTS "Quote_updated_at_idx" ON "Quote" ("updated_at"); CREATE INDEX IF NOT EXISTS "PublishedBookNote_user_id_idx" ON "PublishedBookNote" ("user_id"); CREATE INDEX IF NOT EXISTS "PublishedBookNote_book_id_idx" ON "PublishedBookNote" ("book_id"); CREATE INDEX IF NOT EXISTS "PublishedBookNote_created_at_idx" ON "PublishedBookNote" ("created_at"); CREATE INDEX IF NOT EXISTS "PublishedBookNote_updated_at_idx" ON "PublishedBookNote" ("updated_at");
+CREATE INDEX IF NOT EXISTS "BookExternalLink_catalog_idx" ON "BookExternalLink" ("catalog_book_id"); CREATE INDEX IF NOT EXISTS "BookExternalLink_provider_idx" ON "BookExternalLink" ("provider"); CREATE INDEX IF NOT EXISTS "BookExternalLink_active_idx" ON "BookExternalLink" ("is_active"); CREATE INDEX IF NOT EXISTS "VerificationCode_email_purpose_idx" ON "VerificationCode" ("email","purpose"); CREATE INDEX IF NOT EXISTS "VerificationCode_expires_at_idx" ON "VerificationCode" ("expires_at");
+CREATE INDEX IF NOT EXISTS "PersonalBookNote_book_user_idx" ON "PersonalBookNote" ("book_id","user_id"); CREATE INDEX IF NOT EXISTS "PersonalBookNote_created_at_idx" ON "PersonalBookNote" ("created_at"); CREATE INDEX IF NOT EXISTS "ReadingEvent_user_book_created_idx" ON "ReadingEvent" ("user_id","book_id","created_at"); CREATE UNIQUE INDEX IF NOT EXISTS "PublicBookThought_source_note_unique" ON "PublicBookThought" ("source_personal_note_id"); CREATE INDEX IF NOT EXISTS "PublicBookThought_book_created_idx" ON "PublicBookThought" ("catalog_book_id","created_at"); CREATE INDEX IF NOT EXISTS "PublicBookThought_user_idx" ON "PublicBookThought" ("user_id");
+CREATE INDEX IF NOT EXISTS "CatalogBookContributor_catalog_idx" ON "CatalogBookContributor" ("catalog_book_id"); CREATE INDEX IF NOT EXISTS "CatalogBookContributor_reference_idx" ON "CatalogBookContributor" ("reference_item_id"); CREATE INDEX IF NOT EXISTS "BookEditionPublisher_edition_idx" ON "BookEditionPublisher" ("book_edition_id"); CREATE INDEX IF NOT EXISTS "BookEditionPublisher_reference_idx" ON "BookEditionPublisher" ("reference_item_id"); CREATE UNIQUE INDEX IF NOT EXISTS "BookEditionContributor_unique" ON "BookEditionContributor" ("book_edition_id","reference_item_id","role"); CREATE INDEX IF NOT EXISTS "BookEditionContributor_edition_idx" ON "BookEditionContributor" ("book_edition_id"); CREATE INDEX IF NOT EXISTS "BookEditionContributor_reference_idx" ON "BookEditionContributor" ("reference_item_id");
+CREATE INDEX IF NOT EXISTS "IranKetabImportSession_admin_idx" ON "IranKetabImportSession" ("admin_id"); CREATE INDEX IF NOT EXISTS "IranKetabImportSession_status_idx" ON "IranKetabImportSession" ("status"); CREATE INDEX IF NOT EXISTS "IranKetabImportSession_created_idx" ON "IranKetabImportSession" ("created_at"); CREATE INDEX IF NOT EXISTS "IranKetabImportSession_canonical_idx" ON "IranKetabImportSession" ("canonical_source_url"); CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_session_idx" ON "IranKetabImportEvent" ("session_id"); CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_created_idx" ON "IranKetabImportEvent" ("created_at"); CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_type_idx" ON "IranKetabImportEvent" ("type"); CREATE INDEX IF NOT EXISTS "IranKetabPreviewOperation_reclaim_idx" ON "IranKetabPreviewOperation" ("status","lease_expires_at","expires_at");
