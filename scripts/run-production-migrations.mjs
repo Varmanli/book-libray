@@ -90,18 +90,18 @@ async function verifyRequiredSchema(client) {
         array_agg(source_column.attname order by key_column.ordinality) as columns,
         target.relname as referenced_table,
         array_agg(target_column.attname order by key_column.ordinality) as referenced_columns,
-        constraint.confdeltype as on_delete
-      from pg_constraint constraint
-      join pg_class source on source.oid = constraint.conrelid
+        fk_constraint.confdeltype as on_delete
+      from pg_constraint fk_constraint
+      join pg_class source on source.oid = fk_constraint.conrelid
       join pg_namespace source_namespace on source_namespace.oid = source.relnamespace
-      join pg_class target on target.oid = constraint.confrelid
-      join lateral unnest(constraint.conkey) with ordinality as key_column(attnum, ordinality) on true
-      join pg_attribute source_column on source_column.attrelid = constraint.conrelid and source_column.attnum = key_column.attnum
-      join pg_attribute target_column on target_column.attrelid = constraint.confrelid and target_column.attnum = constraint.confkey[key_column.ordinality]
-      where constraint.contype = 'f'
+      join pg_class target on target.oid = fk_constraint.confrelid
+      join lateral unnest(fk_constraint.conkey) with ordinality as key_column(attnum, ordinality) on true
+      join pg_attribute source_column on source_column.attrelid = fk_constraint.conrelid and source_column.attnum = key_column.attnum
+      join pg_attribute target_column on target_column.attrelid = fk_constraint.confrelid and target_column.attnum = fk_constraint.confkey[key_column.ordinality]
+      where fk_constraint.contype = 'f'
         and source_namespace.nspname = 'public'
         and source.relname in ('PersonalBookNote', 'ReadingEvent', 'PublicBookThought')
-      group by constraint.oid, source.relname, target.relname, constraint.confdeltype
+      group by fk_constraint.oid, source.relname, target.relname, fk_constraint.confdeltype
     `),
   ]);
   const columnSet = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}:${row.data_type}`));
