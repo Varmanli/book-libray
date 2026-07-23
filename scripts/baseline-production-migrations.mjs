@@ -7,6 +7,7 @@ const hash = (value) => createHash("sha256").update(value).digest("hex");
 const LEDGER_SCHEMA = "drizzle";
 const LEDGER_TABLE = "__drizzle_migrations";
 const LOCK_NAME = "ghafaseh:drizzle:baseline";
+const skipIfLedgerPopulated = process.argv.includes("--if-needed");
 
 function fail(message) { throw new Error(`Baseline refused: ${message}`); }
 function target(url) {
@@ -71,7 +72,12 @@ async function main() {
     const columns = await client.query("select column_name, data_type from information_schema.columns where table_schema='drizzle' and table_name='__drizzle_migrations'");
     const actualColumns = new Map(columns.rows.map((row) => [row.column_name, row.data_type]));
     if (actualColumns.get("id") !== "integer" || actualColumns.get("hash") !== "text" || actualColumns.get("created_at") !== "bigint") fail("Drizzle ledger does not match installed Drizzle's id/hash/created_at format");
-    const existing = await client.query("select id from drizzle.__drizzle_migrations limit 1"); if (existing.rowCount) fail("Drizzle ledger is not empty");
+    const existing = await client.query("select id from drizzle.__drizzle_migrations limit 1");
+    if (existing.rowCount) {
+      if (!skipIfLedgerPopulated) fail("Drizzle ledger is not empty");
+      console.warn("[baseline] skipped: ledger is already populated; normal preflight will verify its exact journal state.");
+      return;
+    }
     const lock = await client.query("select pg_try_advisory_lock(hashtext($1)) as locked", [LOCK_NAME]);
     if (!lock.rows[0]?.locked) fail("another migration or baseline process is active");
     const snapshot = await schemaSnapshot(client);

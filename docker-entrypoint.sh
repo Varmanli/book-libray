@@ -7,10 +7,11 @@ set -eu
 export DATABASE_BACKUP_DIR
 
 if [ "${RUN_MIGRATION_BASELINE:-false}" = "true" ]; then
-  echo "Running one-time migration baseline maintenance mode..."
+  echo "Baseline mode detected; creating a pre-baseline backup..."
   node ./scripts/backup-production-db.mjs
-  node ./scripts/baseline-production-migrations.mjs
-  exit 0
+  echo "Running guarded one-time migration baseline..."
+  node ./scripts/baseline-production-migrations.mjs --if-needed
+  echo "Baseline phase completed; continuing with normal guarded migration startup..."
 fi
 
 echo "Running guarded migration preflight..."

@@ -77,6 +77,7 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /run-production-migrations\.mjs postflight/);
   assert.match(entrypoint, /RUN_MIGRATION_BASELINE/);
   assert.match(entrypoint, /baseline-production-migrations\.mjs/);
+  assert.match(entrypoint, /baseline-production-migrations\.mjs --if-needed/);
   assert.match(entrypoint, /exec "\$@"/);
   const normalPreflight = entrypoint.lastIndexOf("preflight");
   const normalBackup = entrypoint.lastIndexOf("backup-production-db");
@@ -90,6 +91,7 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(dockerfile, /postgresql-client/);
   assert.match(dockerfile, /\/app\/node_modules/);
   assert.doesNotMatch(entrypoint, /db:push/);
+  assert.doesNotMatch(entrypoint, /baseline-production-migrations\.mjs\n\s*exit 0/);
   assert.match(dockerfile, /migration-manifest/);
 });
 
