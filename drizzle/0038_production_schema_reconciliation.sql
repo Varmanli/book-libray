@@ -85,11 +85,26 @@ DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNot
 DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "User"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_category_id_BlogCategory_id_fk" FOREIGN KEY ("category_id") REFERENCES "BlogCategory"("id") ON DELETE RESTRICT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_slug_unique" UNIQUE("slug"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."CatalogBook"'::regclass AND conname = 'CatalogBook_slug_unique')
+     AND to_regclass('public."CatalogBook_slug_unique"') IS NULL THEN
+    ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_slug_unique" UNIQUE("slug");
+  END IF;
+END $$;
 DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_provider_url_unique" UNIQUE("catalog_book_id","provider","url"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."BookExternalLink"'::regclass AND conname = 'BookExternalLink_catalog_provider_url_unique')
+     AND to_regclass('public."BookExternalLink_catalog_provider_url_unique"') IS NULL THEN
+    ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_provider_url_unique" UNIQUE("catalog_book_id","provider","url");
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."User"'::regclass AND conname = 'User_google_id_unique')
+     AND to_regclass('public."User_google_id_unique"') IS NULL THEN
+    ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id");
+  END IF;
+END $$;
 DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "BookEdition"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_catalog_book_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "CatalogBook"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -113,6 +128,21 @@ DO $$ BEGIN ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionCont
 DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_admin_id_User_id_fk" FOREIGN KEY ("admin_id") REFERENCES "User"("id") ON DELETE RESTRICT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_catalog_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_id") REFERENCES "CatalogBook"("id") ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE "IranKetabImportEvent" ADD CONSTRAINT "IranKetabImportEvent_session_id_IranKetabImportSession_id_fk" FOREIGN KEY ("session_id") REFERENCES "IranKetabImportSession"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+
+-- CREATE TABLE IF NOT EXISTS cannot add a missing unique constraint to a
+-- pre-existing partial table.  Check pg_constraint first, and also avoid a
+-- same-named backing index/relation that PostgreSQL would reject as a collision.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."QuoteLike"'::regclass AND conname = 'QuoteLike_quote_user_unique') AND to_regclass('public."QuoteLike_quote_user_unique"') IS NULL THEN ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_quote_user_unique" UNIQUE("quote_id","user_id"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."PublishedBookNoteLike"'::regclass AND conname = 'PublishedBookNoteLike_note_user_unique') AND to_regclass('public."PublishedBookNoteLike_note_user_unique"') IS NULL THEN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_note_user_unique" UNIQUE("note_id","user_id"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."BlogPost"'::regclass AND conname = 'BlogPost_slug_unique') AND to_regclass('public."BlogPost_slug_unique"') IS NULL THEN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_slug_unique" UNIQUE("slug"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."BlogCategory"'::regclass AND conname = 'BlogCategory_slug_unique') AND to_regclass('public."BlogCategory_slug_unique"') IS NULL THEN ALTER TABLE "BlogCategory" ADD CONSTRAINT "BlogCategory_slug_unique" UNIQUE("slug"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."StaticPage"'::regclass AND conname = 'StaticPage_slug_unique') AND to_regclass('public."StaticPage_slug_unique"') IS NULL THEN ALTER TABLE "StaticPage" ADD CONSTRAINT "StaticPage_slug_unique" UNIQUE("slug"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."IranKetabPreviewOperation"'::regclass AND conname = 'IranKetabPreviewOperation_source_identity_unique') AND to_regclass('public."IranKetabPreviewOperation_source_identity_unique"') IS NULL THEN ALTER TABLE "IranKetabPreviewOperation" ADD CONSTRAINT "IranKetabPreviewOperation_source_identity_unique" UNIQUE("source_identity"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."CatalogBookContributor"'::regclass AND conname = 'CatalogBookContributor_unique') AND to_regclass('public."CatalogBookContributor_unique"') IS NULL THEN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_unique" UNIQUE("catalog_book_id","reference_item_id","role"); END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."BookEditionPublisher"'::regclass AND conname = 'BookEditionPublisher_unique') AND to_regclass('public."BookEditionPublisher_unique"') IS NULL THEN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_unique" UNIQUE("book_edition_id","reference_item_id"); END IF;
+END $$;
 --> statement-breakpoint
 
 -- Catalog/reference, user, quote, reading, and content lookup indexes.
