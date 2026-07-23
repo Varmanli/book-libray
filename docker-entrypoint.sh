@@ -48,16 +48,14 @@ if [ "${RUN_MIGRATION_LEDGER_REPAIR:-false}" = "true" ]; then
   echo "Migration ledger repair completed; continuing to guarded migration preflight..."
 fi
 
-if [ "${RUN_MIGRATION_LEDGER_FINAL_REPAIR:-false}" = "true" ]; then
-  echo "Checking persistent final-ledger-repair failure marker..."
-  node ./scripts/migration-baseline-attempt-guard.mjs preflight final-ledger-repair
-  echo "Final migration ledger repair enabled; backing up and recording only 0000 through 0037..."
+if [ "${RUN_ONE_TIME_PRODUCTION_RECOVERY:-false}" = "true" ]; then
+  echo "One-time production recovery enabled; this is not used on normal startup."
+  echo "Recovery will back up first when the ledger is empty, then record only 0000 through 0037."
   if ! node ./scripts/repair-final-production-migration-ledger.mjs; then
-    node ./scripts/migration-baseline-attempt-guard.mjs record final-ledger-repair
+    echo "One-time production recovery failed; no historical SQL was run. Remove the flag only after resolving the failure."
     exit 1
   fi
-  echo "Final migration ledger repair completed; pending_after=0038_production_schema_reconciliation"
-  echo "Applying 0038 through normal Drizzle migration..."
+  echo "One-time production recovery ledger phase succeeded; normal Drizzle migration will now apply 0038 if pending."
 fi
 
 echo "Running guarded migration preflight..."

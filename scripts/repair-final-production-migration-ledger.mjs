@@ -34,6 +34,17 @@ export function validateFinalRepairPreconditions({ entries, ledgerRows, canonica
   if (ledgerRows.length) refuse("Drizzle ledger is not empty");
   if (!canonicalTablesExist) refuse("canonical application tables are absent; final repair is forbidden");
 }
+function exactLedger(entries, ledgerRows) {
+  return ledgerRows.length === entries.length && entries.every((entry, index) => ledgerRows[index]?.hash === entry.hash && Number(ledgerRows[index]?.created_at) === Number(entry.when));
+}
+export function oneTimeRecoveryState({ entries, pendingAfterRepair, ledgerRows, canonicalTablesExist }) {
+  if (!canonicalTablesExist) refuse("canonical application tables are absent; one-time recovery is forbidden");
+  if (!Array.isArray(ledgerRows)) refuse("Drizzle ledger could not be read");
+  if (ledgerRows.length === 0) return "repair";
+  if (exactLedger(entries, ledgerRows)) return "resume";
+  if (exactLedger([...entries, ...pendingAfterRepair], ledgerRows)) return "complete";
+  refuse("Drizzle ledger is neither empty nor an exact one-time recovery state");
+}
 async function backup(root) {
   await new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [join(root, "scripts", "backup-production-db.mjs")], { stdio: "inherit", env: process.env });
@@ -54,17 +65,25 @@ async function canonicalTablesExist(client) {
   return result.rows[0]?.count === 4;
 }
 async function main() {
-  if (process.env.ALLOW_MIGRATION_LEDGER_FINAL_REPAIR !== "true" || process.env.RUN_MIGRATION_LEDGER_FINAL_REPAIR !== "true") refuse("set ALLOW_MIGRATION_LEDGER_FINAL_REPAIR=true and RUN_MIGRATION_LEDGER_FINAL_REPAIR=true");
+  const oneTime = process.env.RUN_ONE_TIME_PRODUCTION_RECOVERY === "true";
+  if (!oneTime && (process.env.ALLOW_MIGRATION_LEDGER_FINAL_REPAIR !== "true" || process.env.RUN_MIGRATION_LEDGER_FINAL_REPAIR !== "true")) refuse("set RUN_ONE_TIME_PRODUCTION_RECOVERY=true for the temporary deployment recovery mode");
   const databaseUrl = process.env.DATABASE_URL; if (!databaseUrl) refuse("DATABASE_URL is required");
   const dbTarget = target(databaseUrl);
-  if (!process.env.EXPECTED_DATABASE_TARGET || !process.env.EXPECTED_DATABASE_FINGERPRINT) refuse("EXPECTED_DATABASE_TARGET and EXPECTED_DATABASE_FINGERPRINT are required");
-  if (process.env.EXPECTED_DATABASE_TARGET !== dbTarget.sanitized || process.env.EXPECTED_DATABASE_FINGERPRINT !== dbTarget.fingerprint) refuse("database target or fingerprint does not match the expected production identity");
+  if (!oneTime) {
+    if (!process.env.EXPECTED_DATABASE_TARGET || !process.env.EXPECTED_DATABASE_FINGERPRINT) refuse("EXPECTED_DATABASE_TARGET and EXPECTED_DATABASE_FINGERPRINT are required");
+    if (process.env.EXPECTED_DATABASE_TARGET !== dbTarget.sanitized || process.env.EXPECTED_DATABASE_FINGERPRINT !== dbTarget.fingerprint) refuse("database target or fingerprint does not match the expected production identity");
+  }
   const root = resolve(process.env.MIGRATION_WORKDIR ?? process.cwd());
   const { entries, pendingAfterRepair } = await recoveryEntries(root);
   const client = new pg.Client({ connectionString: databaseUrl }); await client.connect();
   try {
-    validateFinalRepairPreconditions({ entries, ledgerRows: await ledgerRows(client), canonicalTablesExist: await canonicalTablesExist(client) });
+    const canonicalTables = await canonicalTablesExist(client);
+    const initialLedger = await ledgerRows(client);
+    const state = oneTime ? oneTimeRecoveryState({ entries, pendingAfterRepair, ledgerRows: initialLedger, canonicalTablesExist: canonicalTables }) : (validateFinalRepairPreconditions({ entries, ledgerRows: initialLedger, canonicalTablesExist: canonicalTables }), "repair");
     console.log(`[final-ledger-repair] target=${dbTarget.sanitized}`);
+    console.log(`[final-ledger-repair] mode=${oneTime ? "one-time-production-recovery" : "guarded-final-repair"} state=${state}`);
+    if (state === "complete") { console.log("[final-ledger-repair] recovery_already_complete=true; continuing normal startup without repeating repair"); return; }
+    if (state === "resume") { console.log("[final-ledger-repair] ledger_range=0000..0037 already recorded; resuming normal Drizzle migration for 0038"); return; }
     console.log(`[final-ledger-repair] pending_before=${[...entries, ...pendingAfterRepair].map((entry) => entry.tag).join(",")}`);
     console.log("[final-ledger-repair] creating backup before transactionally recording 0000 through 0037...");
     await backup(root);

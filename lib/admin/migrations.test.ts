@@ -4,7 +4,7 @@ import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
 import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
-import { validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
+import { oneTimeRecoveryState, validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
 const importerMigration = readFileSync(
@@ -86,7 +86,7 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_ONCE/);
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_LOG_SUMMARY/);
   assert.match(entrypoint, /RUN_MIGRATION_LEDGER_REPAIR/);
-  assert.match(entrypoint, /RUN_MIGRATION_LEDGER_FINAL_REPAIR/);
+  assert.match(entrypoint, /RUN_ONE_TIME_PRODUCTION_RECOVERY/);
   assert.match(entrypoint, /repair-production-migration-ledger\.mjs/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight ledger-repair/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record ledger-repair/);
@@ -122,10 +122,15 @@ test("final ledger repair records exactly the audited legacy prefix and leaves 0
   assert.doesNotThrow(() => validateFinalRepairPreconditions({ entries, ledgerRows: [], canonicalTablesExist: true }));
   assert.throws(() => validateFinalRepairPreconditions({ entries: entries.slice(0, 37), ledgerRows: [], canonicalTablesExist: true }), /expected exactly/);
   assert.throws(() => validateFinalRepairPreconditions({ entries, ledgerRows: [{ id: 1 }], canonicalTablesExist: true }), /ledger is not empty/);
+  const allEntries = [...entries, { ...journal.entries[38], hash: "0038" }];
+  const hashedEntries = entries.map((entry) => ({ ...entry, hash: `hash-${entry.idx}` }));
+  assert.equal(oneTimeRecoveryState({ entries: hashedEntries, pendingAfterRepair: [{ ...allEntries.at(-1), hash: "0038" }], ledgerRows: [], canonicalTablesExist: true }), "repair");
+  assert.equal(oneTimeRecoveryState({ entries: hashedEntries, pendingAfterRepair: [{ ...allEntries.at(-1), hash: "0038" }], ledgerRows: hashedEntries.map((entry, index) => ({ id: index, hash: entry.hash, created_at: entry.when })), canonicalTablesExist: true }), "resume");
   const repair = readFileSync("scripts/repair-final-production-migration-ledger.mjs", "utf8");
   assert.match(repair, /pending_before=/);
   assert.match(repair, /inserted_range=/);
   assert.match(repair, /pending_after=0038_production_schema_reconciliation/);
+  assert.match(repair, /RUN_ONE_TIME_PRODUCTION_RECOVERY/);
   assert.doesNotMatch(repair, /drizzle-kit|ALTER TABLE|CREATE TABLE|DROP TABLE/i);
 });
 

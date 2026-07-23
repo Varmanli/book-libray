@@ -10,15 +10,14 @@ that only `0038_production_schema_reconciliation` remains pending afterwards.
 Normal startup then runs Drizzle unchanged and logs `0038_execution=applied`
 after postflight verification.
 
-Enable the one deployment with all of these environment variables:
+Enable exactly one production deployment with this environment variable:
 
 ```sh
-RUN_MIGRATION_LEDGER_FINAL_REPAIR=true
-ALLOW_MIGRATION_LEDGER_FINAL_REPAIR=true
-EXPECTED_DATABASE_TARGET="host:5432/database?sslmode=require"
-EXPECTED_DATABASE_FINGERPRINT="sha256-of-DATABASE_URL"
+RUN_ONE_TIME_PRODUCTION_RECOVERY=true
 ```
 
 Keep `RUN_MIGRATION_BASELINE=false` and `RUN_MIGRATION_LEDGER_REPAIR=false`.
-After the successful deployment, remove both `*_FINAL_REPAIR` flags. A non-empty
-ledger is intentionally refused on a later repair attempt.
+This temporary mode does not require target/fingerprint variables. If a deployment
+is interrupted after the ledger write, it resumes only the normal `0038` migration;
+if `0038` is already recorded it starts normally without repeating the repair.
+After success, remove `RUN_ONE_TIME_PRODUCTION_RECOVERY`.
