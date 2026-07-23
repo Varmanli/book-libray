@@ -32,6 +32,17 @@ if [ "${RUN_MIGRATION_AUDIT_ONCE:-false}" = "true" ]; then
   fi
 fi
 
+if [ "${RUN_MIGRATION_LEDGER_REPAIR:-false}" = "true" ]; then
+  echo "Checking persistent ledger-repair failure marker..."
+  node ./scripts/migration-baseline-attempt-guard.mjs preflight ledger-repair
+  echo "Migration ledger repair enabled; creating guarded backup and repairing Drizzle ledger only..."
+  if ! node ./scripts/repair-production-migration-ledger.mjs; then
+    node ./scripts/migration-baseline-attempt-guard.mjs record ledger-repair
+    exit 1
+  fi
+  echo "Migration ledger repair completed; continuing to guarded migration preflight..."
+fi
+
 echo "Running guarded migration preflight..."
 node ./scripts/run-production-migrations.mjs preflight
 

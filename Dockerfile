@@ -170,6 +170,7 @@ COPY --from=builder --chown=nextjs:nodejs \
      /app/scripts/baseline-production-migrations.mjs \
      /app/scripts/audit-production-migration-baseline.mjs \
      /app/scripts/migration-baseline-attempt-guard.mjs \
+     /app/scripts/repair-production-migration-ledger.mjs \
      ./scripts/
 
 
@@ -186,6 +187,7 @@ RUN chmod 0755 ./docker-entrypoint.sh \
     && test -f ./scripts/backup-production-db.mjs \
     && test -f ./scripts/audit-production-migration-baseline.mjs \
     && test -f ./scripts/migration-baseline-attempt-guard.mjs \
+    && test -f ./scripts/repair-production-migration-ledger.mjs \
     && test -f ./drizzle/0037_public_book_thoughts.sql \
     && test -f ./migration-manifest.json \
     && echo "Runtime application assets verified"

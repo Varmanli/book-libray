@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
 import { classifyMigration, expectedEvidence } from "../../scripts/audit-production-migration-baseline.mjs";
+import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
 const importerMigration = readFileSync(
@@ -82,6 +83,10 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record/);
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_ONCE/);
+  assert.match(entrypoint, /RUN_MIGRATION_LEDGER_REPAIR/);
+  assert.match(entrypoint, /repair-production-migration-ledger\.mjs/);
+  assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight ledger-repair/);
+  assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record ledger-repair/);
   assert.match(entrypoint, /audit-production-migration-baseline\.mjs/);
   assert.match(entrypoint, /exec "\$@"/);
   const normalPreflight = entrypoint.lastIndexOf("preflight");
@@ -103,8 +108,29 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   const audit = entrypoint.indexOf("Running read-only migration audit");
   assert.ok(audit > -1);
   assert.ok(audit < entrypoint.lastIndexOf("Running guarded migration preflight"));
+  assert.ok(entrypoint.indexOf("repair-production-migration-ledger.mjs") < entrypoint.lastIndexOf("Running guarded migration preflight"));
   assert.match(entrypoint, /if mkdir -p "\$audit_dir" && node \.\/scripts\/audit-production-migration-baseline\.mjs/);
   assert.match(entrypoint, /WARNING: migration audit failed; continuing to guarded migration preflight/);
+});
+
+test("ledger repair permits an empty ledger only for an existing canonical schema", () => {
+  assert.doesNotThrow(() => validateRepairPreconditions({ journalEntries: [{ tag: "0000", when: 1 }], ledgerRows: [], canonicalTablesExist: true }));
+});
+
+test("ledger repair refuses a populated ledger or missing canonical schema", () => {
+  assert.throws(() => validateRepairPreconditions({ journalEntries: [{ tag: "0000", when: 1 }], ledgerRows: [{ id: 1 }], canonicalTablesExist: true }), /ledger is not empty/);
+  assert.throws(() => validateRepairPreconditions({ journalEntries: [{ tag: "0000", when: 1 }], ledgerRows: [], canonicalTablesExist: false }), /canonical application tables are absent/);
+});
+
+test("ledger repair writes only the Drizzle ledger and normal startup still reaches preflight", () => {
+  const repair = readFileSync("scripts/repair-production-migration-ledger.mjs", "utf8");
+  const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
+  assert.match(repair, /ALLOW_MIGRATION_LEDGER_REPAIR/);
+  assert.match(repair, /RUN_MIGRATION_LEDGER_REPAIR/);
+  assert.match(repair, /backup-production-db\.mjs/);
+  assert.match(repair, /insert into drizzle\.__drizzle_migrations/i);
+  assert.doesNotMatch(repair, /drizzle-kit|CREATE TABLE|ALTER TABLE|DROP TABLE/i);
+  assert.ok(entrypoint.indexOf("repair-production-migration-ledger.mjs") < entrypoint.lastIndexOf("run-production-migrations.mjs preflight"));
 });
 
 function emptyAuditState() {
@@ -159,8 +185,8 @@ test("baseline audit identifies empty schemas and exposes populated-ledger handl
 test("a failed baseline is recorded so the next identical startup stops before backup", () => {
   const guard = readFileSync("scripts/migration-baseline-attempt-guard.mjs", "utf8");
   const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
-  assert.match(guard, /migration-baseline-failed-/);
-  assert.match(guard, /suppressed duplicate baseline attempt/);
+  assert.match(guard, /migration-\$\{operation\}-failed-/);
+  assert.match(guard, /suppressed duplicate \$\{operation\} attempt/);
   assert.ok(entrypoint.indexOf("migration-baseline-attempt-guard.mjs preflight") < entrypoint.indexOf("Baseline mode detected; creating a pre-baseline backup"));
 });
 
