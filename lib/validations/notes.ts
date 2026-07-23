@@ -1,13 +1,19 @@
 import { z } from "zod";
 import { richTextToPlainText } from "@/lib/content/rich-text";
 
-const noteContentSchema = z
+// Notes are long-form reading material, not short comments. Keep a generous
+// application-level ceiling so a single request cannot create an unreasonable
+// payload, while allowing substantial research and reflection.
+export const NOTE_MAX_STORED_CHARACTERS = 50_000;
+export const NOTE_MAX_VISIBLE_CHARACTERS = 40_000;
+
+export const noteContentSchema = z
   .string()
   .trim()
-  .max(12000, "ساختار یادداشت بیش از حد طولانی است")
+  .max(NOTE_MAX_STORED_CHARACTERS, "ساختار یادداشت بیش از حد طولانی است")
   .refine((value) => richTextToPlainText(value).length > 0, "متن یادداشت خالی است")
   .refine(
-    (value) => richTextToPlainText(value).length <= 3000,
+    (value) => richTextToPlainText(value).length <= NOTE_MAX_VISIBLE_CHARACTERS,
     "یادداشت بیش از حد طولانی است",
   );
 

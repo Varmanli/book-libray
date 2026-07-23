@@ -9,6 +9,7 @@ import {
   unique,
   uniqueIndex,
   index,
+  check,
   boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -744,6 +745,10 @@ export const PublishedBookNote = pgTable(
     bookIdx: index("PublishedBookNote_book_id_idx").on(table.bookId),
     createdAtIdx: index("PublishedBookNote_created_at_idx").on(table.createdAt),
     updatedAtIdx: index("PublishedBookNote_updated_at_idx").on(table.updatedAt),
+    contentLength: check(
+      "PublishedBookNote_content_length_check",
+      sql`char_length(${table.content}) <= 50000`,
+    ),
   }),
 );
 

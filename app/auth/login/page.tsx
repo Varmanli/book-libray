@@ -153,8 +153,8 @@ function LoginForm() {
 
   return (
     <AuthCard
-      title="ورود به قفسه"
-      subtitle="برای ادامه وارد حساب کاربری خود شوید"
+      title="به قفسه خود خوش آمدید"
+      subtitle="کتاب‌ها، تجربه‌ها و مسیر مطالعه شما اینجا منتظر شماست"
       footer={
         <p className="text-center">
           حساب کاربری ندارید؟{" "}

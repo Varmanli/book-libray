@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-
 
 import { db } from "@/db";
 import { Book, CatalogBook, PublishedBookNote, PublishedBookNoteLike, Quote, QuoteLike, User } from "@/db/schema";
+import { noteContentSchema } from "@/lib/validations/notes";
 import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-text";
 import { isOwnedQuoteImageKey, normalizeQuoteImageKey, normalizeQuoteText } from "@/lib/quotes/image";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
@@ -134,14 +135,14 @@ export async function deleteAdminQuote(id: string) {
 
 export async function createAdminNote(input: { userId: string; bookId: string; content?: unknown; scope?: unknown }) {
   const book = await validBook(input.bookId); if (!book || !book.catalogBookId) throw new Error("کتاب مقصد باید به کاتالوگ متصل باشد");
-  const content = sanitizeRichTextHtml(typeof input.content === "string" ? input.content : ""); if (!richTextToPlainText(content)) throw new Error("متن یادداشت نمی‌تواند خالی باشد");
+  const content = sanitizeRichTextHtml(typeof input.content === "string" ? input.content : ""); const validation = noteContentSchema.safeParse(content); if (!validation.success) throw new Error(validation.error.issues[0]?.message ?? "متن یادداشت نامعتبر است");
   const scope = input.scope === "edition" && book.editionId ? "edition" : "book";
   const [row] = await db.insert(PublishedBookNote).values({ userId: input.userId, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: scope === "edition" ? book.editionId : null, scope, content }).returning(); return row;
 }
 
 export async function updateAdminNote(id: string, input: { userId: string; bookId: string; content?: unknown; scope?: unknown }) {
   const book = await validBook(input.bookId); if (!book || !book.catalogBookId) throw new Error("کتاب مقصد باید به کاتالوگ متصل باشد");
-  const content = sanitizeRichTextHtml(typeof input.content === "string" ? input.content : ""); if (!richTextToPlainText(content)) throw new Error("متن یادداشت نمی‌تواند خالی باشد");
+  const content = sanitizeRichTextHtml(typeof input.content === "string" ? input.content : ""); const validation = noteContentSchema.safeParse(content); if (!validation.success) throw new Error(validation.error.issues[0]?.message ?? "متن یادداشت نامعتبر است");
   const scope = input.scope === "edition" && book.editionId ? "edition" : "book";
   const [row] = await db.update(PublishedBookNote).set({ userId: input.userId, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: scope === "edition" ? book.editionId : null, scope, content, updatedAt: new Date() }).where(eq(PublishedBookNote.id, id)).returning(); if (!row) throw new Error("یادداشت پیدا نشد"); return row;
 }

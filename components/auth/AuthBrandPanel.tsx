@@ -12,17 +12,12 @@ export function AuthBrandPanel({
       <div className="absolute right-10 top-16 h-44 w-44 rounded-full bg-emerald-300/10 blur-3xl" />
       <div className="absolute bottom-20 left-10 h-52 w-52 rounded-full bg-emerald-500/10 blur-3xl" />
 
-      <div className="relative z-10 flex items-center gap-3 px-10 pt-10">
+      <div className="relative z-10 flex px-10 pt-10">
         <BrandLogo
           {...branding}
           size="auth"
-          showName={false}
           fallbackClassName="border-white/10 bg-white/8 text-emerald-200 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl"
         />
-        <div>
-          <p className="text-2xl font-black tracking-tight text-white">{branding.siteName}</p>
-          <p className="text-sm text-white/45">پلتفرم مطالعه‌ی هوشمند</p>
-        </div>
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col justify-center px-10 py-12">

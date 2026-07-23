@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ChevronDown,
   Loader2,
   MessageSquareText,
   NotebookPen,
@@ -65,6 +66,7 @@ export default function BookNotesTabsSection({
   const [activeTab, setActiveTab] = useState<NoteTab>("book");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const hasEditionTab = Boolean(selectedEditionId);
 
@@ -76,8 +78,10 @@ export default function BookNotesTabsSection({
 
   const scopedNotes = activeTab === "edition" ? editionNotes : bookNotes;
   const hasNotes = scopedNotes.length > 0;
+  const isExpandable = scopedNotes.length > 2;
   const scope: NoteTab =
-    editing?.scope ?? (activeTab === "edition" && hasEditionTab ? "edition" : "book");
+    editing?.scope ??
+    (activeTab === "edition" && hasEditionTab ? "edition" : "book");
 
   function openAdd() {
     setEditing(null);
@@ -143,37 +147,41 @@ export default function BookNotesTabsSection({
           toast.success("یادداشت حذف شد.");
           router.refresh();
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "حذف یادداشت ناموفق بود.");
+          toast.error(
+            error instanceof Error ? error.message : "حذف یادداشت ناموفق بود.",
+          );
         }
       },
     });
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/55 shadow-[0_22px_70px_-48px_rgba(0,0,0,0.65)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%)]" />
-
-      <div className="relative">
-        <div className="relative overflow-hidden border-b border-border/70 px-4 py-5 sm:px-6 lg:px-7">
-          <div className="relative flex flex-col gap-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-300/20 shadow-lg shadow-sky-400/10">
-                  <NotebookPen className="h-5 w-5" />
+    <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5">
+      <div>
+        <div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                  <NotebookPen className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-black text-foreground sm:text-xl">
+                  <h2 className="text-base font-bold text-foreground sm:text-lg">
                     {title}
                   </h2>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex rounded-full border border-border/70 bg-background/45 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
-                      {(activeTab === "edition" ? editionNotes.length : bookNotes.length).toLocaleString("fa-IR")} یادداشت
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                      {(activeTab === "edition"
+                        ? editionNotes.length
+                        : bookNotes.length
+                      ).toLocaleString("fa-IR")}{" "}
+                      یادداشت
                     </span>
 
                     {viewAllHref ? (
                       <Link
                         href={viewAllHref}
-                        className="inline-flex h-8 items-center rounded-full border border-border/70 bg-background/45 px-3 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/25 hover:bg-primary/10 hover:text-primary"
+                        className="inline-flex items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/25 hover:bg-primary/10 hover:text-primary"
                       >
                         مشاهده همه
                       </Link>
@@ -186,7 +194,7 @@ export default function BookNotesTabsSection({
                 <Button
                   type="button"
                   onClick={openAdd}
-                  className="h-10 rounded-2xl px-4 text-sm font-black shadow-lg shadow-primary/15"
+                  className="h-9 shrink-0 rounded-xl px-3 text-xs font-bold sm:px-4 sm:text-sm"
                 >
                   <Plus className="h-4 w-4" />
                   افزودن یادداشت
@@ -195,7 +203,7 @@ export default function BookNotesTabsSection({
                 <Button
                   asChild
                   variant="outline"
-                  className="h-10 rounded-2xl border-border/80 bg-background/45 px-4 text-sm font-black"
+                  className="h-9 shrink-0 rounded-xl border-border/60 bg-background/50 px-3 text-xs font-bold sm:px-4 sm:text-sm"
                 >
                   <Link href={loginHref}>
                     ورود برای یادداشت‌گذاشتن
@@ -225,7 +233,7 @@ export default function BookNotesTabsSection({
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6 lg:px-7">
+        <div className="mt-4">
           {activeTab === "edition" && editionSummary ? (
             <EditionContextSummary summary={editionSummary} />
           ) : null}
@@ -238,25 +246,64 @@ export default function BookNotesTabsSection({
               loginHref={loginHref}
             />
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:gap-5">
-              {scopedNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  canLike={isLoggedIn}
-                  showAuthor
-                  showBook={false}
-                  manage={
-                    viewerId && note.authorUserId === viewerId
-                      ? {
-                          onEdit: () => openEdit(note),
-                          onDelete: () => remove(note.id),
-                        }
-                      : undefined
+            <>
+              <div
+                onClickCapture={(event) => {
+                  if (
+                    event.target instanceof Element &&
+                    event.target.closest("[data-note-expand-toggle]")
+                  ) {
+                    setIsExpanded(true);
                   }
-                />
-              ))}
-            </div>
+                }}
+                className={cn(
+                  "relative grid grid-cols-1 gap-4 transition-all duration-300",
+                  isExpandable && !isExpanded
+                    ? "max-h-[31rem] overflow-hidden"
+                    : "max-h-none overflow-visible",
+                )}
+              >
+                {scopedNotes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    canLike={isLoggedIn}
+                    showAuthor
+                    showBook={false}
+                    manage={
+                      viewerId && note.authorUserId === viewerId
+                        ? {
+                            onEdit: () => openEdit(note),
+                            onDelete: () => remove(note.id),
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+                {isExpandable && !isExpanded ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card/90 via-card/50 to-transparent" />
+                ) : null}
+              </div>
+
+              {isExpandable ? (
+                <div className="mt-3 border-t border-border/30 pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded((current) => !current)}
+                    aria-expanded={isExpanded}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    {isExpanded ? "نمایش کمتر" : "بیشتر بخوانید"}
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 transition-transform duration-300",
+                        isExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </div>
@@ -291,10 +338,10 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex min-w-0 items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-right text-xs font-bold transition-colors sm:text-sm",
+        "inline-flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-right text-xs font-medium transition-colors sm:text-sm",
         active
-          ? "border-sky-300/25 bg-sky-400/10 text-sky-300"
-          : "border-border/70 bg-background/45 text-muted-foreground hover:border-primary/20 hover:bg-primary/5 hover:text-foreground",
+          ? "border-primary/20 bg-primary/10 text-primary"
+          : "border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/5 hover:text-foreground",
       )}
     >
       <span className="truncate">{label}</span>
@@ -317,19 +364,19 @@ function EmptyNotesState({
   loginHref?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-dashed border-border/80 bg-background/35 px-4 py-10 text-center">
+    <div className="relative overflow-hidden rounded-xl border border-dashed border-border/50 bg-background/30 px-4 py-7 text-center">
       <div className="relative">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-300/20">
-          <MessageSquareText className="h-6 w-6" />
+        <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+          <MessageSquareText className="h-4 w-4" />
         </div>
 
-        <p className="mt-4 text-sm font-black text-foreground">
+        <p className="mt-3 text-xs font-medium text-foreground sm:text-sm">
           {scope === "edition"
             ? "هنوز یادداشتی درباره این نسخه منتشر نشده"
             : "هنوز یادداشتی درباره کتاب منتشر نشده"}
         </p>
 
-        <p className="mx-auto mt-2 max-w-md text-xs leading-6 text-muted-foreground">
+        <p className="mx-auto mt-1.5 max-w-md text-xs leading-6 text-muted-foreground">
           {isLoggedIn
             ? scope === "edition"
               ? "اولین برداشت عمومی از این نسخه یا ترجمه را بنویس."
@@ -343,7 +390,7 @@ function EmptyNotesState({
           <Button
             type="button"
             onClick={onAdd}
-            className="mt-5 h-10 rounded-2xl px-4 text-sm font-bold"
+            className="mt-4 h-9 rounded-xl px-4 text-xs font-bold sm:text-sm"
           >
             <Plus className="h-4 w-4" />
             افزودن اولین یادداشت
@@ -352,7 +399,7 @@ function EmptyNotesState({
           <Button
             asChild
             variant="outline"
-            className="mt-5 h-10 rounded-2xl border-border/80 bg-background/45 px-4 text-sm font-bold"
+            className="mt-4 h-9 rounded-xl border-border/60 bg-background/50 px-4 text-xs font-bold sm:text-sm"
           >
             <Link href={loginHref}>ورود برای نوشتن یادداشت</Link>
           </Button>
@@ -384,8 +431,8 @@ function EditionContextSummary({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-4 rounded-[1.35rem] border border-border/70 bg-background/35 px-4 py-3 text-xs leading-6 text-muted-foreground sm:text-sm">
-      <span className="font-black text-foreground">نسخه انتخاب‌شده:</span>{" "}
+    <div className="mb-4 rounded-xl border border-border/60 bg-background/30 px-4 py-3 text-xs leading-6 text-muted-foreground sm:text-sm">
+      <span className="font-bold text-foreground">نسخه انتخاب‌شده:</span>{" "}
       {items.join(" • ")}
     </div>
   );
@@ -440,7 +487,8 @@ function NoteDialog({
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-5">
           {!editing ? (
             <div className="rounded-2xl border border-border/70 bg-background/35 px-4 py-3 text-xs font-bold text-muted-foreground">
-              ثبت یادداشت برای: <span className="text-foreground">{scopeLabel}</span>
+              ثبت یادداشت برای:{" "}
+              <span className="text-foreground">{scopeLabel}</span>
             </div>
           ) : null}
 

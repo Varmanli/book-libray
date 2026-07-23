@@ -151,6 +151,14 @@ test("0038 reconciliation is additive and restores the reading schema without da
   assert.doesNotMatch(migration0038, /\b(DROP\s+(?:TABLE|TYPE|INDEX|COLUMN)|TRUNCATE|DELETE\s+FROM|UPDATE\s+(?:"|[A-Za-z]))\b/i);
 });
 
+test("0039 expands note capacity without rewriting existing notes", () => {
+  const migration = readFileSync("drizzle/0039_expand_published_book_note_capacity.sql", "utf8");
+  assert.match(migration, /ADD CONSTRAINT "PublishedBookNote_content_length_check"/);
+  assert.match(migration, /char_length\("content"\) <= 50000/);
+  assert.match(migration, /NOT VALID/);
+  assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM|UPDATE\s+)\b/i);
+});
+
 test("postflight foreign-key verification is structural and ignores constraint names", () => {
   const foreignKeys = [
     ["PersonalBookNote", ["book_id"], "Book", ["id"], "c"], ["PersonalBookNote", ["user_id"], "User", ["id"], "c"],
@@ -287,7 +295,7 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity"]);
 });
 
 test("production preflight refuses empty or incomplete historical ledgers", () => {

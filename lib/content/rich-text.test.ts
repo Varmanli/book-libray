@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-text";
-import { createNoteSchema, updateNoteSchema } from "@/lib/validations/notes";
+import {
+  createNoteSchema,
+  NOTE_MAX_STORED_CHARACTERS,
+  updateNoteSchema,
+} from "@/lib/validations/notes";
 
 test("rich notes keep supported structure and remove unsafe markup", () => {
   const html = sanitizeRichTextHtml(
@@ -32,5 +36,37 @@ test("note validation rejects empty editor markup and measures visible text", ()
       content: "<p><strong>یک یادداشت معتبر</strong></p>",
     }).success,
     true,
+  );
+});
+
+test("book and edition notes accept long-form content on create and update", () => {
+  const longContent = `<p>${"یادداشت پژوهشی ".repeat(550)}</p>`;
+
+  assert.ok(longContent.length > 5_000);
+  assert.equal(
+    createNoteSchema.safeParse({
+      catalogBookId: "book-1",
+      scope: "book",
+      bookEditionId: null,
+      content: longContent,
+    }).success,
+    true,
+  );
+  assert.equal(
+    createNoteSchema.safeParse({
+      catalogBookId: "book-1",
+      scope: "edition",
+      bookEditionId: "edition-1",
+      content: longContent,
+    }).success,
+    true,
+  );
+  assert.equal(updateNoteSchema.safeParse({ content: longContent }).success, true);
+});
+
+test("note validation retains a bounded payload limit", () => {
+  assert.equal(
+    updateNoteSchema.safeParse({ content: "الف".repeat(NOTE_MAX_STORED_CHARACTERS + 1) }).success,
+    false,
   );
 });

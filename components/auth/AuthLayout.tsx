@@ -21,19 +21,12 @@ export function AuthLayout({
 
         <main className="flex min-h-screen flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
           <div className="w-full max-w-[30rem]">
-            <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+            <div className="mb-8 flex justify-center lg:hidden">
               <BrandLogo
                 {...branding}
                 size="auth"
-                showName={false}
                 fallbackClassName="border-white/10 bg-white/8 text-emerald-200 shadow-[0_12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl"
               />
-              <div>
-                <p className="text-lg font-black tracking-tight text-white">
-                  {branding.siteName}
-                </p>
-                <p className="text-xs text-white/55">کتابخانه‌ی شخصی تو</p>
-              </div>
             </div>
 
             {children}

@@ -63,7 +63,7 @@ export default function RichTextEditor({
           "[&_blockquote]:my-4 [&_blockquote]:border-r-2 [&_blockquote]:border-primary/35 [&_blockquote]:bg-primary/[0.06] [&_blockquote]:py-2 [&_blockquote]:pr-4 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/90",
           "[&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pr-7 [&_ol]:pl-2 [&_p]:my-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pr-7 [&_ul]:pl-2",
           "[&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-right [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-muted-foreground/70 [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
-          isNote ? "min-h-56 px-4 py-4 sm:min-h-72 sm:px-5" : "min-h-64 px-5 py-4 [&_h2]:text-xl [&_h2]:font-black [&_h3]:text-lg [&_h3]:font-black",
+          isNote ? "min-h-64 px-4 py-4 sm:min-h-96 sm:px-5" : "min-h-64 px-5 py-4 [&_h2]:text-xl [&_h2]:font-black [&_h3]:text-lg [&_h3]:font-black",
         ),
       },
     },

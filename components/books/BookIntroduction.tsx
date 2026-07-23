@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { BookOpenText, ChevronDown, Clock3 } from "lucide-react";
 
 import RichTextContent from "@/components/content/RichTextContent";
+import { useCollapsibleContent } from "@/components/content/useCollapsibleContent";
 
 function getReadingTime(content: string) {
   const words = content
@@ -21,13 +21,13 @@ export default function BookIntroduction({
 }: {
   content: string | null;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const plainText = (content ?? "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const isExpandable = plainText.length > 280;
+  const {
+    contentRef,
+    isExpandable,
+    isExpanded,
+    isCollapsed,
+    toggleExpanded,
+  } = useCollapsibleContent();
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5">
@@ -56,16 +56,18 @@ export default function BookIntroduction({
         <>
           <div
             className={`relative mt-4 transition-all duration-300 ${
-              isExpandable && !isExpanded
+              isCollapsed
                 ? "max-h-24 overflow-hidden"
-                : "max-h-[1000px]"
+                : "max-h-none overflow-visible"
             }`}
           >
-            <RichTextContent
-              content={content}
-              className="text-xs leading-relaxed text-foreground/90 sm:text-sm sm:leading-7 [&_a]:text-primary [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-r-2 [&_blockquote]:border-primary/30 [&_blockquote]:pr-3 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pr-5 [&_p]:mb-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pr-5"
-            />
-            {isExpandable && !isExpanded ? (
+            <div ref={contentRef}>
+              <RichTextContent
+                content={content}
+                className="text-xs leading-relaxed text-foreground/90 sm:text-sm sm:leading-7 [&_a]:text-primary [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-r-2 [&_blockquote]:border-primary/30 [&_blockquote]:pr-3 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pr-5 [&_p]:mb-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pr-5"
+              />
+            </div>
+            {isCollapsed ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-card/90 via-card/50 to-transparent" />
             ) : null}
           </div>
@@ -74,7 +76,7 @@ export default function BookIntroduction({
             <div className="mt-3 border-t border-border/30 pt-2 text-center">
               <button
                 type="button"
-                onClick={() => setIsExpanded((current) => !current)}
+                onClick={toggleExpanded}
                 aria-expanded={isExpanded}
                 className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
               >

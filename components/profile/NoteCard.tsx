@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
+  ChevronDown,
   Check,
   Copy,
-  ExternalLink,
   Heart,
   NotebookPen,
   Pencil,
@@ -15,24 +15,15 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import RichTextContent from "@/components/content/RichTextContent";
+import { useCollapsibleContent } from "@/components/content/useCollapsibleContent";
 import type { PublicNote } from "@/lib/notes/service";
 import { AuthorChip, type CardManage } from "@/components/profile/QuoteCard";
 import { richTextToPlainText } from "@/lib/content/rich-text";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
-// These thresholds are purely presentational: a six-line preview should show a
-// meaningful passage before the full-note control is needed.
-const LONG_NOTE_CHAR_LIMIT = 360;
-const LONG_NOTE_WORD_LIMIT = 65;
 
 export default function NoteCard({
   note,
@@ -51,13 +42,16 @@ export default function NoteCard({
   const [likeCount, setLikeCount] = useState(note.likeCount);
   const [likePending, setLikePending] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [contentOpen, setContentOpen] = useState(false);
+  const {
+    contentRef,
+    isExpandable,
+    isExpanded,
+    isCollapsed,
+    toggleExpanded,
+  } = useCollapsibleContent();
 
   const bookHref = `/book/${encodeURIComponent(note.bookSlug || note.bookId)}`;
   const noteText = richTextToPlainText(note.content);
-  const wordCount = noteText.split(/\s+/).filter(Boolean).length;
-  const isLongNote =
-    noteText.length > LONG_NOTE_CHAR_LIMIT || wordCount > LONG_NOTE_WORD_LIMIT;
 
   const created = new Date(note.createdAt).toLocaleDateString("fa-IR", {
     year: "numeric",
@@ -143,26 +137,9 @@ export default function NoteCard({
     }
   }
 
-  function openFullContent() {
-    if (isLongNote) setContentOpen(true);
-  }
-
-  function handleNoteKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!isLongNote) return;
-
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setContentOpen(true);
-    }
-  }
-
   return (
-    <>
-      <article className="group relative overflow-hidden rounded-[1.6rem] border border-border/80 bg-card/90 p-4 shadow-[0_20px_65px_-46px_rgba(0,0,0,0.9)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/25 hover:shadow-[0_26px_70px_-48px_rgba(0,0,0,0.95)] sm:p-5">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
-        <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-sky-400/10 opacity-0 blur-3xl transition-opacity duration-300 group-hover:opacity-100" />
-
-        <div className="relative flex flex-wrap items-center justify-between gap-3">
+    <article className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {showAuthor && note.authorUsername ? (
               <AuthorChip
@@ -186,127 +163,116 @@ export default function NoteCard({
             ) : null}
           </div>
 
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/80 bg-background/45 px-2.5 py-1 text-[11px] font-bold tabular-nums text-muted-foreground backdrop-blur">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {created}
-          </span>
-        </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {created}
+            </span>
 
-        <div
-          role={isLongNote ? "button" : undefined}
-          tabIndex={isLongNote ? 0 : undefined}
-          onClick={openFullContent}
-          onKeyDown={handleNoteKeyDown}
-          aria-label={isLongNote ? "مشاهده متن کامل یادداشت" : undefined}
-          className={cn(
-            "relative mt-5 overflow-hidden rounded-[1.3rem] border border-border/75 bg-background/35 px-4 py-4 outline-none sm:px-5 sm:py-5",
-            "shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]",
-            isLongNote &&
-              "cursor-pointer transition-colors hover:border-sky-300/25 hover:bg-background/50 focus-visible:ring-2 focus-visible:ring-sky-300/25",
-          )}
-        >
-          <NotePattern />
-
-          <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
-          <NotebookPen className="pointer-events-none absolute right-4 top-5 h-4.5 w-4.5 text-sky-300/25 sm:right-5" />
-
-          <RichTextContent
-            content={note.content}
-            className={cn(
-              "relative z-10 break-words pr-7 text-right text-[0.9375rem] font-medium leading-8 text-foreground [overflow-wrap:anywhere] sm:text-base sm:leading-8",
-              "[&_a]:break-all [&_a]:text-primary [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-r-2 [&_blockquote]:border-sky-300/35 [&_blockquote]:pr-3 [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pr-6 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pr-6",
-              isLongNote && "line-clamp-6",
-            )}
-          />
-
-          {isLongNote ? (
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                openFullContent();
+                handleLike();
               }}
-              className="relative z-10 mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl border border-sky-300/20 bg-sky-400/[0.07] px-3 text-xs font-black text-sky-300 transition-all hover:-translate-y-0.5 hover:border-sky-300/35 hover:bg-sky-400/15 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/30"
+              disabled={likePending}
+              aria-pressed={liked}
+              aria-label={liked ? "برداشتن پسند" : "پسندیدن"}
+              className={cn(
+                "inline-flex h-8 min-w-10 items-center justify-center gap-1 rounded-xl border px-2 text-[11px] font-bold tabular-nums transition-all disabled:opacity-60",
+                liked
+                  ? "border-rose-300/15 bg-rose-500/12 text-rose-300"
+                  : "border-border/60 bg-background/50 text-muted-foreground hover:border-rose-300/20 hover:bg-rose-500/10 hover:text-rose-300",
+              )}
             >
-                مشاهده کامل
-                <ExternalLink className="h-3 w-3" />
+              <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} />
+              {likeCount.toLocaleString("fa-IR")}
             </button>
+
+            <div className="flex items-center gap-0.5">
+              <NoteIconAction
+                label="کپی یادداشت"
+                onClick={handleCopy}
+                active={copied}
+                icon={
+                  copied ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )
+                }
+              />
+
+              <NoteIconAction
+                label="اشتراک‌گذاری"
+                onClick={handleShare}
+                icon={<Share2 className="h-3.5 w-3.5" />}
+              />
+
+              {manage ? (
+                <>
+                  <span className="mx-0.5 h-4 w-px bg-border/60" />
+
+                  <NoteIconAction
+                    label="ویرایش"
+                    onClick={manage.onEdit}
+                    tone="primary"
+                    icon={<Pencil className="h-3.5 w-3.5" />}
+                  />
+
+                  <NoteIconAction
+                    label="حذف"
+                    onClick={manage.onDelete}
+                    tone="danger"
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                  />
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "relative mt-4 transition-all duration-300",
+            isCollapsed
+              ? "max-h-24 overflow-hidden"
+              : "max-h-none overflow-visible",
+          )}
+        >
+          <div ref={contentRef}>
+            <RichTextContent
+              content={note.content}
+              className="break-words text-right text-xs leading-relaxed text-foreground/90 [overflow-wrap:anywhere] sm:text-sm sm:leading-7 [&_a]:break-all [&_a]:text-primary [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-r-2 [&_blockquote]:border-primary/30 [&_blockquote]:pr-3 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pr-5 [&_p]:mb-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pr-5"
+            />
+          </div>
+
+          {isCollapsed ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-card/90 via-card/50 to-transparent" />
           ) : null}
         </div>
 
-        <div className="relative mt-4 flex items-center justify-between gap-2 border-t border-border/70 pt-3 sm:mt-5 sm:pt-4">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleLike();
-            }}
-            disabled={likePending}
-            aria-pressed={liked}
-            aria-label={liked ? "برداشتن پسند" : "پسندیدن"}
-            className={cn(
-              "inline-flex h-9 min-w-12 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-black tabular-nums transition-all disabled:opacity-60",
-              liked
-                ? "bg-rose-500/12 text-rose-300 ring-1 ring-rose-300/15"
-                : "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-300",
-            )}
-          >
-            <Heart className={cn("h-4 w-4", liked && "fill-current")} />
-            {likeCount.toLocaleString("fa-IR")}
-          </button>
-
-          <div className="flex items-center gap-0.5">
-            <NoteIconAction
-              label="کپی یادداشت"
-              onClick={handleCopy}
-              active={copied}
-              icon={
-                copied ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )
-              }
-            />
-
-            <NoteIconAction
-              label="اشتراک‌گذاری"
-              onClick={handleShare}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-
-            {manage ? (
-              <>
-                <span className="mx-1 h-5 w-px bg-border/80" />
-
-                <NoteIconAction
-                  label="ویرایش"
-                  onClick={manage.onEdit}
-                  tone="primary"
-                  icon={<Pencil className="h-4 w-4" />}
-                />
-
-                <NoteIconAction
-                  label="حذف"
-                  onClick={manage.onDelete}
-                  tone="danger"
-                  icon={<Trash2 className="h-4 w-4" />}
-                />
-              </>
-            ) : null}
+        {isExpandable ? (
+          <div className="mt-3 border-t border-border/30 pt-2 text-center">
+            <button
+              type="button"
+              data-note-expand-toggle
+              onClick={toggleExpanded}
+              aria-expanded={isExpanded}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              {isExpanded ? "نمایش کمتر" : "بیشتر بخوانید"}
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-300",
+                  isExpanded && "rotate-180",
+                )}
+              />
+            </button>
           </div>
-        </div>
-      </article>
+        ) : null}
 
-      <NoteContentDialog
-        open={contentOpen}
-        onOpenChange={setContentOpen}
-        note={note}
-        noteText={noteText}
-        created={created}
-        bookHref={bookHref}
-      />
-    </>
+    </article>
   );
 }
 
@@ -349,112 +315,6 @@ function BookChip({
         ) : null}
       </span>
     </Link>
-  );
-}
-
-function NotePattern() {
-  return (
-    <>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-30"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.13) 1px, transparent 0)",
-          backgroundSize: "18px 18px",
-        }}
-      />
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-20"
-        style={{
-          backgroundImage:
-            "linear-gradient(135deg, rgba(255,255,255,0.07) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.07) 75%, transparent 75%, transparent)",
-          backgroundSize: "26px 26px",
-        }}
-      />
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_46%)]"
-      />
-    </>
-  );
-}
-
-function NoteContentDialog({
-  open,
-  onOpenChange,
-  note,
-  noteText,
-  created,
-  bookHref,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  note: PublicNote;
-  noteText: string;
-  created: string;
-  bookHref: string;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden rounded-[1.85rem] border-border bg-card p-0 shadow-2xl sm:max-w-2xl">
-        <div className="relative overflow-hidden border-b border-border/80 px-5 py-5">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-35"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.14) 1px, transparent 0)",
-              backgroundSize: "17px 17px",
-            }}
-          />
-
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-l from-sky-400/10 via-transparent to-transparent" />
-
-          <div className="relative flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300 ring-1 ring-sky-300/20">
-              <NotebookPen className="h-5 w-5" />
-            </span>
-
-            <div className="min-w-0">
-              <DialogTitle className="text-base font-black text-foreground">
-                یادداشت کاربر
-              </DialogTitle>
-
-              <DialogDescription className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                {note.bookTitle}، {created}
-              </DialogDescription>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-h-[72vh] overflow-auto p-5">
-          <div className="relative overflow-hidden rounded-[1.5rem] border border-border/80 bg-background/40 p-5">
-            <NotePattern />
-
-            <div className="pointer-events-none absolute inset-y-5 right-0 w-1 rounded-full bg-gradient-to-b from-sky-300/70 via-sky-300/35 to-transparent" />
-            <NotebookPen className="pointer-events-none absolute right-5 top-5 h-6 w-6 text-sky-300/25" />
-
-            <RichTextContent
-              content={note.content}
-              className="relative z-10 break-words pr-9 text-right text-sm font-medium leading-8 text-foreground [overflow-wrap:anywhere] sm:text-base sm:leading-9 [&_a]:break-all [&_a]:text-primary [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-r-2 [&_blockquote]:border-sky-300/35 [&_blockquote]:bg-sky-400/[0.06] [&_blockquote]:py-2 [&_blockquote]:pr-4 [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pr-7 [&_p]:my-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pr-7"
-            />
-          </div>
-
-          <Link
-            href={bookHref}
-            onClick={() => onOpenChange(false)}
-            className="mt-4 inline-flex h-10 items-center gap-2 rounded-2xl border border-border/80 bg-background/35 px-4 text-xs font-black text-foreground transition-colors hover:border-sky-300/25 hover:bg-sky-400/10 hover:text-sky-300"
-          >
-            مشاهده کتاب
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
