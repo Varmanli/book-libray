@@ -10,7 +10,7 @@ import { join, resolve } from "node:path";
 const mode = process.argv[2];
 const operation = process.argv[3] ?? "baseline";
 if (mode !== "preflight" && mode !== "record") throw new Error("Usage: migration-baseline-attempt-guard.mjs <preflight|record>");
-if (!/^(baseline|ledger-repair)$/.test(operation)) throw new Error("Unsupported maintenance operation");
+if (!/^(baseline|ledger-repair|final-ledger-repair)$/.test(operation)) throw new Error("Unsupported maintenance operation");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
 const parsed = new URL(process.env.DATABASE_URL);

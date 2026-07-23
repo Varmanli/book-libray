@@ -4,6 +4,7 @@ import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
 import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
+import { validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
 const importerMigration = readFileSync(
@@ -85,6 +86,7 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_ONCE/);
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_LOG_SUMMARY/);
   assert.match(entrypoint, /RUN_MIGRATION_LEDGER_REPAIR/);
+  assert.match(entrypoint, /RUN_MIGRATION_LEDGER_FINAL_REPAIR/);
   assert.match(entrypoint, /repair-production-migration-ledger\.mjs/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight ledger-repair/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record ledger-repair/);
@@ -106,12 +108,30 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(dockerfile, /migration-manifest/);
   assert.match(dockerfile, /audit-production-migration-baseline\.mjs/);
   assert.match(dockerfile, /migration-baseline-attempt-guard\.mjs/);
+  assert.match(dockerfile, /repair-final-production-migration-ledger\.mjs/);
   const audit = entrypoint.indexOf("Running read-only migration audit");
   assert.ok(audit > -1);
   assert.ok(audit < entrypoint.lastIndexOf("Running guarded migration preflight"));
   assert.ok(entrypoint.indexOf("repair-production-migration-ledger.mjs") < entrypoint.lastIndexOf("Running guarded migration preflight"));
   assert.match(entrypoint, /if mkdir -p "\$audit_dir" && node \.\/scripts\/audit-production-migration-baseline\.mjs/);
   assert.match(entrypoint, /WARNING: migration audit failed; continuing to guarded migration preflight/);
+});
+
+test("final ledger repair records exactly the audited legacy prefix and leaves 0038 pending", () => {
+  const entries = journal.entries.slice(0, 38).map((entry) => ({ ...entry }));
+  assert.doesNotThrow(() => validateFinalRepairPreconditions({ entries, ledgerRows: [], canonicalTablesExist: true }));
+  assert.throws(() => validateFinalRepairPreconditions({ entries: entries.slice(0, 37), ledgerRows: [], canonicalTablesExist: true }), /expected exactly/);
+  assert.throws(() => validateFinalRepairPreconditions({ entries, ledgerRows: [{ id: 1 }], canonicalTablesExist: true }), /ledger is not empty/);
+});
+
+test("0038 reconciliation is additive and restores the reading schema without data rewrites", () => {
+  const migration0038 = readFileSync("drizzle/0038_production_schema_reconciliation.sql", "utf8");
+  assert.match(migration0038, /ADD COLUMN IF NOT EXISTS "current_page"/);
+  assert.match(migration0038, /CREATE TABLE IF NOT EXISTS "PersonalBookNote"/);
+  assert.match(migration0038, /CREATE TABLE IF NOT EXISTS "ReadingEvent"/);
+  assert.match(migration0038, /CREATE TABLE IF NOT EXISTS "PublicBookThought"/);
+  assert.match(migration0038, /CREATE INDEX IF NOT EXISTS "ReadingEvent_user_book_created_idx"/);
+  assert.doesNotMatch(migration0038, /\b(DROP\s+(?:TABLE|TYPE|INDEX|COLUMN)|TRUNCATE|DELETE\s+FROM|UPDATE\s+(?:"|[A-Za-z]))\b/i);
 });
 
 test("migration audit log summary prints complete diagnostics without target fingerprints", () => {
@@ -222,7 +242,7 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation"]);
 });
 
 test("production preflight refuses empty or incomplete historical ledgers", () => {
