@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
-import { missingRequiredForeignKeys, normalizeDeleteAction } from "../../scripts/run-production-migrations.mjs";
+import { formatMissingForeignKeyDiagnostics, missingRequiredForeignKeys, normalizeDeleteAction, normalizeForeignKeyColumns } from "../../scripts/run-production-migrations.mjs";
 import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
 import { oneTimeRecoveryState, validateFinalRepairPreconditions } from "../../scripts/repair-final-production-migration-ledger.mjs";
@@ -164,13 +164,19 @@ test("postflight foreign-key verification is structural and ignores constraint n
   assert.equal(normalizeDeleteAction("r"), "RESTRICT");
   assert.equal(normalizeDeleteAction("a"), "NO ACTION");
   assert.equal(normalizeDeleteAction("x"), null);
+  assert.deepEqual(normalizeForeignKeyColumns('{book_id}'), ["book_id"]);
+  assert.deepEqual(normalizeForeignKeyColumns('["book_id"]'), ["book_id"]);
   assert.equal(missingRequiredForeignKeys([{ ...foreignKeys[0], onDelete: "NO ACTION" }]).length, 7);
+  const diagnostics = formatMissingForeignKeyDiagnostics([{ ...foreignKeys[0], onDelete: "NO ACTION" }]);
+  assert.match(diagnostics[0], /expected=PersonalBookNote\(book_id\)→Book\(id\) on_delete=CASCADE/);
+  assert.match(diagnostics[0], /actual_candidates=PersonalBookNote\(book_id\)→Book\(id\) on_delete=NO ACTION/);
   const verifier = readFileSync("scripts/run-production-migrations.mjs", "utf8");
   assert.match(verifier, /from pg_constraint fk/);
   assert.match(verifier, /unnest\(fk\.conkey\) with ordinality/);
   assert.doesNotMatch(verifier, /from pg_constraint constraint/);
   assert.doesNotMatch(verifier, /pg_constraint\s+(?:as\s+)?constraint\b|\bas\s+constraint\b|\bjoin\s+constraint\b/i);
   assert.doesNotMatch(verifier, /pg_get_constraintdef/);
+  assert.match(verifier, /json_agg\(source_column\.attname order by key_column\.ordinality\)/);
 });
 
 test("migration audit log summary prints complete diagnostics without target fingerprints", () => {

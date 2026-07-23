@@ -64,7 +64,25 @@ async function canonicalTablesExist(client) {
 const DELETE_ACTIONS = { c: "CASCADE", n: "SET NULL", r: "RESTRICT", a: "NO ACTION" };
 
 export function normalizeDeleteAction(code) {
-  return DELETE_ACTIONS[code] ?? null;
+  return DELETE_ACTIONS[code] ?? (Object.values(DELETE_ACTIONS).includes(code) ? code : null);
+}
+
+export function normalizeForeignKeyColumns(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value !== "string") return [];
+  if (value.startsWith("[")) {
+    try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.map(String) : []; } catch { return []; }
+  }
+  if (value.startsWith("{") && value.endsWith("}")) return value.slice(1, -1).split(",").filter(Boolean);
+  return [value];
+}
+
+export function normalizeForeignKey(foreignKey) {
+  return {
+    table: String(foreignKey.table ?? ""), columns: normalizeForeignKeyColumns(foreignKey.columns),
+    referencedTable: String(foreignKey.referencedTable ?? ""), referencedColumns: normalizeForeignKeyColumns(foreignKey.referencedColumns),
+    onDelete: normalizeDeleteAction(foreignKey.onDelete),
+  };
 }
 
 const REQUIRED_FOREIGN_KEYS = [
@@ -78,11 +96,24 @@ const REQUIRED_FOREIGN_KEYS = [
 ];
 
 export function missingRequiredForeignKeys(foreignKeys) {
-  return REQUIRED_FOREIGN_KEYS.filter((expected) => !foreignKeys.some((actual) => actual.table === expected.table
+  const normalizedForeignKeys = foreignKeys.map(normalizeForeignKey);
+  return REQUIRED_FOREIGN_KEYS.filter((expected) => !normalizedForeignKeys.some((actual) => actual.table === expected.table
     && actual.referencedTable === expected.referencedTable
     && actual.onDelete === expected.onDelete
     && JSON.stringify(actual.columns) === JSON.stringify(expected.columns)
     && JSON.stringify(actual.referencedColumns) === JSON.stringify(expected.referencedColumns)));
+}
+
+function formatForeignKey(foreignKey) {
+  return `${foreignKey.table}(${foreignKey.columns.join(",")})→${foreignKey.referencedTable}(${foreignKey.referencedColumns.join(",")}) on_delete=${foreignKey.onDelete ?? "UNKNOWN"}`;
+}
+
+export function formatMissingForeignKeyDiagnostics(foreignKeys) {
+  const normalizedForeignKeys = foreignKeys.map(normalizeForeignKey);
+  return missingRequiredForeignKeys(normalizedForeignKeys).map((expected) => {
+    const candidates = normalizedForeignKeys.filter((actual) => actual.table === expected.table && JSON.stringify(actual.columns) === JSON.stringify(expected.columns));
+    return `foreign_key expected=${formatForeignKey(expected)} actual_candidates=${candidates.length ? candidates.map(formatForeignKey).join(";") : "none"}`;
+  });
 }
 
 async function verifyRequiredSchema(client) {
@@ -93,9 +124,9 @@ async function verifyRequiredSchema(client) {
     client.query(`
       select
         source.relname as table_name,
-        array_agg(source_column.attname order by key_column.ordinality) as columns,
+        json_agg(source_column.attname order by key_column.ordinality) as columns,
         target.relname as referenced_table,
-        array_agg(target_column.attname order by key_column.ordinality) as referenced_columns,
+        json_agg(target_column.attname order by key_column.ordinality) as referenced_columns,
         fk.confdeltype as on_delete
       from pg_constraint fk
       join pg_class source on source.oid = fk.conrelid
@@ -120,8 +151,8 @@ async function verifyRequiredSchema(client) {
   const indexSet = new Set(indexes.rows.map((row) => row.indexname));
   const requiredIndexes = ["PersonalBookNote_book_user_idx", "PersonalBookNote_created_at_idx", "ReadingEvent_user_book_created_idx", "PublicBookThought_source_note_unique", "PublicBookThought_book_created_idx", "PublicBookThought_user_idx"];
   const missingIndexes = requiredIndexes.filter((name) => !indexSet.has(name));
-  const foreignKeys = constraints.rows.map((row) => ({ table: row.table_name, columns: row.columns, referencedTable: row.referenced_table, referencedColumns: row.referenced_columns, onDelete: normalizeDeleteAction(row.on_delete) }));
-  const missingForeignKeys = missingRequiredForeignKeys(foreignKeys).map((foreignKey) => `foreign_key:${foreignKey.table}(${foreignKey.columns.join(",")})→${foreignKey.referencedTable}(${foreignKey.referencedColumns.join(",")}) on_delete=${foreignKey.onDelete}`);
+  const foreignKeys = constraints.rows.map((row) => normalizeForeignKey({ table: row.table_name, columns: row.columns, referencedTable: row.referenced_table, referencedColumns: row.referenced_columns, onDelete: row.on_delete }));
+  const missingForeignKeys = formatMissingForeignKeyDiagnostics(foreignKeys);
   if (missingColumns.length || enumFailures.length || missingIndexes.length || missingForeignKeys.length) throw new Error(`Post-migration schema verification failed: ${[...missingColumns, ...enumFailures.map((value) => `enum:${value}`), ...missingIndexes, ...missingForeignKeys].join(", ")}`);
 }
 
