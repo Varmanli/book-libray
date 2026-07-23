@@ -141,6 +141,9 @@ test("0038 reconciliation is additive and restores the reading schema without da
   assert.match(migration0038, /CREATE TABLE IF NOT EXISTS "ReadingEvent"/);
   assert.match(migration0038, /CREATE TABLE IF NOT EXISTS "PublicBookThought"/);
   assert.match(migration0038, /CREATE INDEX IF NOT EXISTS "ReadingEvent_user_book_created_idx"/);
+  for (const table of ["PersonalBookNote", "ReadingEvent", "PublicBookThought"]) {
+    assert.ok(migration0038.indexOf(`CREATE TABLE IF NOT EXISTS "${table}"`) < migration0038.indexOf(`ALTER TABLE "${table}"`), `${table} must be created before its partial-table ALTER`);
+  }
   assert.doesNotMatch(migration0038, /\b(DROP\s+(?:TABLE|TYPE|INDEX|COLUMN)|TRUNCATE|DELETE\s+FROM|UPDATE\s+(?:"|[A-Za-z]))\b/i);
 });
 
