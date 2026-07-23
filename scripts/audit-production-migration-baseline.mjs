@@ -11,6 +11,7 @@ import pg from "pg";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const outputArgument = process.argv.find((argument) => argument.startsWith("--output="));
 const outputPath = outputArgument?.slice("--output=".length);
+const logSummary = process.argv.includes("--log-summary");
 
 function databaseTarget(url) {
   const value = new URL(url);
@@ -131,15 +132,28 @@ function finalSchemaReport(entries, state) {
   return { checked: evidenceLabels(expected), missing: missingEvidence(expected, state) };
 }
 
-function print(report) {
-  console.log(`[baseline-audit] target=${report.target.sanitized} fingerprint=${report.target.fingerprint}`);
-  console.log(`[baseline-audit] ledger=${report.ledgerState} canonical_tables=${report.finalSchema.checked.filter((value) => value.startsWith("table:")).length} final_missing=${report.finalSchema.missing.length}`);
+function statusSummary(migrations) {
+  return migrations.reduce((counts, migration) => ({ ...counts, [migration.status]: (counts[migration.status] ?? 0) + 1 }), {});
+}
+
+export function formatAuditLogSummary(report) {
+  const firstNotApplied = report.migrations.findIndex((migration) => migration.status !== "applied");
+  const prefix = report.migrations.slice(0, firstNotApplied === -1 ? report.migrations.length : firstNotApplied).at(-1);
+  const summary = statusSummary(report.migrations);
+  const lines = [
+    `[migration-audit] ledger_state=${report.ledgerState}`,
+    `[migration-audit] highest_verified_contiguous_prefix=${prefix?.tag ?? "none"}`,
+    `[migration-audit] final_schema_summary=checked:${report.finalSchema.checked.length} missing:${report.finalSchema.missing.length} statuses:${Object.entries(summary).map(([status, count]) => `${status}:${count}`).join(",") || "none"}`,
+  ];
   for (const item of report.migrations) {
-    console.log(`[baseline-audit] ${String(item.index).padStart(2, "0")} ${item.tag} status=${item.status} checked=${item.checked.join("|") || "none"}${item.reason ? ` reason=${item.reason}` : ""}`);
-    for (const replacement of item.superseded) console.log(`[baseline-audit]   superseded ${replacement.item} by=${replacement.replacement.migration} proof=${replacement.replacement.proof}`);
+    lines.push(`[migration-audit] migration index=${item.index} name=${item.tag} status=${item.status} evidence=${item.checked.join("|") || "none"} missing=${item.missing.join("|") || "none"}${item.reason ? ` reason=${item.reason}` : ""}`);
+    for (const replacement of item.superseded) lines.push(`[migration-audit] migration=${item.tag} superseded=${replacement.item} replacement=${replacement.replacement.migration} reason=${replacement.replacement.proof}`);
   }
-  if (report.finalSchema.missing.length) console.log(`[baseline-audit] final-schema-missing=${report.finalSchema.missing.join(",")}`);
-  console.log("[baseline-audit] read-only: no schema, application data, or migration ledger rows were modified.");
+  lines.push(`[migration-audit] final_schema_missing=${report.finalSchema.missing.join("|") || "none"}`);
+  const unverifiable = report.migrations.filter((item) => item.status === "unverifiable");
+  lines.push(`[migration-audit] unverifiable_checks=${unverifiable.map((item) => `${item.tag}:${item.reason}`).join("|") || "none"}`);
+  lines.push("[migration-audit] read-only: no schema, application data, or migration ledger rows were modified.");
+  return lines;
 }
 
 async function main() {
@@ -154,12 +168,12 @@ async function main() {
     const state = await snapshot(client);
     const migrations = entries.map((entry, index) => ({ index, tag: entry.tag, ...classifyMigration(entry, state, entries.slice(index + 1)) }));
     const report = { target, ledgerState: state.ledgerRows === null ? "absent" : state.ledgerRows.length ? `populated:${state.ledgerRows.length}` : "empty", migrations, finalSchema: finalSchemaReport(entries, state) };
-    print(report);
     if (outputPath) {
       await mkdir(dirname(resolve(outputPath)), { recursive: true });
       await writeFile(resolve(outputPath), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
       console.log(`[baseline-audit] report saved: ${resolve(outputPath)}`);
     }
+    if (logSummary) for (const line of formatAuditLogSummary(report)) console.log(line);
     if (process.argv.includes("--json")) console.log(JSON.stringify(report));
     await client.query("ROLLBACK");
   } finally { await client.end(); }

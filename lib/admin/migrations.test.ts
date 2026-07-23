@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { PRODUCTION_MIGRATION_BASELINE, assertUnchangedTargetFingerprint, validatePreflight } from "../../scripts/migration-preflight.mjs";
-import { classifyMigration, expectedEvidence } from "../../scripts/audit-production-migration-baseline.mjs";
+import { classifyMigration, expectedEvidence, formatAuditLogSummary } from "../../scripts/audit-production-migration-baseline.mjs";
 import { validateRepairPreconditions } from "../../scripts/repair-production-migration-ledger.mjs";
 
 const migration = readFileSync("drizzle/0027_admin_content_timestamps.sql", "utf8");
@@ -83,6 +83,7 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record/);
   assert.match(entrypoint, /RUN_MIGRATION_AUDIT_ONCE/);
+  assert.match(entrypoint, /RUN_MIGRATION_AUDIT_LOG_SUMMARY/);
   assert.match(entrypoint, /RUN_MIGRATION_LEDGER_REPAIR/);
   assert.match(entrypoint, /repair-production-migration-ledger\.mjs/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight ledger-repair/);
@@ -111,6 +112,24 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.ok(entrypoint.indexOf("repair-production-migration-ledger.mjs") < entrypoint.lastIndexOf("Running guarded migration preflight"));
   assert.match(entrypoint, /if mkdir -p "\$audit_dir" && node \.\/scripts\/audit-production-migration-baseline\.mjs/);
   assert.match(entrypoint, /WARNING: migration audit failed; continuing to guarded migration preflight/);
+});
+
+test("migration audit log summary prints complete diagnostics without target fingerprints", () => {
+  const lines = formatAuditLogSummary({
+    target: { sanitized: "production.example:5432/qafaseh", fingerprint: "do-not-log" },
+    ledgerState: "empty",
+    migrations: [
+      { index: 0, tag: "0000_fixture", status: "applied", checked: ["table:Book"], missing: [], superseded: [], reason: null },
+      { index: 1, tag: "0001_fixture", status: "unverifiable", checked: [], missing: [], superseded: [], reason: "no durable schema evidence" },
+    ],
+    finalSchema: { checked: ["table:Book"], missing: ["index:Book_title_idx"] },
+  }).join("\n");
+  assert.match(lines, /ledger_state=empty/);
+  assert.match(lines, /highest_verified_contiguous_prefix=0000_fixture/);
+  assert.match(lines, /migration index=1 name=0001_fixture status=unverifiable/);
+  assert.match(lines, /final_schema_missing=index:Book_title_idx/);
+  assert.match(lines, /unverifiable_checks=0001_fixture:no durable schema evidence/);
+  assert.doesNotMatch(lines, /production\.example|do-not-log|fingerprint/i);
 });
 
 test("ledger repair permits an empty ledger only for an existing canonical schema", () => {

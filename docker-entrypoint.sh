@@ -22,9 +22,14 @@ fi
 if [ "${RUN_MIGRATION_AUDIT_ONCE:-false}" = "true" ]; then
   audit_dir="$DATABASE_BACKUP_DIR/migration-audits"
   audit_file="$audit_dir/migration-audit-$(date -u +%Y%m%dT%H%M%SZ).json"
+  audit_log_summary=""
+  if [ "${RUN_MIGRATION_AUDIT_LOG_SUMMARY:-false}" = "true" ]; then
+    audit_log_summary="--log-summary"
+    echo "Migration audit log summary enabled"
+  fi
   echo "Migration audit enabled"
   echo "Running read-only migration audit..."
-  if mkdir -p "$audit_dir" && node ./scripts/audit-production-migration-baseline.mjs "--output=$audit_file"; then
+  if mkdir -p "$audit_dir" && node ./scripts/audit-production-migration-baseline.mjs "--output=$audit_file" $audit_log_summary; then
     echo "Audit report saved: $audit_file"
     echo "Migration audit completed"
   else
