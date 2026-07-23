@@ -4,9 +4,11 @@ This recovery is only for the audited production database whose verified legacy
 schema prefix is `0000_groovy_black_bolt` through `0002_add_password_reset`.
 
 `db:repair-ledger:final` backs up the database and records only historical
-journal entries `0000` through `0037`; it never runs their SQL. Drizzle then
-runs `0038_production_schema_reconciliation`, an additive migration that adds
-the missing reading schema and durable legacy indexes/foreign keys.
+journal entries `0000` through `0037`; it never runs their SQL or modifies
+application tables. It logs the full pending range before repair and confirms
+that only `0038_production_schema_reconciliation` remains pending afterwards.
+Normal startup then runs Drizzle unchanged and logs `0038_execution=applied`
+after postflight verification.
 
 Enable the one deployment with all of these environment variables:
 

@@ -122,6 +122,11 @@ test("final ledger repair records exactly the audited legacy prefix and leaves 0
   assert.doesNotThrow(() => validateFinalRepairPreconditions({ entries, ledgerRows: [], canonicalTablesExist: true }));
   assert.throws(() => validateFinalRepairPreconditions({ entries: entries.slice(0, 37), ledgerRows: [], canonicalTablesExist: true }), /expected exactly/);
   assert.throws(() => validateFinalRepairPreconditions({ entries, ledgerRows: [{ id: 1 }], canonicalTablesExist: true }), /ledger is not empty/);
+  const repair = readFileSync("scripts/repair-final-production-migration-ledger.mjs", "utf8");
+  assert.match(repair, /pending_before=/);
+  assert.match(repair, /inserted_range=/);
+  assert.match(repair, /pending_after=0038_production_schema_reconciliation/);
+  assert.doesNotMatch(repair, /drizzle-kit|ALTER TABLE|CREATE TABLE|DROP TABLE/i);
 });
 
 test("0038 reconciliation is additive and restores the reading schema without data rewrites", () => {

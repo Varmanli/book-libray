@@ -108,6 +108,12 @@ async function main() {
     validatePreflight({ journalEntries: artifacts.entries, ledgerRows: ledger, canonicalTablesExist: await canonicalTablesExist(client), baselineTag: process.env.MIGRATION_BASELINE_TAG ?? PRODUCTION_MIGRATION_BASELINE });
     if (ledger.length !== artifacts.entries.length) throw new Error("Post-migration verification failed: migrations remain pending.");
     await verifyRequiredSchema(client);
+    if (process.env.RUN_MIGRATION_LEDGER_FINAL_REPAIR === "true") {
+      const finalEntry = artifacts.entries.at(-1);
+      const recorded = finalEntry && ledger.some((row) => row.hash === finalEntry.hash && Number(row.created_at) === Number(finalEntry.when));
+      if (finalEntry?.tag !== "0038_production_schema_reconciliation" || !recorded) throw new Error("Final recovery verification failed: 0038_production_schema_reconciliation was not recorded by Drizzle.");
+      console.log("[migrations] final_recovery 0038_execution=applied");
+    }
     console.log(`[migrations] phase=postflight target=${target.sanitized} ledger_rows=${ledger.length} schema=verified`);
   } finally { await client.end(); }
 }

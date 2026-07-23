@@ -56,7 +56,8 @@ if [ "${RUN_MIGRATION_LEDGER_FINAL_REPAIR:-false}" = "true" ]; then
     node ./scripts/migration-baseline-attempt-guard.mjs record final-ledger-repair
     exit 1
   fi
-  echo "Final migration ledger repair completed; applying only 0038 reconciliation through normal Drizzle migration..."
+  echo "Final migration ledger repair completed; pending_after=0038_production_schema_reconciliation"
+  echo "Applying 0038 through normal Drizzle migration..."
 fi
 
 echo "Running guarded migration preflight..."

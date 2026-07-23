@@ -18,14 +18,15 @@ function target(url) {
   const sslmode = parsed.searchParams.get("sslmode") ?? (parsed.searchParams.get("ssl") === "true" ? "require" : "unspecified");
   return { fingerprint: digest(url), sanitized: `${parsed.hostname}:${parsed.port || "5432"}/${decodeURIComponent(parsed.pathname.slice(1))}?sslmode=${sslmode}` };
 }
-async function legacyEntries(root) {
+async function recoveryEntries(root) {
   const journal = JSON.parse(await readFile(join(root, "drizzle", "meta", "_journal.json"), "utf8"));
   if (!Array.isArray(journal.entries)) refuse("migration journal is malformed");
   const last = journal.entries.findIndex((entry) => entry.tag === LEGACY_FINAL_TAG);
   if (last !== 37 || journal.entries.length <= last || journal.entries[last + 1]?.tag !== "0038_production_schema_reconciliation") refuse(`journal must contain ${LEGACY_FINAL_TAG} followed by 0038_production_schema_reconciliation`);
-  const entries = await Promise.all(journal.entries.slice(0, last + 1).map(async (entry) => ({ ...entry, hash: digest(await readFile(join(root, "drizzle", `${entry.tag}.sql`))) })));
+  const allEntries = await Promise.all(journal.entries.map(async (entry) => ({ ...entry, hash: digest(await readFile(join(root, "drizzle", `${entry.tag}.sql`))) })));
+  const entries = allEntries.slice(0, last + 1);
   if (new Set(entries.map((entry) => entry.tag)).size !== entries.length || new Set(entries.map((entry) => Number(entry.when))).size !== entries.length) refuse("legacy journal contains duplicate tags or timestamps");
-  return entries;
+  return { entries, pendingAfterRepair: allEntries.slice(last + 1) };
 }
 export function validateFinalRepairPreconditions({ entries, ledgerRows, canonicalTablesExist }) {
   if (!Array.isArray(entries) || entries.length !== 38 || entries.at(-1)?.tag !== LEGACY_FINAL_TAG) refuse("expected exactly the audited 0000 through 0037 legacy journal range");
@@ -59,11 +60,12 @@ async function main() {
   if (!process.env.EXPECTED_DATABASE_TARGET || !process.env.EXPECTED_DATABASE_FINGERPRINT) refuse("EXPECTED_DATABASE_TARGET and EXPECTED_DATABASE_FINGERPRINT are required");
   if (process.env.EXPECTED_DATABASE_TARGET !== dbTarget.sanitized || process.env.EXPECTED_DATABASE_FINGERPRINT !== dbTarget.fingerprint) refuse("database target or fingerprint does not match the expected production identity");
   const root = resolve(process.env.MIGRATION_WORKDIR ?? process.cwd());
-  const entries = await legacyEntries(root);
+  const { entries, pendingAfterRepair } = await recoveryEntries(root);
   const client = new pg.Client({ connectionString: databaseUrl }); await client.connect();
   try {
     validateFinalRepairPreconditions({ entries, ledgerRows: await ledgerRows(client), canonicalTablesExist: await canonicalTablesExist(client) });
     console.log(`[final-ledger-repair] target=${dbTarget.sanitized}`);
+    console.log(`[final-ledger-repair] pending_before=${[...entries, ...pendingAfterRepair].map((entry) => entry.tag).join(",")}`);
     console.log("[final-ledger-repair] creating backup before transactionally recording 0000 through 0037...");
     await backup(root);
     const lock = await client.query("select pg_try_advisory_lock(hashtext($1)) as locked", [LOCK_NAME]);
@@ -74,7 +76,9 @@ async function main() {
       for (const entry of entries) await client.query("insert into drizzle.__drizzle_migrations (hash, created_at) values ($1, $2)", [entry.hash, entry.when]);
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK").catch(() => {}); throw error; }
-    console.log(`[final-ledger-repair] inserted=${entries.length} through=${LEGACY_FINAL_TAG}; historical SQL was not executed; 0038 remains pending.`);
+    if (pendingAfterRepair.length !== 1 || pendingAfterRepair[0]?.tag !== "0038_production_schema_reconciliation") refuse("repair would leave migrations other than 0038 pending");
+    console.log(`[final-ledger-repair] inserted_range=${entries[0]?.tag}..${LEGACY_FINAL_TAG} inserted=${entries.length}; historical_sql=not_executed application_tables=unchanged`);
+    console.log(`[final-ledger-repair] pending_after=0038_production_schema_reconciliation`);
   } finally { await client.query("select pg_advisory_unlock(hashtext($1))", [LOCK_NAME]).catch(() => {}); await client.end(); }
 }
 if (import.meta.url === `file://${process.argv[1]?.replaceAll("\\", "/")}`) void main().catch((error) => { console.error(`[final-ledger-repair] failed: ${error instanceof Error ? error.message : String(error)}`); process.exit(1); });
