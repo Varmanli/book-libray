@@ -161,9 +161,10 @@ test("postflight foreign-key verification is structural and ignores constraint n
   assert.deepEqual(missingRequiredForeignKeys(foreignKeys), []);
   assert.equal(missingRequiredForeignKeys([{ ...foreignKeys[0], onDelete: "a" }]).length, 7);
   const verifier = readFileSync("scripts/run-production-migrations.mjs", "utf8");
-  assert.match(verifier, /from pg_constraint fk_constraint/);
-  assert.match(verifier, /unnest\(fk_constraint\.conkey\) with ordinality/);
+  assert.match(verifier, /from pg_constraint fk/);
+  assert.match(verifier, /unnest\(fk\.conkey\) with ordinality/);
   assert.doesNotMatch(verifier, /from pg_constraint constraint/);
+  assert.doesNotMatch(verifier, /pg_constraint\s+(?:as\s+)?constraint\b|\bas\s+constraint\b|\bjoin\s+constraint\b/i);
   assert.doesNotMatch(verifier, /pg_get_constraintdef/);
 });
 
