@@ -19,6 +19,19 @@ if [ "${RUN_MIGRATION_BASELINE:-false}" = "true" ]; then
   echo "Baseline phase completed; continuing with normal guarded migration startup..."
 fi
 
+if [ "${RUN_MIGRATION_AUDIT_ONCE:-false}" = "true" ]; then
+  audit_dir="$DATABASE_BACKUP_DIR/migration-audits"
+  audit_file="$audit_dir/migration-audit-$(date -u +%Y%m%dT%H%M%SZ).json"
+  echo "Migration audit enabled"
+  echo "Running read-only migration audit..."
+  if mkdir -p "$audit_dir" && node ./scripts/audit-production-migration-baseline.mjs "--output=$audit_file"; then
+    echo "Audit report saved: $audit_file"
+    echo "Migration audit completed"
+  else
+    echo "WARNING: migration audit failed; continuing to guarded migration preflight."
+  fi
+fi
+
 echo "Running guarded migration preflight..."
 node ./scripts/run-production-migrations.mjs preflight
 

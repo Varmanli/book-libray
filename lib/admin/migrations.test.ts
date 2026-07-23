@@ -81,6 +81,8 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /baseline-production-migrations\.mjs --if-needed/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record/);
+  assert.match(entrypoint, /RUN_MIGRATION_AUDIT_ONCE/);
+  assert.match(entrypoint, /audit-production-migration-baseline\.mjs/);
   assert.match(entrypoint, /exec "\$@"/);
   const normalPreflight = entrypoint.lastIndexOf("preflight");
   const normalBackup = entrypoint.lastIndexOf("backup-production-db");
@@ -98,6 +100,11 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(dockerfile, /migration-manifest/);
   assert.match(dockerfile, /audit-production-migration-baseline\.mjs/);
   assert.match(dockerfile, /migration-baseline-attempt-guard\.mjs/);
+  const audit = entrypoint.indexOf("Running read-only migration audit");
+  assert.ok(audit > -1);
+  assert.ok(audit < entrypoint.lastIndexOf("Running guarded migration preflight"));
+  assert.match(entrypoint, /if mkdir -p "\$audit_dir" && node \.\/scripts\/audit-production-migration-baseline\.mjs/);
+  assert.match(entrypoint, /WARNING: migration audit failed; continuing to guarded migration preflight/);
 });
 
 function emptyAuditState() {

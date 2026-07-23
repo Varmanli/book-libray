@@ -4,12 +4,13 @@
  * remain impossible to turn into a schema or ledger mutation by accident.
  */
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import pg from "pg";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
-const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+const outputArgument = process.argv.find((argument) => argument.startsWith("--output="));
+const outputPath = outputArgument?.slice("--output=".length);
 
 function databaseTarget(url) {
   const value = new URL(url);
@@ -154,6 +155,11 @@ async function main() {
     const migrations = entries.map((entry, index) => ({ index, tag: entry.tag, ...classifyMigration(entry, state, entries.slice(index + 1)) }));
     const report = { target, ledgerState: state.ledgerRows === null ? "absent" : state.ledgerRows.length ? `populated:${state.ledgerRows.length}` : "empty", migrations, finalSchema: finalSchemaReport(entries, state) };
     print(report);
+    if (outputPath) {
+      await mkdir(dirname(resolve(outputPath)), { recursive: true });
+      await writeFile(resolve(outputPath), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+      console.log(`[baseline-audit] report saved: ${resolve(outputPath)}`);
+    }
     if (process.argv.includes("--json")) console.log(JSON.stringify(report));
     await client.query("ROLLBACK");
   } finally { await client.end(); }
