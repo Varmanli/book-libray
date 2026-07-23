@@ -537,7 +537,6 @@ export default async function BookPage({
             <BookIntroduction content={book.description} />
           </div>
         </section>
-
         <div className="mt-10 lg:mt-12">
           <BookQuotesSection
             subjectBookId={book.id}
