@@ -8,6 +8,8 @@ import {
   HomeHeroSlide,
   HomeHeroSlideBook,
   User,
+  ReferenceItem,
+  CatalogBookContributor,
 } from "@/db/schema";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { displayCoverFieldSql } from "@/lib/book/display-cover";
@@ -17,7 +19,7 @@ import {
   normalizeResolvedHomeBook,
 } from "@/lib/home/book-resolver";
 import { searchAdminCatalogBooks } from "@/lib/admin/service";
-import { coalesceCoverImage } from "@/lib/book/cover";
+import { coalesceCoverImage, normalizeCoverImage } from "@/lib/book/cover";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import {
   getLatestPublishedBlogPosts,
@@ -965,4 +967,60 @@ export async function getLatestHomeBlogPosts(
   limit = 3,
 ): Promise<HomeBlogPostPreview[]> {
   return getLatestPublishedBlogPosts(limit);
+}
+
+export async function getPopularAuthors(limit = 10): Promise<Array<{
+  id: string;
+  name: string;
+  slug: string | null;
+  coverImage: string | null;
+  bookCount: number;
+  readCount: number;
+}>> {
+  const authorType = "AUTHOR" as const;
+  const roleType = "AUTHOR" as const;
+  const statusApproved = "APPROVED" as const;
+  const statusFinished = "FINISHED" as const;
+
+  const rows = await db
+    .select({
+      id: ReferenceItem.id,
+      name: ReferenceItem.name,
+      slug: ReferenceItem.slug,
+      coverImage: ReferenceItem.coverImage,
+      bookCount: sql<number>`count(distinct ${CatalogBook.id})::int`,
+      readCount: sql<number>`count(distinct case when ${Book.status} = ${statusFinished} then ${Book.id} else null end)::int`,
+    })
+    .from(ReferenceItem)
+    .innerJoin(
+      CatalogBookContributor,
+      and(
+        eq(CatalogBookContributor.referenceItemId, ReferenceItem.id),
+        eq(CatalogBookContributor.role, roleType)
+      )
+    )
+    .innerJoin(CatalogBook, eq(CatalogBook.id, CatalogBookContributor.catalogBookId))
+    .leftJoin(Book, eq(Book.catalogBookId, CatalogBook.id))
+    .where(
+      and(
+        eq(ReferenceItem.type, authorType),
+        eq(ReferenceItem.status, statusApproved)
+      )
+    )
+    .groupBy(ReferenceItem.id)
+    .orderBy(
+      desc(sql`count(distinct case when ${Book.status} = ${statusFinished} then ${Book.id} else null end)`),
+      desc(sql`count(distinct ${CatalogBook.id})`),
+      asc(ReferenceItem.name)
+    )
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    coverImage: normalizeCoverImage(r.coverImage),
+    bookCount: r.bookCount,
+    readCount: r.readCount,
+  }));
 }

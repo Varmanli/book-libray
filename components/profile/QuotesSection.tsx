@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpenText, Loader2, Plus, Quote } from "lucide-react";
+import Link from "next/link";
+import { BookOpenText, Quote } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Carousel } from "@/components/ui/Carousel";
 import QuoteCard from "@/components/profile/QuoteCard";
 import type { PublicQuote } from "@/lib/quotes/service";
@@ -21,45 +20,10 @@ export default function QuotesSection({
   username: string;
   initialHasMore: boolean;
 }) {
-  const [items, setItems] = useState(quotes);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loading, setLoading] = useState(false);
-
-  const hasQuotes = items.length > 0;
-
-  async function loadMore() {
-    if (loading || !hasMore) return;
-
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `/api/profile/${encodeURIComponent(
-          username,
-        )}/quotes?limit=10&offset=${items.length}`,
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !Array.isArray(data.quotes)) {
-        throw new Error();
-      }
-
-      setItems((current) => [
-        ...current,
-        ...data.quotes.filter(
-          (item: PublicQuote) => !current.some((old) => old.id === item.id),
-        ),
-      ]);
-
-      setHasMore(Boolean(data.hasMore));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const hasQuotes = quotes.length > 0;
 
   return (
-    <section className="relative">
+    <section className="relative" dir="rtl">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3 px-1 sm:mb-5">
         <div className="flex min-w-0 items-center gap-3">
@@ -92,12 +56,33 @@ export default function QuotesSection({
                     text-muted-foreground
                   "
                 >
-                  {items.length.toLocaleString("fa-IR")} تکه
+                  {quotes.length.toLocaleString("fa-IR")} تکه
                 </span>
               ) : null}
             </div>
           </div>
         </div>
+
+        {initialHasMore ? (
+          <Link
+            href={`/${encodeURIComponent(username)}/quotes`}
+            className="
+              inline-flex h-8 items-center justify-center rounded-lg
+              border border-border/50
+              bg-background/20
+              px-3
+              text-[11px] font-bold
+              text-muted-foreground
+              transition-colors
+              hover:border-primary/20
+              hover:bg-primary/5
+              hover:text-primary
+              shrink-0
+            "
+          >
+            مشاهده کامل
+          </Link>
+        ) : null}
       </div>
 
       {/* Content */}
@@ -115,7 +100,7 @@ export default function QuotesSection({
               lg:basis-1/3
             "
             containerClassName="gap-3 sm:gap-4"
-            slides={items.map((quote) => (
+            slides={quotes.map((quote) => (
               <QuoteCard
                 key={quote.id}
                 quote={quote}
@@ -126,33 +111,6 @@ export default function QuotesSection({
           />
         </div>
       )}
-
-      {/* Load more */}
-      {hasMore ? (
-        <div className="mt-5 flex justify-center">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => void loadMore()}
-            disabled={loading}
-            className="
-              h-9 rounded-full
-              border border-border/60
-              bg-background/30
-              px-4
-              text-xs font-bold
-              text-muted-foreground
-              transition-colors
-              hover:border-primary/20
-              hover:bg-primary/5
-              hover:text-primary
-            "
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            مشاهده بیشتر
-          </Button>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -224,13 +182,6 @@ function EmptyQuotesState({ isOwner }: { isOwner: boolean }) {
             ? "جمله یا بخشی از کتابی که دوستش داری منتشر کن؛ تکه‌ها اینجا جمع می‌شوند."
             : "این کاربر هنوز جمله یا بخشی از کتاب‌هایش را منتشر نکرده است."}
         </p>
-
-        {isOwner ? (
-          <div className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-bold text-primary/80">
-            <Plus className="h-3.5 w-3.5" />
-            اولین تکه را منتشر کن
-          </div>
-        ) : null}
       </div>
     </div>
   );

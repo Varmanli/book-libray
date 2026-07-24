@@ -49,6 +49,8 @@ export default function BookQuotesSection({
   variant = "preview",
   viewAllHref,
   showBook = false,
+  initialHasMore = false,
+  flat = false,
 }: {
   subjectBookId: string;
   viewerEntryId: string | null;
@@ -60,9 +62,52 @@ export default function BookQuotesSection({
   viewAllHref?: string;
   /** Book pages already establish context, so their cards omit repeated book metadata. */
   showBook?: boolean;
+  initialHasMore?: boolean;
+  flat?: boolean;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
+
+  const [items, setItems] = useState(quotes);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setItems(quotes);
+  }, [quotes]);
+
+  useEffect(() => {
+    setHasMore(initialHasMore);
+  }, [initialHasMore]);
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    try {
+      const response = await fetch(
+        `/api/books/${encodeURIComponent(subjectBookId)}/quotes?page=${nextPage}`
+      );
+      const data = await response.json();
+      if (!response.ok || !data.quotes) {
+        throw new Error();
+      }
+
+      setItems((current) => [
+        ...current,
+        ...data.quotes.filter(
+          (item: PublicQuote) => !current.some((old) => old.id === item.id)
+        ),
+      ]);
+      setCurrentPage(nextPage);
+      setHasMore(Boolean(data.page < data.pageCount));
+    } catch {
+      // Ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PublicQuote | null>(null);
@@ -281,9 +326,9 @@ export default function BookQuotesSection({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-md transition-all hover:border-border/80">
+    <section className={cn("relative", !flat && "overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-md transition-all hover:border-border/80")}>
       <div className="relative">
-        <div className="border-b border-border/40 p-4 sm:p-5">
+        <div className={cn(!flat ? "border-b border-border/40 p-4 sm:p-5" : "px-1 mb-4")}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
@@ -311,10 +356,12 @@ export default function BookQuotesSection({
               {showViewAll && viewAllHref ? (
                 <Link
                   href={viewAllHref}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-3 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-lg border text-xs font-bold text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary shrink-0",
+                    flat ? "bg-background/20 border-border/50 px-3" : "border-border/60 bg-background/40 px-3"
+                  )}
                 >
-                  مشاهده همه
-                  <ArrowLeft className="h-3.5 w-3.5" />
+                  مشاهده کامل
                 </Link>
               ) : null}
 
@@ -332,7 +379,7 @@ export default function BookQuotesSection({
           </div>
         </div>
 
-        <div className="p-4 sm:p-5">
+        <div className={!flat ? "p-4 sm:p-5" : "py-1"}>
           {!hasQuotes ? (
             <EmptyQuotesState isLoggedIn={isLoggedIn} onAdd={openAdd} />
           ) : variant === "preview" ? (
@@ -342,12 +389,29 @@ export default function BookQuotesSection({
                 ariaLabel="تکه‌های کتاب"
                 slideClassName="basis-full md:basis-1/2 xl:basis-1/3"
                 containerClassName="gap-4 lg:gap-5"
-                slides={quotes.map(renderQuoteCard)}
+                slides={items.map(renderQuoteCard)}
               />
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {quotes.map(renderQuoteCard)}
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map(renderQuoteCard)}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                    className="h-10 rounded-full border border-border/60 bg-background/30 px-6 text-xs font-bold text-muted-foreground hover:border-primary/20 hover:bg-primary/5 hover:text-primary gap-2 cursor-pointer transition-colors"
+                  >
+                    {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    مشاهده بیشتر
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

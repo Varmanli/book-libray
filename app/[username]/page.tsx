@@ -165,8 +165,8 @@ export default async function RootProfilePage({
   });
 
   const [quotesResult, notesResult] = await Promise.all([
-    getPublicQuotesByUsername(username, viewer?.id),
-    getPublishedNotesByUsername(username, viewer?.id),
+    getPublicQuotesByUsername(username, viewer?.id, { limit: 5 }),
+    getPublishedNotesByUsername(username, viewer?.id, { limit: 5 }),
   ]);
 
   const quotes =

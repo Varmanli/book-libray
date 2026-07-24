@@ -30,35 +30,33 @@ import { richTextToPlainText } from "@/lib/content/rich-text";
 
 type NoteTab = "book" | "edition";
 
-export default function BookNotesTabsSection({
+export default function BookNotesList({
   catalogBookId,
   selectedEditionId,
   isLoggedIn,
-  bookNotes,
-  editionNotes,
+  initialBookNotes,
+  initialEditionNotes,
+  initialBookHasMore,
+  initialEditionHasMore,
   viewerId,
-  viewAllHref,
   loginHref,
-  title = "یادداشت‌های کاربران درباره کتاب",
   editionSummary,
-  flat = false,
 }: {
   catalogBookId: string;
   selectedEditionId: string | null;
   isLoggedIn: boolean;
-  bookNotes: PublicNote[];
-  editionNotes: PublicNote[];
+  initialBookNotes: PublicNote[];
+  initialEditionNotes: PublicNote[];
+  initialBookHasMore: boolean;
+  initialEditionHasMore: boolean;
   viewerId: string | null;
-  viewAllHref?: string;
   loginHref?: string;
-  title?: string;
   editionSummary?: {
     label?: string | null;
     publisher?: string | null;
     translator?: string | null;
     publishedYear?: number | null;
   } | null;
-  flat?: boolean;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -68,9 +66,30 @@ export default function BookNotesTabsSection({
   const [activeTab, setActiveTab] = useState<NoteTab>("book");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+
+  const [bookNotes, setBookNotes] = useState(initialBookNotes);
+  const [editionNotes, setEditionNotes] = useState(initialEditionNotes);
+  const [bookHasMore, setBookHasMore] = useState(initialBookHasMore);
+  const [editionHasMore, setEditionHasMore] = useState(initialEditionHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const hasEditionTab = Boolean(selectedEditionId);
+
+  useEffect(() => {
+    setBookNotes(initialBookNotes);
+  }, [initialBookNotes]);
+
+  useEffect(() => {
+    setEditionNotes(initialEditionNotes);
+  }, [initialEditionNotes]);
+
+  useEffect(() => {
+    setBookHasMore(initialBookHasMore);
+  }, [initialBookHasMore]);
+
+  useEffect(() => {
+    setEditionHasMore(initialEditionHasMore);
+  }, [initialEditionHasMore]);
 
   useEffect(() => {
     if (!hasEditionTab && activeTab === "edition") {
@@ -79,8 +98,8 @@ export default function BookNotesTabsSection({
   }, [activeTab, hasEditionTab]);
 
   const scopedNotes = activeTab === "edition" ? editionNotes : bookNotes;
+  const hasMore = activeTab === "edition" ? editionHasMore : bookHasMore;
   const hasNotes = scopedNotes.length > 0;
-  const isExpandable = scopedNotes.length > 2;
   const scope: NoteTab =
     editing?.scope ??
     (activeTab === "edition" && hasEditionTab ? "edition" : "book");
@@ -157,160 +176,141 @@ export default function BookNotesTabsSection({
     });
   }
 
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const offset = scopedNotes.length;
+    try {
+      const url = `/api/books/${encodeURIComponent(
+        catalogBookId,
+      )}/notes?scope=${activeTab}&offset=${offset}&limit=10${
+        selectedEditionId ? `&edition=${encodeURIComponent(selectedEditionId)}` : ""
+      }`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok || !data.notes) {
+        throw new Error();
+      }
+
+      if (activeTab === "edition") {
+        setEditionNotes((current) => [
+          ...current,
+          ...data.notes.filter(
+            (item: PublicNote) => !current.some((old) => old.id === item.id),
+          ),
+        ]);
+        setEditionHasMore(Boolean(data.hasMore));
+      } else {
+        setBookNotes((current) => [
+          ...current,
+          ...data.notes.filter(
+            (item: PublicNote) => !current.some((old) => old.id === item.id),
+          ),
+        ]);
+        setBookHasMore(Boolean(data.hasMore));
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   return (
-    <section className={cn("relative", !flat ? "overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5" : "px-1")}>
+    <div className="mx-auto max-w-3xl space-y-6" dir="rtl">
+      {/* Header controls & Tab switcher */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 w-full max-w-md">
+          <TabButton
+            active={activeTab === "book"}
+            onClick={() => setActiveTab("book")}
+            label="یادداشت‌های کتاب"
+            count={bookNotes.length}
+          />
+
+          {hasEditionTab ? (
+            <TabButton
+              active={activeTab === "edition"}
+              onClick={() => setActiveTab("edition")}
+              label="یادداشت‌های این نسخه"
+              count={editionNotes.length}
+            />
+          ) : null}
+        </div>
+
+        {isLoggedIn ? (
+          <Button
+            type="button"
+            onClick={openAdd}
+            className="h-9 shrink-0 rounded-xl px-4 text-xs font-bold gap-1.5 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="h-4 w-4" />
+            افزودن یادداشت
+          </Button>
+        ) : loginHref ? (
+          <Button
+            asChild
+            variant="outline"
+            className="h-9 shrink-0 rounded-xl border-border/60 bg-background/50 px-4 text-xs font-bold gap-1.5 self-start sm:self-auto"
+          >
+            <Link href={loginHref}>
+              ورود برای یادداشت‌گذاشتن
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+
       <div>
-        <div>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                  <NotebookPen className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-foreground sm:text-lg">
-                    {title}
-                  </h2>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                      {(activeTab === "edition"
-                        ? editionNotes.length
-                        : bookNotes.length
-                      ).toLocaleString("fa-IR")}{" "}
-                      یادداشت
-                    </span>
+        {activeTab === "edition" && editionSummary ? (
+          <EditionContextSummary summary={editionSummary} />
+        ) : null}
 
-                    {viewAllHref ? (
-                      <Link
-                        href={viewAllHref}
-                        className={cn(
-                          "inline-flex items-center justify-center rounded-lg border text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary shrink-0",
-                          flat ? "h-6 bg-background/20 border-border/50 px-2.5" : "h-6 border-border/60 bg-background/50 px-2.5"
-                        )}
-                      >
-                        مشاهده کامل
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+        {!hasNotes ? (
+          <EmptyNotesState
+            isLoggedIn={isLoggedIn}
+            onAdd={openAdd}
+            scope={activeTab}
+            loginHref={loginHref}
+          />
+        ) : (
+          <div className="space-y-8">
+            <div className="flex flex-col gap-6">
+              {scopedNotes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  canLike={isLoggedIn}
+                  showAuthor
+                  showBook={false}
+                  manage={
+                    viewerId && note.authorUserId === viewerId
+                      ? {
+                          onEdit: () => openEdit(note),
+                          onDelete: () => remove(note.id),
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
 
-              {isLoggedIn ? (
+            {hasMore && (
+              <div className="flex justify-center pt-2">
                 <Button
                   type="button"
-                  onClick={openAdd}
-                  className="h-9 shrink-0 rounded-xl px-3 text-xs font-bold sm:px-4 sm:text-sm"
+                  variant="ghost"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="h-10 rounded-full border border-border/60 bg-background/30 px-6 text-xs font-bold text-muted-foreground hover:border-primary/20 hover:bg-primary/5 hover:text-primary gap-2 cursor-pointer transition-colors"
                 >
-                  <Plus className="h-4 w-4" />
-                  افزودن یادداشت
+                  {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  مشاهده بیشتر
                 </Button>
-              ) : loginHref ? (
-                <Button
-                  asChild
-                  variant="outline"
-                  className="h-9 shrink-0 rounded-xl border-border/60 bg-background/50 px-3 text-xs font-bold sm:px-4 sm:text-sm"
-                >
-                  <Link href={loginHref}>
-                    ورود برای یادداشت‌گذاشتن
-                    <ArrowLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-
-            <div className="grid w-full max-w-md grid-cols-1 gap-2 sm:grid-cols-2">
-              <TabButton
-                active={activeTab === "book"}
-                onClick={() => setActiveTab("book")}
-                label="یادداشت‌های کتاب"
-                count={bookNotes.length}
-              />
-
-              {hasEditionTab ? (
-                <TabButton
-                  active={activeTab === "edition"}
-                  onClick={() => setActiveTab("edition")}
-                  label="یادداشت‌های این نسخه"
-                  count={editionNotes.length}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          {activeTab === "edition" && editionSummary ? (
-            <EditionContextSummary summary={editionSummary} />
-          ) : null}
-
-          {!hasNotes ? (
-            <EmptyNotesState
-              isLoggedIn={isLoggedIn}
-              onAdd={openAdd}
-              scope={activeTab}
-              loginHref={loginHref}
-            />
-          ) : (
-            <>
-              <div
-                onClickCapture={(event) => {
-                  if (
-                    event.target instanceof Element &&
-                    event.target.closest("[data-note-expand-toggle]")
-                  ) {
-                    setIsExpanded(true);
-                  }
-                }}
-                className={cn(
-                  "relative grid grid-cols-1 gap-4 transition-all duration-300",
-                  isExpandable && !isExpanded
-                    ? "max-h-[31rem] overflow-hidden"
-                    : "max-h-none overflow-visible",
-                )}
-              >
-                {scopedNotes.map((note) => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    canLike={isLoggedIn}
-                    showAuthor
-                    showBook={false}
-                    manage={
-                      viewerId && note.authorUserId === viewerId
-                        ? {
-                            onEdit: () => openEdit(note),
-                            onDelete: () => remove(note.id),
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
-                {isExpandable && !isExpanded ? (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card/90 via-card/50 to-transparent" />
-                ) : null}
               </div>
-
-              {isExpandable ? (
-                <div className="mt-3 border-t border-border/30 pt-2 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded((current) => !current)}
-                    aria-expanded={isExpanded}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-                  >
-                    {isExpanded ? "نمایش کمتر" : "بیشتر بخوانید"}
-                    <ChevronDown
-                      className={cn(
-                        "h-3.5 w-3.5 transition-transform duration-300",
-                        isExpanded && "rotate-180",
-                      )}
-                    />
-                  </button>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       <NoteDialog
@@ -323,7 +323,7 @@ export default function BookNotesTabsSection({
         onContentChange={setContent}
         onSubmit={submit}
       />
-    </section>
+    </div>
   );
 }
 
@@ -343,7 +343,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-right text-xs font-medium transition-colors sm:text-sm",
+        "inline-flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-right text-xs font-medium transition-colors sm:text-sm cursor-pointer",
         active
           ? "border-primary/20 bg-primary/10 text-primary"
           : "border-border/60 bg-background/50 text-muted-foreground hover:border-primary/20 hover:bg-primary/5 hover:text-foreground",
@@ -369,13 +369,13 @@ function EmptyNotesState({
   loginHref?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-dashed border-border/50 bg-background/30 px-4 py-7 text-center">
+    <div className="relative overflow-hidden rounded-2xl border border-dashed border-border/50 bg-background/30 px-4 py-8 text-center">
       <div className="relative">
         <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
           <MessageSquareText className="h-4 w-4" />
         </div>
 
-        <p className="mt-3 text-xs font-medium text-foreground sm:text-sm">
+        <p className="mt-3 text-xs font-bold text-foreground sm:text-sm">
           {scope === "edition"
             ? "هنوز یادداشتی درباره این نسخه منتشر نشده"
             : "هنوز یادداشتی درباره کتاب منتشر نشده"}
@@ -395,7 +395,7 @@ function EmptyNotesState({
           <Button
             type="button"
             onClick={onAdd}
-            className="mt-4 h-9 rounded-xl px-4 text-xs font-bold sm:text-sm"
+            className="mt-4 h-9 rounded-xl px-4 text-xs font-bold gap-1.5 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             افزودن اولین یادداشت
@@ -404,7 +404,7 @@ function EmptyNotesState({
           <Button
             asChild
             variant="outline"
-            className="mt-4 h-9 rounded-xl border-border/60 bg-background/50 px-4 text-xs font-bold sm:text-sm"
+            className="mt-4 h-9 rounded-xl border-border/60 bg-background/50 px-4 text-xs font-bold cursor-pointer"
           >
             <Link href={loginHref}>ورود برای نوشتن یادداشت</Link>
           </Button>

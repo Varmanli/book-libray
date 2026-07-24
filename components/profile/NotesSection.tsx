@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, MessageSquareText, NotebookPen } from "lucide-react";
+import Link from "next/link";
+import { MessageSquareText, NotebookPen } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import NoteCard from "@/components/profile/NoteCard";
 import type { PublicNote } from "@/lib/notes/service";
 
-/** "یادداشت‌ها" — published book notes. One-column premium list. */
 export default function NotesSection({
   notes,
   isOwner,
@@ -21,45 +19,10 @@ export default function NotesSection({
   username: string;
   initialHasMore: boolean;
 }) {
-  const [items, setItems] = useState(notes);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loading, setLoading] = useState(false);
-
-  const hasNotes = items.length > 0;
-
-  async function loadMore() {
-    if (loading || !hasMore) return;
-
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `/api/profile/${encodeURIComponent(
-          username,
-        )}/notes?limit=10&offset=${items.length}`,
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !Array.isArray(data.notes)) {
-        throw new Error();
-      }
-
-      setItems((current) => [
-        ...current,
-        ...data.notes.filter(
-          (item: PublicNote) => !current.some((old) => old.id === item.id),
-        ),
-      ]);
-
-      setHasMore(Boolean(data.hasMore));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const hasNotes = notes.length > 0;
 
   return (
-    <section className="relative">
+    <section className="relative" dir="rtl">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3 px-1 sm:mb-5">
         <div className="flex min-w-0 items-center gap-3">
@@ -92,7 +55,7 @@ export default function NotesSection({
                     text-muted-foreground
                   "
                 >
-                  {items.length.toLocaleString("fa-IR")} یادداشت
+                  {notes.length.toLocaleString("fa-IR")} یادداشت
                 </span>
               ) : null}
             </div>
@@ -102,6 +65,27 @@ export default function NotesSection({
             </p>
           </div>
         </div>
+
+        {initialHasMore ? (
+          <Link
+            href={`/${encodeURIComponent(username)}/notes`}
+            className="
+              inline-flex h-8 items-center justify-center rounded-lg
+              border border-border/50
+              bg-background/20
+              px-3
+              text-[11px] font-bold
+              text-muted-foreground
+              transition-colors
+              hover:border-primary/20
+              hover:bg-primary/5
+              hover:text-primary
+              shrink-0
+            "
+          >
+            مشاهده کامل
+          </Link>
+        ) : null}
       </div>
 
       {/* Content */}
@@ -109,7 +93,7 @@ export default function NotesSection({
         <EmptyNotesState isOwner={isOwner} />
       ) : (
         <div className="flex flex-col gap-4">
-          {items.map((note) => (
+          {notes.map((note) => (
             <NoteCard
               key={note.id}
               note={note}
@@ -120,33 +104,6 @@ export default function NotesSection({
           ))}
         </div>
       )}
-
-      {/* Load more */}
-      {hasMore ? (
-        <div className="mt-5 flex justify-center">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => void loadMore()}
-            disabled={loading}
-            className="
-              h-9 rounded-full
-              border border-border/60
-              bg-background/30
-              px-4
-              text-xs font-bold
-              text-muted-foreground
-              transition-colors
-              hover:border-primary/20
-              hover:bg-primary/5
-              hover:text-primary
-            "
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            مشاهده بیشتر
-          </Button>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -288,6 +288,13 @@
       "when": 1784913556391,
       "tag": "0040_curved_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784930529000,
+      "tag": "0041_quote_backgrounds",
+      "breakpoints": true
     }
   ]
 }

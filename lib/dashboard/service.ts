@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -11,6 +11,7 @@ import {
   Wishlist,
 } from "@/db/schema";
 import { getReadingStats } from "@/lib/profile/service";
+import { normalizeCoverImage } from "@/lib/book/cover";
 
 export interface DashboardBookPreview {
   id: string;
@@ -280,5 +281,341 @@ export async function getUserDashboardData(
       percent: Math.round((completed / total) * 100),
       missing: completionChecks.filter((item) => !item.ok).map((item) => item.label),
     },
+  };
+}
+
+export interface UserReadingInsights {
+  overview: {
+    finishedBooksCount: number;
+    readingBooksCount: number;
+    totalBooksCount: number;
+    totalPagesCount: number;
+    averagePagesCount: number;
+    uniqueAuthorsCount: number;
+    notesCount: number;
+    quotesCount: number;
+  };
+  monthlyActivity: Array<{ label: string; count: number; pages: number }>;
+  favoriteAuthors: Array<{ id: string; name: string; slug: string | null; coverImage: string | null; bookCount: number }>;
+  favoriteCountries: Array<{ name: string; count: number }>;
+  favoriteGenres: Array<{ name: string; count: number; percentage: number }>;
+  favoritePublishers: Array<{ name: string; count: number; percentage: number }>;
+  formatDistribution: { physical: number; electronic: number };
+  lengthPreference: { short: number; medium: number; long: number };
+  ratingStats: {
+    averageRating: number;
+    ratedCount: number;
+    distribution: Array<{ rating: number; count: number }>;
+  };
+  consistency: {
+    monthsWithActivity: number;
+    mostActiveMonth: string | null;
+    completedThisYear: number;
+    completedLastYear: number;
+  };
+  profileInsights: string[];
+  recentCompleted: Array<{
+    id: string;
+    title: string;
+    author: string;
+    coverImage: string | null;
+    slug: string | null;
+    rating: number | null;
+    completedAt: Date | null;
+  }>;
+}
+
+export async function getUserReadingInsights(
+  userId: string
+): Promise<UserReadingInsights> {
+  const [
+    books,
+    [quotesCountRow],
+    [notesCountRow],
+  ] = await Promise.all([
+    db
+      .select({
+        id: Book.id,
+        title: Book.title,
+        author: Book.author,
+        country: Book.country,
+        genre: Book.genre,
+        pageCount: Book.pageCount,
+        publisher: Book.publisher,
+        status: Book.status,
+        completedAt: Book.completedAt,
+        rating: Book.rating,
+        isFavorite: Book.isFavorite,
+        format: Book.format,
+        coverImage: Book.coverImage,
+        slug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
+        catalogBookId: Book.catalogBookId,
+      })
+      .from(Book)
+      .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
+      .where(eq(Book.userId, userId)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(Quote)
+      .where(eq(Quote.userId, userId)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(PublishedBookNote)
+      .where(eq(PublishedBookNote.userId, userId)),
+  ]);
+
+  const completedBooks = books.filter((b) => b.status === "FINISHED");
+  const readingBooks = books.filter((b) => b.status === "READING");
+
+  // Overview metrics
+  const finishedBooksCount = completedBooks.length;
+  const readingBooksCount = readingBooks.length;
+  const totalBooksCount = books.length;
+  const totalPagesCount = completedBooks.reduce((sum, b) => sum + (b.pageCount || 0), 0);
+
+  const completedWithPages = completedBooks.filter((b) => b.pageCount && b.pageCount > 0);
+  const averagePagesCount =
+    completedWithPages.length > 0
+      ? Math.round(completedWithPages.reduce((sum, b) => sum + (b.pageCount || 0), 0) / completedWithPages.length)
+      : 0;
+
+  const uniqueAuthorsCount = new Set(completedBooks.map((b) => b.author.trim().toLowerCase())).size;
+  const notesCount = notesCountRow?.count ?? 0;
+  const quotesCount = quotesCountRow?.count ?? 0;
+
+  // Monthly activity (last 12 months)
+  const now = new Date();
+  const monthlyActivity: Array<{ label: string; count: number; pages: number }> = [];
+
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = new Intl.DateTimeFormat("fa-IR", { month: "long", year: "2-digit" }).format(d);
+    monthlyActivity.push({ label, count: 0, pages: 0 });
+  }
+
+  for (const book of completedBooks) {
+    if (book.completedAt) {
+      const label = new Intl.DateTimeFormat("fa-IR", { month: "long", year: "2-digit" }).format(book.completedAt);
+      const bucket = monthlyActivity.find((m) => m.label === label);
+      if (bucket) {
+        bucket.count += 1;
+        bucket.pages += book.pageCount || 0;
+      }
+    }
+  }
+
+  // Favorite Authors
+  const authorCounts: Record<string, { name: string; count: number; totalRating: number; ratedCount: number }> = {};
+  for (const book of completedBooks) {
+    const name = book.author.trim();
+    if (!authorCounts[name]) {
+      authorCounts[name] = { name, count: 0, totalRating: 0, ratedCount: 0 };
+    }
+    authorCounts[name].count += 1;
+    if (book.rating != null) {
+      authorCounts[name].totalRating += book.rating || 0;
+      authorCounts[name].ratedCount += 1;
+    }
+  }
+
+  const sortedAuthors = Object.values(authorCounts)
+    .sort((a, b) => b.count - a.count || (b.totalRating / (b.ratedCount || 1)) - (a.totalRating / (a.ratedCount || 1)))
+    .slice(0, 4);
+
+  const favoriteAuthors: Array<{ id: string; name: string; slug: string | null; coverImage: string | null; bookCount: number }> = [];
+  if (sortedAuthors.length > 0) {
+    const authorNames = sortedAuthors.map((a) => a.name);
+    const dbAuthors = await db
+      .select({
+        id: ReferenceItem.id,
+        name: ReferenceItem.name,
+        slug: ReferenceItem.slug,
+        coverImage: ReferenceItem.coverImage,
+      })
+      .from(ReferenceItem)
+      .where(
+        and(
+          eq(ReferenceItem.type, "AUTHOR"),
+          inArray(ReferenceItem.name, authorNames)
+        )
+      );
+
+    for (const sa of sortedAuthors) {
+      const dbAuthor = dbAuthors.find((a) => a.name.trim().toLowerCase() === sa.name.toLowerCase());
+      favoriteAuthors.push({
+        id: dbAuthor?.id ?? sa.name,
+        name: sa.name,
+        slug: dbAuthor?.slug ?? null,
+        coverImage: dbAuthor?.coverImage ? normalizeCoverImage(dbAuthor.coverImage) : null,
+        bookCount: sa.count,
+      });
+    }
+  }
+
+  // Favorite Literary Countries
+  const countryCounts: Record<string, number> = {};
+  for (const book of completedBooks) {
+    if (book.country?.trim()) {
+      const c = book.country.trim();
+      countryCounts[c] = (countryCounts[c] || 0) + 1;
+    }
+  }
+  const favoriteCountries = Object.entries(countryCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Favorite Genres
+  const genreCounts: Record<string, number> = {};
+  for (const book of completedBooks) {
+    if (book.genre?.trim()) {
+      const parts = book.genre.split(/[،,]+/).map((g) => g.trim()).filter(Boolean);
+      const uniqueParts = [...new Set(parts)];
+      for (const g of uniqueParts) {
+        genreCounts[g] = (genreCounts[g] || 0) + 1;
+      }
+    }
+  }
+  const totalFinishedWithGenre = completedBooks.filter((b) => b.genre?.trim()).length;
+  const favoriteGenres = Object.entries(genreCounts)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: totalFinishedWithGenre > 0 ? Math.round((count / totalFinishedWithGenre) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 7);
+
+  // Favorite Publishers
+  const publisherCounts: Record<string, number> = {};
+  for (const book of completedBooks) {
+    if (book.publisher?.trim()) {
+      const p = book.publisher.trim();
+      publisherCounts[p] = (publisherCounts[p] || 0) + 1;
+    }
+  }
+  const favoritePublishers = Object.entries(publisherCounts)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: completedBooks.length > 0 ? Math.round((count / completedBooks.length) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Format distribution
+  const formatDistribution = { physical: 0, electronic: 0 };
+  for (const book of completedBooks) {
+    if (book.format === "ELECTRONIC") {
+      formatDistribution.electronic += 1;
+    } else {
+      formatDistribution.physical += 1;
+    }
+  }
+
+  // Book length preference
+  const lengthPreference = { short: 0, medium: 0, long: 0 };
+  for (const book of completedBooks) {
+    if (book.pageCount) {
+      if (book.pageCount < 200) lengthPreference.short += 1;
+      else if (book.pageCount <= 400) lengthPreference.medium += 1;
+      else lengthPreference.long += 1;
+    }
+  }
+
+  // Average rating & rating distribution (1 to 10)
+  const ratingDistribution = Array.from({ length: 10 }, (_, i) => ({ rating: i + 1, count: 0 }));
+  let ratedCount = 0;
+  let totalRating = 0;
+  for (const book of completedBooks) {
+    if (book.rating != null) {
+      ratedCount += 1;
+      totalRating += book.rating;
+      const item = ratingDistribution.find((r) => r.rating === book.rating);
+      if (item) item.count += 1;
+    }
+  }
+  const averageRating = ratedCount > 0 ? Number((totalRating / ratedCount).toFixed(1)) : 0;
+
+  // Consistency / Streak
+  const monthsWithActivity = monthlyActivity.filter((m) => m.count > 0).length;
+  let mostActiveMonth: string | null = null;
+  let maxMonthlyCount = 0;
+  for (const m of monthlyActivity) {
+    if (m.count > maxMonthlyCount) {
+      maxMonthlyCount = m.count;
+      mostActiveMonth = m.label;
+    }
+  }
+
+  const currentYear = new Date().getFullYear();
+  const completedThisYear = completedBooks.filter((b) => b.completedAt && b.completedAt.getFullYear() === currentYear).length;
+  const completedLastYear = completedBooks.filter((b) => b.completedAt && b.completedAt.getFullYear() === currentYear - 1).length;
+
+  // Profile Insights
+  const profileInsights: string[] = [];
+  if (favoriteGenres.length > 0) {
+    profileInsights.push(`علاقه‌مندی اصلی تو در ژانر ${favoriteGenres[0].name} است.`);
+  }
+  if (favoriteAuthors.length > 0) {
+    profileInsights.push(`بیشترین کتاب‌های خوانده‌شده‌ی تو از نویسنده محبوب ${favoriteAuthors[0].name} است.`);
+  }
+  if (favoriteCountries.length > 0) {
+    profileInsights.push(`بیشتر به مطالعه آثار ادبیات کشور ${favoriteCountries[0].name} تمایل داری.`);
+  }
+  if (completedBooks.length > 0) {
+    const preferredFormat = formatDistribution.physical >= formatDistribution.electronic ? "فیزیکی" : "الکترونیک";
+    profileInsights.push(`قالب ترجیحی تو برای خواندن کتاب‌ها، نسخه ${preferredFormat} است.`);
+  }
+
+  // Recent completed
+  const recentCompleted = completedBooks
+    .sort((a, b) => {
+      const aTime = a.completedAt?.getTime() ?? 0;
+      const bTime = b.completedAt?.getTime() ?? 0;
+      return bTime - aTime;
+    })
+    .slice(0, 6)
+    .map((b) => ({
+      id: b.id,
+      title: b.title,
+      author: b.author,
+      coverImage: normalizeCoverImage(b.coverImage),
+      slug: b.slug,
+      rating: b.rating,
+      completedAt: b.completedAt,
+    }));
+
+  return {
+    overview: {
+      finishedBooksCount,
+      readingBooksCount,
+      totalBooksCount,
+      totalPagesCount,
+      averagePagesCount,
+      uniqueAuthorsCount,
+      notesCount,
+      quotesCount,
+    },
+    monthlyActivity,
+    favoriteAuthors,
+    favoriteCountries,
+    favoriteGenres,
+    favoritePublishers,
+    formatDistribution,
+    lengthPreference,
+    ratingStats: {
+      averageRating,
+      ratedCount,
+      distribution: ratingDistribution,
+    },
+    consistency: {
+      monthsWithActivity,
+      mostActiveMonth,
+      completedThisYear,
+      completedLastYear,
+    },
+    profileInsights,
+    recentCompleted,
   };
 }

@@ -67,30 +67,30 @@ export default function DashboardHeader({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <Button asChild className="h-10 gap-2 rounded-xl px-4 text-sm font-semibold">
+          <div className="grid grid-cols-3 gap-1.5 w-full sm:flex sm:w-auto sm:gap-2 sm:justify-end">
+            <Button asChild className="h-10 gap-1 sm:gap-2 rounded-xl px-1 sm:px-4 text-xs sm:text-sm font-semibold w-full sm:w-auto">
               <Link href="/books/add">
-                <BookPlus className="h-4 w-4" />
+                <BookPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 افزودن کتاب
               </Link>
             </Button>
             <Button
               asChild
               variant="outline"
-              className="h-10 gap-2 rounded-xl px-4 text-sm font-medium"
+              className="h-10 gap-1 sm:gap-2 rounded-xl px-1 sm:px-4 text-xs sm:text-sm font-medium w-full sm:w-auto"
             >
               <Link href={libraryHref}>
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 کتابخانه من
               </Link>
             </Button>
             <Button
               asChild
               variant="outline"
-              className="h-10 gap-2 rounded-xl px-4 text-sm font-medium"
+              className="h-10 gap-1 sm:gap-2 rounded-xl px-1 sm:px-4 text-xs sm:text-sm font-medium w-full sm:w-auto"
             >
               <Link href={profileHref}>
-                <UserRound className="h-4 w-4" />
+                <UserRound className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 پروفایل من
               </Link>
             </Button>

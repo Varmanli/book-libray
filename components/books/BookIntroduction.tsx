@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpenText, ChevronDown, Clock3 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import RichTextContent from "@/components/content/RichTextContent";
 import { useCollapsibleContent } from "@/components/content/useCollapsibleContent";
@@ -18,8 +19,10 @@ function getReadingTime(content: string) {
 
 export default function BookIntroduction({
   content,
+  flat = false,
 }: {
   content: string | null;
+  flat?: boolean;
 }) {
   const {
     contentRef,
@@ -30,7 +33,7 @@ export default function BookIntroduction({
   } = useCollapsibleContent();
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5">
+    <section className={cn("relative", !flat ? "overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5" : "px-1")}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">

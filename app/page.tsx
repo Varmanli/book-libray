@@ -8,12 +8,14 @@ import {
   getRecentHomeQuotes,
   HOME_FALLBACK_SLIDES,
   type HeroSlideView,
+  getPopularAuthors,
 } from "@/lib/home/service";
 import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
 import HomeQuickActions from "@/components/home/HomeQuickActions";
 import HomeBookCarousel from "@/components/home/HomeBookCarousel";
 import HomeQuotesSection from "@/components/home/HomeQuotesSection";
+import HomePopularAuthors from "@/components/home/HomePopularAuthors";
 // import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
 // import HomeFeatureCards from "@/components/home/HomeFeatureCards";
 import HomeBlogPreview from "@/components/home/HomeBlogPreview";
@@ -27,12 +29,14 @@ export default async function HomePage() {
     recentQuotes,
     latestBlogPosts,
     dbHeroSlides,
+    popularAuthors,
   ] = await Promise.all([
     getCurrentUser(),
     getFeaturedBooks(12),
     getRecentHomeQuotes(10),
     getLatestHomeBlogPosts(3),
     getHeroSlides(),
+    getPopularAuthors(10),
   ]);
 
   // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
@@ -107,6 +111,10 @@ export default async function HomePage() {
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
             <HomeQuotesSection quotes={recentQuotes} isLoggedIn={isLoggedIn} />
+          </div>
+
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_400px]">
+            <HomePopularAuthors authors={popularAuthors} />
           </div>
 
           {/* <HomeReadingListsPreview lists={HOME_PLACEHOLDER_LISTS} /> */}

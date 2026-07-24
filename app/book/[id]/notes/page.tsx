@@ -6,11 +6,12 @@ import { ArrowRight, NotebookPen } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getBookDetail } from "@/lib/book/detail-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { getPublishedNotesForBook } from "@/lib/notes/service";
 import PublicShell from "@/components/PublicShell";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import BookEditionSelector from "@/components/books/BookEditionSelector";
-import BookNotesTabsSection from "@/components/books/BookNotesTabsSection";
 import ReferenceChip from "@/components/books/ReferenceChip";
+import BookNotesList from "@/components/books/BookNotesList";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +63,6 @@ export default async function BookNotesPage({
     selectedEdition,
     editions,
     authorChip,
-    bookNotes,
-    editionNotes,
   } = result;
 
   if (ref !== book.slug) {
@@ -74,24 +73,52 @@ export default async function BookNotesPage({
     );
   }
 
+  // Load paginated notes for book & edition (first 10 records)
+  const [bookNotesResult, editionNotesResult] = await Promise.all([
+    getPublishedNotesForBook({
+      catalogBookId: book.id,
+      viewerId: viewer?.id,
+      scope: "book",
+      limit: 10,
+      offset: 0,
+    }),
+    selectedEdition?.id
+      ? getPublishedNotesForBook({
+          catalogBookId: book.id,
+          viewerId: viewer?.id,
+          scope: "edition",
+          editionId: selectedEdition.id,
+          limit: 10,
+          offset: 0,
+        })
+      : Promise.resolve({ notes: [], hasMore: false }),
+  ]);
+
   const isLoggedIn = !!viewer;
   const loginHref = `/auth/login?redirect=/book/${encodeURIComponent(book.slug)}/notes`;
 
   return (
     <PublicShell>
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10">
-        <Link
-          href={`/book/${encodeURIComponent(book.slug)}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowRight className="h-4 w-4" />
-          بازگشت به صفحه کتاب
-        </Link>
+      <main className="relative mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10" dir="rtl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_top,rgba(128,167,150,0.1),transparent_52%)]" />
 
-        <section className="mt-4 overflow-hidden rounded-[2rem] border border-border/80 bg-card/70 p-4 shadow-[0_24px_70px_-48px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-background/40 sm:w-20">
+        <div className="space-y-6">
+          {/* Back Link */}
+          <div className="text-right">
+            <Link
+              href={`/book/${encodeURIComponent(book.slug)}`}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              بازگشت به صفحه کتاب
+            </Link>
+          </div>
+
+          {/* Book Editorial Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-border/40">
+            <div className="flex items-start gap-4">
+              {/* Book Cover */}
+              <div className="relative aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-background/40 sm:w-20 shadow-sm">
                 <BookCoverImage
                   src={book.displayCoverImage || PLACEHOLDER}
                   alt={book.title}
@@ -101,23 +128,23 @@ export default async function BookNotesPage({
                 />
               </div>
 
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-[11px] font-bold text-primary">
-                  <NotebookPen className="h-3.5 w-3.5" />
-                  یادداشت‌ها
+              <div className="space-y-2 text-right">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg font-black text-foreground sm:text-xl leading-none">
+                    {book.title}
+                  </h1>
+                  <span className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-black text-primary">
+                    یادداشت‌ها
+                  </span>
                 </div>
 
-                <h1 className="mt-3 text-xl font-black tracking-tight text-foreground sm:text-2xl">
-                  {book.title}
-                </h1>
-
                 {book.originalTitle ? (
-                  <p dir="ltr" className="mt-1 text-sm text-muted-foreground">
+                  <p dir="ltr" className="text-xs text-muted-foreground text-right">
                     {book.originalTitle}
                   </p>
                 ) : null}
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   <ReferenceChip
                     name={authorChip.name}
                     href={authorChip.href}
@@ -128,8 +155,9 @@ export default async function BookNotesPage({
               </div>
             </div>
 
+            {/* Edition Selector */}
             {editions.length > 1 ? (
-              <div className="w-full max-w-sm sm:w-[320px]">
+              <div className="w-full max-w-sm sm:w-[320px] self-end md:self-auto">
                 <BookEditionSelector
                   editions={editions}
                   selectedEditionId={selectedEdition?.id ?? null}
@@ -137,32 +165,34 @@ export default async function BookNotesPage({
               </div>
             ) : null}
           </div>
-        </section>
 
-        <div className="mt-8">
-          <BookNotesTabsSection
-            catalogBookId={book.id}
-            selectedEditionId={selectedEdition?.id ?? null}
-            isLoggedIn={isLoggedIn}
-            bookNotes={bookNotes}
-            editionNotes={editionNotes}
-            viewerId={viewer?.id ?? null}
-            loginHref={loginHref}
-            title="یادداشت‌ها"
-            editionSummary={
-              presentation.edition
-                ? {
-                    label:
-                      presentation.editionLabel ?? presentation.title ?? null,
-                    publisher: presentation.publisher,
-                    translator: presentation.translator,
-                    publishedYear: presentation.publishedYear,
-                  }
-                : null
-            }
-          />
+          {/* Paginated list with tabs */}
+          <div className="mt-6">
+            <BookNotesList
+              catalogBookId={book.id}
+              selectedEditionId={selectedEdition?.id ?? null}
+              isLoggedIn={isLoggedIn}
+              initialBookNotes={bookNotesResult.notes}
+              initialEditionNotes={editionNotesResult.notes}
+              initialBookHasMore={bookNotesResult.hasMore}
+              initialEditionHasMore={editionNotesResult.hasMore}
+              viewerId={viewer?.id ?? null}
+              loginHref={loginHref}
+              editionSummary={
+                presentation.edition
+                  ? {
+                      label:
+                        presentation.editionLabel ?? presentation.title ?? null,
+                      publisher: presentation.publisher,
+                      translator: presentation.translator,
+                      publishedYear: presentation.publishedYear,
+                    }
+                  : null
+              }
+            />
+          </div>
         </div>
-      </div>
+      </main>
     </PublicShell>
   );
 }

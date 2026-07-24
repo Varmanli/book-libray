@@ -368,3 +368,83 @@ export async function deletePublishedNote(
     throw new NoteError("یادداشت یافت نشد", 404, "NOTE_NOT_FOUND");
   }
 }
+
+export async function getPublishedNotesForBook(opts: {
+  catalogBookId: string;
+  viewerId?: string;
+  editionId?: string | null;
+  scope?: "book" | "edition";
+  limit?: number;
+  offset?: number;
+}): Promise<{ notes: PublicNote[]; hasMore: boolean }> {
+  const limit = Math.min(opts.limit ?? 10, 50);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const filters = [
+    eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
+  ];
+
+  if (opts.scope) {
+    filters.push(eq(PublishedBookNote.scope, opts.scope));
+  }
+  if (opts.scope === "edition" && opts.editionId) {
+    filters.push(eq(PublishedBookNote.bookEditionId, opts.editionId));
+  }
+
+  const rows = await db
+    .select({
+      id: PublishedBookNote.id,
+      content: PublishedBookNote.content,
+      bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
+      catalogBookId: PublishedBookNote.catalogBookId,
+      bookEditionId: PublishedBookNote.bookEditionId,
+      scope: PublishedBookNote.scope,
+      bookSlug: CatalogBook.slug,
+      bookTitle: CatalogBook.title,
+      bookAuthor: CatalogBook.author,
+      bookCover: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage})`,
+      createdAt: PublishedBookNote.createdAt,
+      likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
+      likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
+        opts.viewerId ?? null
+      }), false)`,
+      authorUserId: User.id,
+      authorUsername: User.username,
+      authorName: User.name,
+      authorImage: User.image,
+    })
+    .from(PublishedBookNote)
+    .innerJoin(User, eq(PublishedBookNote.userId, User.id))
+    .innerJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
+    .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
+    .leftJoin(
+      PublishedBookNoteLike,
+      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
+    )
+    .where(
+      and(
+        ...filters,
+        opts.viewerId
+          ? or(
+              eq(User.profileVisibility, "PUBLIC"),
+              eq(User.id, opts.viewerId),
+            )
+          : eq(User.profileVisibility, "PUBLIC"),
+      ),
+    )
+    .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
+    .orderBy(desc(PublishedBookNote.createdAt))
+    .limit(limit + 1)
+    .offset(offset);
+
+  const hasMore = rows.length > limit;
+  const visibleRows = hasMore ? rows.slice(0, -1) : rows;
+
+  const notes = visibleRows.map((row) => ({
+    ...row,
+    scope: (row.scope ?? "book") as "book" | "edition",
+    likedByViewer: Boolean(row.likedByViewer),
+  }));
+
+  return { notes, hasMore };
+}
