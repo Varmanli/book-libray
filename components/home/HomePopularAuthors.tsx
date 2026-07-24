@@ -36,9 +36,6 @@ function AuthorCard({ author }: { author: PopularAuthor }) {
       <h3 className="mt-3 line-clamp-1 max-w-full font-black text-sm text-foreground/90 transition-colors duration-200 group-hover:text-primary">
         {author.name}
       </h3>
-      <p className="mt-1.5 text-xs font-medium text-muted-foreground/80">
-        {author.bookCount.toLocaleString("fa-IR")} کتاب
-      </p>
     </Link>
   );
 }
@@ -51,17 +48,13 @@ export default function HomePopularAuthors({
   return (
     <section className="relative">
       <div className="mb-4 sm:mb-5">
-        <HomeSectionHeader
-          icon={Users}
-          title="نویسندگان محبوب"
-          description="نویسندگانی که بیشترین کتابخوان یا آثار فعال را در قفسه دارند."
-        />
+        <HomeSectionHeader icon={Users} title="نویسندگان محبوب" />
       </div>
 
       {authors.length > 0 ? (
         <Carousel
           ariaLabel="نویسندگان محبوب"
-          slideClassName="basis-[135px] sm:basis-[170px] lg:basis-[190px]"
+          slideClassName="basis-[135px] py-4 sm:basis-[170px] lg:basis-[190px]"
           containerClassName="gap-4"
           slides={authors.map((author) => (
             <AuthorCard key={author.id} author={author} />
