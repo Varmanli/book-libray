@@ -483,6 +483,21 @@ CREATE INDEX IF NOT EXISTS "Quote_book_id_idx" ON "Quote" USING btree ("book_id"
 CREATE INDEX IF NOT EXISTS "Quote_user_id_idx" ON "Quote" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "Quote_created_at_idx" ON "Quote" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "Quote_updated_at_idx" ON "Quote" USING btree ("updated_at");--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_slug_unique" UNIQUE("slug"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_username_unique" UNIQUE("username"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."Book"'::regclass AND conname = 'Book_slug_unique')
+     AND to_regclass('public."Book_slug_unique"') IS NULL THEN
+    ALTER TABLE "Book" ADD CONSTRAINT "Book_slug_unique" UNIQUE("slug");
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."User"'::regclass AND conname = 'User_google_id_unique')
+     AND to_regclass('public."User_google_id_unique"') IS NULL THEN
+    ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id");
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public."User"'::regclass AND conname = 'User_username_unique')
+     AND to_regclass('public."User_username_unique"') IS NULL THEN
+    ALTER TABLE "User" ADD CONSTRAINT "User_username_unique" UNIQUE("username");
+  END IF;
+END $$;
