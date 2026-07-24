@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getManagedQuoteBackgrounds } from "@/lib/quotes/backgrounds";
+import { getManagedQuoteBackgrounds } from "@/lib/quotes/backgrounds-server";
 
 export const runtime = "nodejs";
 
