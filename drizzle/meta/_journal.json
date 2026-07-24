@@ -281,6 +281,13 @@
       "when": 1784851200000,
       "tag": "0039_expand_published_book_note_capacity",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784913556391,
+      "tag": "0040_curved_the_stranger",
+      "breakpoints": true
     }
   ]
 }

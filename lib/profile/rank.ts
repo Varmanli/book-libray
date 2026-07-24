@@ -32,7 +32,7 @@ export const READER_RANKS: ReaderRank[] = [
     level: 1,
     key: "newcomer",
     title: "تازه‌وارد",
-    description: "سفر کتاب‌خوانی‌ات همین حالا آغاز می‌شود.",
+    description: "هنوز اول راهی؛ اولین کتاب، شروع ساختن قفسه‌ی توست.",
     min: 0,
     max: 0,
     icon: Sprout,
@@ -42,10 +42,10 @@ export const READER_RANKS: ReaderRank[] = [
   {
     level: 2,
     key: "starter",
-    title: "شروع‌کننده",
-    description: "اولین کتاب‌ها را به پایان رسانده‌ای.",
+    title: "کتاب‌خوان تازه‌کار",
+    description: "چند کتاب اول را پشت سر گذاشته‌ای و مسیرت تازه شروع شده است.",
     min: 1,
-    max: 4,
+    max: 9,
     icon: BookOpen,
     accent: "text-emerald-300",
     badgeClass: "bg-emerald-400/10 ring-emerald-300/20",
@@ -53,10 +53,11 @@ export const READER_RANKS: ReaderRank[] = [
   {
     level: 3,
     key: "rising",
-    title: "کتاب‌خوان نوپا",
-    description: "عادت کتاب‌خوانی در تو شکل گرفته است.",
-    min: 5,
-    max: 14,
+    title: "کتاب‌خوان پیگیر",
+    description:
+      "مطالعه دیگر اتفاقی نیست؛ داری برای خودت یک عادت واقعی می‌سازی.",
+    min: 10,
+    max: 24,
     icon: BookMarked,
     accent: "text-sky-300",
     badgeClass: "bg-sky-400/10 ring-sky-300/20",
@@ -64,10 +65,11 @@ export const READER_RANKS: ReaderRank[] = [
   {
     level: 4,
     key: "active",
-    title: "کتاب‌خوان فعال",
-    description: "به‌طور پیوسته کتاب می‌خوانی و پیش می‌روی.",
-    min: 15,
-    max: 29,
+    title: "کتاب‌خوان جدی",
+    description:
+      "قفسه‌ات شکل گرفته و کتاب‌خوانی جای ثابتی در زندگی‌ات پیدا کرده است.",
+    min: 25,
+    max: 49,
     icon: Flame,
     accent: "text-amber-300",
     badgeClass: "bg-amber-400/10 ring-amber-300/20",
@@ -76,9 +78,10 @@ export const READER_RANKS: ReaderRank[] = [
     level: 5,
     key: "pro",
     title: "کتاب‌خوان حرفه‌ای",
-    description: "کتاب‌خوانی بخشی جدی از زندگی توست.",
-    min: 30,
-    max: 59,
+    description:
+      "از مرز یک عادت ساده عبور کرده‌ای؛ مطالعه بخشی جدی از سبک زندگی توست.",
+    min: 50,
+    max: 99,
     icon: Award,
     accent: "text-violet-300",
     badgeClass: "bg-violet-400/10 ring-violet-300/20",
@@ -87,9 +90,10 @@ export const READER_RANKS: ReaderRank[] = [
     level: 6,
     key: "master",
     title: "استاد قفسه",
-    description: "قفسه‌ای پربار و کارنامه‌ای چشمگیر داری.",
-    min: 60,
-    max: 99,
+    description:
+      "بیش از صد کتاب تمام کرده‌ای و قفسه‌ات حاصل سال‌ها خواندن و انتخاب است.",
+    min: 100,
+    max: 199,
     icon: Star,
     accent: "text-rose-300",
     badgeClass: "bg-rose-400/10 ring-rose-300/20",
@@ -97,9 +101,10 @@ export const READER_RANKS: ReaderRank[] = [
   {
     level: 7,
     key: "legend",
-    title: "افسانه‌ی کتاب‌ها",
-    description: "به جمع افسانه‌های کتاب‌خوانی پیوسته‌ای.",
-    min: 100,
+    title: "افسانه‌ی قفسه",
+    description:
+      "دویست کتاب و بیشتر؛ اینجا دیگر با یک کتاب‌خوان معمولی طرف نیستیم.",
+    min: 200,
     max: null,
     icon: Crown,
     accent: "text-[#d4ff6a]",
@@ -127,20 +132,27 @@ export function getReaderRank(finishedRaw: number): ReaderRankProgress {
 
   const rank =
     READER_RANKS.find(
-      (r) => finished >= r.min && (r.max === null || finished <= r.max)
+      (r) => finished >= r.min && (r.max === null || finished <= r.max),
     ) ?? READER_RANKS[READER_RANKS.length - 1];
 
   const next = READER_RANKS[rank.level] ?? null; // level is 1-based → next index
 
   if (!next) {
-    return { rank, finished, isMax: true, next: null, toNext: 0, progressPct: 100 };
+    return {
+      rank,
+      finished,
+      isMax: true,
+      next: null,
+      toNext: 0,
+      progressPct: 100,
+    };
   }
 
   const bandStart = rank.min;
   const bandEnd = next.min;
   const progressPct = Math.min(
     100,
-    Math.max(0, ((finished - bandStart) / (bandEnd - bandStart)) * 100)
+    Math.max(0, ((finished - bandStart) / (bandEnd - bandStart)) * 100),
   );
   const toNext = Math.max(0, next.min - finished);
 

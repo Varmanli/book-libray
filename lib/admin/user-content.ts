@@ -5,6 +5,7 @@ import { Book, CatalogBook, PublishedBookNote, PublishedBookNoteLike, Quote, Quo
 import { noteContentSchema } from "@/lib/validations/notes";
 import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-text";
 import { isOwnedQuoteImageKey, normalizeQuoteImageKey, normalizeQuoteText } from "@/lib/quotes/image";
+import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
 
 export const ADMIN_CONTENT_PAGE_SIZE = 15;
@@ -50,6 +51,7 @@ export async function listAdminQuotes(query: AdminContentQuery) {
   const [rows, [{ total }]] = await Promise.all([
     db.select({
       id: Quote.id, content: Quote.content, imageKey: Quote.imageKey, page: Quote.page,
+      background: Quote.background,
       createdAt: Quote.createdAt, updatedAt: Quote.updatedAt, likeCount,
       bookId: Book.id, bookTitle: Book.title, bookSlug: Book.slug,
       userId: User.id, userName: User.name, username: User.username, userEmail: User.email,
@@ -105,25 +107,27 @@ async function validBook(bookId: string) {
   return book;
 }
 
-export async function createAdminQuote(input: { userId: string; bookId: string; content?: unknown; imageKey?: unknown; page?: unknown }) {
+export async function createAdminQuote(input: { userId: string; bookId: string; content?: unknown; imageKey?: unknown; page?: unknown; background?: unknown }) {
   const book = await validBook(input.bookId); if (!book) throw new Error("کتاب انتخاب‌شده پیدا نشد");
   const content = normalizeQuoteText(input.content); const imageKey = normalizeQuoteImageKey(input.imageKey);
+  const background = normalizeQuoteBackground(input.background);
   if (!content && !imageKey) throw new Error("متن یا تصویر تکه لازم است");
   if (imageKey && !isOwnedQuoteImageKey(imageKey, input.userId)) throw new Error("مالک تصویر با کاربر مقصد تطابق ندارد");
   const page = Number(input.page); const validPage = Number.isInteger(page) && page > 0 ? page : null;
-  const [row] = await db.insert(Quote).values({ userId: input.userId, content, imageKey, page: validPage, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId }).returning();
+  const [row] = await db.insert(Quote).values({ userId: input.userId, content, imageKey, page: validPage, background, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId }).returning();
   return row;
 }
 
-export async function updateAdminQuote(id: string, input: { userId: string; bookId: string; content?: unknown; imageAction?: unknown; imageKey?: unknown; page?: unknown }) {
+export async function updateAdminQuote(id: string, input: { userId: string; bookId: string; content?: unknown; imageAction?: unknown; imageKey?: unknown; page?: unknown; background?: unknown }) {
   const [current] = await db.select().from(Quote).where(eq(Quote.id, id)).limit(1); if (!current) throw new Error("تکه پیدا نشد");
   const book = await validBook(input.bookId); if (!book) throw new Error("کتاب انتخاب‌شده پیدا نشد");
   const action = input.imageAction === "remove" || input.imageAction === "replace" ? input.imageAction : "keep";
   const imageKey = action === "keep" ? current.imageKey : action === "remove" ? null : normalizeQuoteImageKey(input.imageKey);
   const content = normalizeQuoteText(input.content); if (!content && !imageKey) throw new Error("تکه نمی‌تواند بدون متن و تصویر باشد");
   if (imageKey && !isOwnedQuoteImageKey(imageKey, input.userId)) throw new Error("مالک تصویر با کاربر مقصد تطابق ندارد");
+  const background = Object.prototype.hasOwnProperty.call(input, "background") ? normalizeQuoteBackground(input.background) : normalizeQuoteBackground(current.background);
   const page = Number(input.page); const validPage = Number.isInteger(page) && page > 0 ? page : null;
-  const [row] = await db.update(Quote).set({ userId: input.userId, content, imageKey, page: validPage, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId, updatedAt: new Date() }).where(eq(Quote.id, id)).returning();
+  const [row] = await db.update(Quote).set({ userId: input.userId, content, imageKey, page: validPage, background, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId, updatedAt: new Date() }).where(eq(Quote.id, id)).returning();
   if (current.imageKey && current.imageKey !== imageKey) deleteImageUpload(current.imageKey).catch(error => console.error("[admin quotes] previous image cleanup failed", { id, error }));
   return row;
 }

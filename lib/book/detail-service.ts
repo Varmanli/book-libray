@@ -34,6 +34,7 @@ import {
   type PublicBookExternalLink,
 } from "@/lib/book/external-links";
 import { splitStoredGenres } from "@/lib/book/genres";
+import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 import {
   listPublishedNotesForBook,
   type PublicNote,
@@ -501,6 +502,7 @@ async function loadPublicQuotes(
       id: Quote.id,
       content: Quote.content,
       imageKey: Quote.imageKey,
+      background: Quote.background,
       page: Quote.page,
       bookId: Quote.bookId,
       authorUsername: User.username,
@@ -532,6 +534,7 @@ async function loadPublicQuotes(
     id: row.id,
     content: row.content,
     imageKey: row.imageKey,
+    background: normalizeQuoteBackground(row.background),
     page: row.page,
     bookId: row.bookId,
     bookSlug: subject.slug,

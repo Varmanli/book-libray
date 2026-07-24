@@ -12,21 +12,27 @@ export default function HomeQuotesSection({
   quotes: HomeQuotePreview[];
   isLoggedIn: boolean;
 }) {
-  return (
-    <section>
-      <HomeSectionHeader
-        icon={Quote}
-        eyebrow="تازه‌ترین نقل‌قول‌ها"
-        title="تکه‌های تازه"
-      />
+  const hasQuotes = quotes.length > 0;
 
-      {quotes.length > 0 ? (
+  return (
+    <section className="relative">
+      <div className="mb-4 sm:mb-5">
+        <HomeSectionHeader icon={Quote} title="تکه‌های تازه" />
+      </div>
+
+      {hasQuotes ? (
         <div className="relative">
           <Carousel
             ariaLabel="تازه‌ترین تکه‌های کتاب"
-            className="py-1 ps-10 pe-10 sm:ps-11 sm:pe-11 lg:ps-12 lg:pe-12"
-            slideClassName="flex basis-full md:basis-1/2 xl:basis-1/3"
-            containerClassName="items-stretch gap-4 lg:gap-5"
+            className="px-1 py-1 sm:px-2"
+            slideClassName="
+              flex
+              basis-full
+              px-1
+              md:basis-1/2
+              xl:basis-1/3
+            "
+            containerClassName="items-stretch gap-3 sm:gap-4 lg:gap-5"
             slides={quotes.map((quote) => (
               <QuoteCard
                 key={quote.id}
@@ -34,16 +40,88 @@ export default function HomeQuotesSection({
                 canLike={isLoggedIn}
                 showAuthor
                 showBook
-                className="min-h-[460px] w-full lg:min-h-[500px]"
+                background={quote.background}
+                className="
+                  min-h-[440px]
+                  w-full
+                  lg:min-h-[480px]
+                "
               />
             ))}
           />
         </div>
       ) : (
-        <div className="rounded-[1.6rem] border border-dashed border-border bg-card/75 px-5 py-8 text-center text-sm leading-7 text-muted-foreground">
-          هنوز تکه عمومی تازه‌ای برای نمایش در صفحه اصلی وجود ندارد.
-        </div>
+        <EmptyQuotesState />
       )}
     </section>
+  );
+}
+
+function EmptyQuotesState() {
+  return (
+    <div
+      className="
+        relative overflow-hidden
+        rounded-[1.5rem]
+        border border-dashed border-border/65
+        bg-card/30
+        px-5 py-10
+        text-center
+      "
+    >
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute left-1/2 top-0
+          h-28 w-44
+          -translate-x-1/2 -translate-y-1/2
+          rounded-full
+          bg-primary/[0.08]
+          blur-3xl
+        "
+      />
+
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute inset-x-20 top-0 h-px
+          bg-gradient-to-r
+          from-transparent via-primary/20 to-transparent
+        "
+      />
+
+      <div className="relative">
+        <span
+          className="
+            mx-auto grid h-12 w-12
+            place-items-center
+            rounded-2xl
+            bg-primary/[0.08]
+            text-primary
+            ring-1 ring-primary/15
+          "
+        >
+          <Quote className="h-5 w-5" />
+        </span>
+
+        <p className="mt-4 text-sm font-black text-foreground">
+          هنوز تکه‌ای منتشر نشده
+        </p>
+
+        <p
+          className="
+            mx-auto mt-1.5
+            max-w-sm
+            text-[11px] leading-6
+            text-muted-foreground
+          "
+        >
+          وقتی کاربران جمله‌ها و بخش‌های مورد علاقه‌شان از کتاب‌ها را منتشر
+          کنند، تازه‌ترین‌ها اینجا نمایش داده می‌شوند.
+        </p>
+      </div>
+    </div>
   );
 }

@@ -1,14 +1,6 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import {
-  Globe,
-  Instagram,
-  Linkedin,
-  Lock,
-  Send,
-  ShieldAlert,
-  Twitter,
-} from "lucide-react";
+import { Globe, Instagram, Linkedin, Lock, Send, Twitter } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPublicProfile } from "@/lib/profile/service";
@@ -18,6 +10,7 @@ import {
   isReservedUsername,
   normalizeUsername,
 } from "@/lib/profile/username-rules";
+
 import PublicShell from "@/components/PublicShell";
 import LibraryShowcase from "@/components/profile/LibraryShowcase";
 import QuotesSection from "@/components/profile/QuotesSection";
@@ -43,9 +36,9 @@ type SocialProfile = {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <PublicShell>
-      <main className="relative mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,rgba(128,167,150,0.16),transparent_48%)]" />
-        <div className="pointer-events-none absolute inset-x-10 top-24 -z-10 h-56 rounded-full bg-primary/5 blur-3xl" />
+      <main className="relative mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_top,rgba(128,167,150,0.1),transparent_52%)]" />
+
         {children}
       </main>
     </PublicShell>
@@ -75,7 +68,11 @@ function socialLinks(profile: SocialProfile): ProfileSocialLink[] {
     const href = normalizeExternalUrl(profile.website);
 
     if (href) {
-      links.push({ href, label: "وب‌سایت", icon: Globe });
+      links.push({
+        href,
+        label: "وب‌سایت",
+        icon: Globe,
+      });
     }
   }
 
@@ -119,7 +116,11 @@ function socialLinks(profile: SocialProfile): ProfileSocialLink[] {
     const href = normalizeExternalUrl(profile.linkedin);
 
     if (href) {
-      links.push({ href, label: "لینکدین", icon: Linkedin });
+      links.push({
+        href,
+        label: "لینکدین",
+        icon: Linkedin,
+      });
     }
   }
 
@@ -174,9 +175,17 @@ export default async function RootProfilePage({
   const notes =
     notesResult.found && !notesResult.isPrivate ? notesResult.notes : [];
 
+  const quotesHasMore =
+    quotesResult.found && !quotesResult.isPrivate
+      ? quotesResult.hasMore
+      : false;
+
+  const notesHasMore =
+    notesResult.found && !notesResult.isPrivate ? notesResult.hasMore : false;
+
   return (
     <Shell>
-      <div className="space-y-5 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-5">
         <ProfileHeader
           name={profile.displayName}
           username={profileUsername}
@@ -191,27 +200,40 @@ export default async function RootProfilePage({
           socialLinks={socialLinks(profile)}
         />
 
-        <LibraryShowcase
-          books={books}
-          username={profileUsername}
-          stats={stats}
-        />
+        {/* Unified profile content */}
+        <div className="overflow-hidden rounded-[1.6rem] border border-border/70 bg-card/55 shadow-sm sm:rounded-[2rem]">
+          <div className="px-3 py-4 sm:px-5 sm:py-6">
+            <LibraryShowcase
+              books={books}
+              username={profileUsername}
+              stats={stats}
+            />
+          </div>
 
-        <QuotesSection
-          quotes={quotes}
-          initialHasMore={quotesResult.found && !quotesResult.isPrivate ? quotesResult.hasMore : false}
-          username={profileUsername}
-          isOwner={isOwner}
-          canLike={!!viewer}
-        />
+          <div className="mx-3 border-t border-border/60 sm:mx-5" />
 
-        <NotesSection
-          notes={notes}
-          initialHasMore={notesResult.found && !notesResult.isPrivate ? notesResult.hasMore : false}
-          username={profileUsername}
-          isOwner={isOwner}
-          canLike={!!viewer}
-        />
+          <div className="px-3 py-4 sm:px-5 sm:py-6">
+            <QuotesSection
+              quotes={quotes}
+              initialHasMore={quotesHasMore}
+              username={profileUsername}
+              isOwner={isOwner}
+              canLike={!!viewer}
+            />
+          </div>
+
+          <div className="mx-3 border-t border-border/60 sm:mx-5" />
+
+          <div className="px-3 py-4 sm:px-5 sm:py-6">
+            <NotesSection
+              notes={notes}
+              initialHasMore={notesHasMore}
+              username={profileUsername}
+              isOwner={isOwner}
+              canLike={!!viewer}
+            />
+          </div>
+        </div>
       </div>
     </Shell>
   );
@@ -229,44 +251,40 @@ function PrivateProfileState({
   const displayName = name || username || "کاربر قفسه";
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/80 px-5 py-12 text-center shadow-[0_24px_70px_-50px_rgba(0,0,0,0.42)] sm:px-8 sm:py-14">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
-      <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_0)] [background-size:18px_18px]" />
-
-      <div className="relative mx-auto flex max-w-md flex-col items-center">
+    <section className="overflow-hidden rounded-[1.6rem] border border-border/70 bg-card/60 shadow-sm sm:rounded-[2rem]">
+      <div className="flex flex-col items-center px-5 py-9 text-center sm:px-8 sm:py-11">
         <div className="relative">
           <AvatarCircle src={image} name={displayName} />
-          <span className="absolute -bottom-1 -left-1 inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground shadow-lg">
-            <Lock className="h-4 w-4" />
+
+          <span className="absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-card bg-background text-muted-foreground sm:h-8 sm:w-8">
+            <Lock className="h-3.5 w-3.5" />
           </span>
         </div>
 
-        <h1 className="mt-5 text-xl font-black text-foreground">
+        <h1 className="mt-4 text-lg font-black text-foreground sm:text-xl">
           {displayName}
         </h1>
 
         {username ? (
-          <p dir="ltr" className="mt-1 text-sm text-muted-foreground">
+          <p
+            dir="ltr"
+            className="mt-1 text-xs text-muted-foreground sm:text-sm"
+          >
             @{username}
           </p>
         ) : null}
 
-        <div className="mt-7 flex items-start gap-3 rounded-[1.35rem] border border-border/80 bg-background/55 px-4 py-3.5 text-start shadow-sm shadow-black/5">
-          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-            <ShieldAlert className="h-4 w-4" />
-          </span>
+        <div className="mt-6 h-px w-full max-w-md bg-border/60" />
 
-          <div>
-            <p className="text-sm font-black text-foreground">
-              این پروفایل خصوصی است
-            </p>
-            <p className="mt-1 text-xs leading-6 text-muted-foreground">
-              کتابخانه، یادداشت‌ها و تکه‌های این کاربر فقط برای خودش قابل مشاهده
-              است.
-            </p>
-          </div>
+        <div className="mt-6 max-w-md">
+          <h2 className="text-sm font-bold text-foreground">
+            این پروفایل خصوصی است
+          </h2>
+
+          <p className="mt-2 text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7">
+            کتابخانه، یادداشت‌ها و تکه‌های این کاربر برای دیگران قابل مشاهده
+            نیست.
+          </p>
         </div>
       </div>
     </section>
@@ -283,7 +301,7 @@ function AvatarCircle({
   const initial = (name || "ق").trim().charAt(0) || "ق";
 
   return (
-    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-secondary text-3xl ring-1 ring-inset ring-white/10 shadow-[0_20px_45px_-28px_rgba(0,0,0,0.45)]">
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-secondary text-2xl shadow-sm sm:h-24 sm:w-24 sm:text-3xl">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

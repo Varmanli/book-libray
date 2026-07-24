@@ -143,12 +143,14 @@ export const IranKetabImportEventType = pgEnum("IranKetabImportEventType", [
   "COMMIT_COMPLETED",
   "COMMIT_FAILED",
 ]);
-export const IranKetabPreviewOperationStatus = pgEnum("IranKetabPreviewOperationStatus", [
-  "PROCESSING",
-  "COMPLETED",
-  "FAILED",
+export const IranKetabPreviewOperationStatus = pgEnum(
+  "IranKetabPreviewOperationStatus",
+  ["PROCESSING", "COMPLETED", "FAILED"],
+);
+export const CatalogBookContributorRole = pgEnum("CatalogBookContributorRole", [
+  "AUTHOR",
+  "TRANSLATOR",
 ]);
-export const CatalogBookContributorRole = pgEnum("CatalogBookContributorRole", ["AUTHOR", "TRANSLATOR"]);
 
 // ---------------- User ----------------
 export const User = pgTable("User", {
@@ -375,24 +377,65 @@ export const BookEdition = pgTable("BookEdition", {
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
 
-export const CatalogBookContributor = pgTable("CatalogBookContributor", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
-  catalogBookId: varchar("catalog_book_id").notNull().references(() => CatalogBook.id, { onDelete: "cascade" }),
-  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
-  role: CatalogBookContributorRole("role").notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  sourceName: text("source_name"),
-  sourceUrl: text("source_url"),
-}, (t) => ({ uniqueContributor: unique("CatalogBookContributor_unique").on(t.catalogBookId, t.referenceItemId, t.role), catalogIdx: index("CatalogBookContributor_catalog_idx").on(t.catalogBookId), referenceIdx: index("CatalogBookContributor_reference_idx").on(t.referenceItemId) }));
+export const CatalogBookContributor = pgTable(
+  "CatalogBookContributor",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .notNull(),
+    catalogBookId: varchar("catalog_book_id")
+      .notNull()
+      .references(() => CatalogBook.id, { onDelete: "cascade" }),
+    referenceItemId: varchar("reference_item_id")
+      .notNull()
+      .references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    role: CatalogBookContributorRole("role").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    sourceName: text("source_name"),
+    sourceUrl: text("source_url"),
+  },
+  (t) => ({
+    uniqueContributor: unique("CatalogBookContributor_unique").on(
+      t.catalogBookId,
+      t.referenceItemId,
+      t.role,
+    ),
+    catalogIdx: index("CatalogBookContributor_catalog_idx").on(t.catalogBookId),
+    referenceIdx: index("CatalogBookContributor_reference_idx").on(
+      t.referenceItemId,
+    ),
+  }),
+);
 
-export const BookEditionPublisher = pgTable("BookEditionPublisher", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
-  bookEditionId: varchar("book_edition_id").notNull().references(() => BookEdition.id, { onDelete: "cascade" }),
-  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  sourceName: text("source_name"),
-  sourceUrl: text("source_url"),
-}, (t) => ({ uniquePublisher: unique("BookEditionPublisher_unique").on(t.bookEditionId, t.referenceItemId), editionIdx: index("BookEditionPublisher_edition_idx").on(t.bookEditionId), referenceIdx: index("BookEditionPublisher_reference_idx").on(t.referenceItemId) }));
+export const BookEditionPublisher = pgTable(
+  "BookEditionPublisher",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .notNull(),
+    bookEditionId: varchar("book_edition_id")
+      .notNull()
+      .references(() => BookEdition.id, { onDelete: "cascade" }),
+    referenceItemId: varchar("reference_item_id")
+      .notNull()
+      .references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    sourceName: text("source_name"),
+    sourceUrl: text("source_url"),
+  },
+  (t) => ({
+    uniquePublisher: unique("BookEditionPublisher_unique").on(
+      t.bookEditionId,
+      t.referenceItemId,
+    ),
+    editionIdx: index("BookEditionPublisher_edition_idx").on(t.bookEditionId),
+    referenceIdx: index("BookEditionPublisher_reference_idx").on(
+      t.referenceItemId,
+    ),
+  }),
+);
 
 // ---------------- BookExternalLink (لینک‌های خرید/مطالعه‌ی بیرونی) ----------------
 // مدل مقیاس‌پذیر: به‌جای یک ستون برای هر فروشگاه، هر لینک یک ردیف است. هویت
@@ -485,22 +528,33 @@ export const Quote = pgTable(
     id: varchar("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+
     userId: varchar("user_id")
       .notNull()
       .references(() => User.id, { onDelete: "cascade" }),
+
     content: text("content").notNull(),
+
     imageKey: text("image_key"),
+
     page: integer("page"),
+
+    background: text("background").notNull().default("default"),
+
     catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, {
       onDelete: "set null",
     }),
+
     bookEditionId: varchar("book_edition_id").references(() => BookEdition.id, {
       onDelete: "set null",
     }),
+
     bookId: varchar("book_id")
       .notNull()
       .references(() => Book.id, { onDelete: "cascade" }),
+
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => ({
@@ -511,23 +565,32 @@ export const Quote = pgTable(
     updatedAtIdx: index("Quote_updated_at_idx").on(table.updatedAt),
   }),
 );
-
 // ---------------- PersonalBookNote (دفترچه‌ی خصوصی مطالعه) ----------------
 // این یادداشت‌ها جدا از یادداشت‌های منتشرشده‌اند و فقط به رکورد کتابِ شخصیِ
 // کاربر وصل می‌شوند؛ بنابراین هرگز در پروفایل یا صفحه‌ی عمومی نمایش داده نمی‌شوند.
 export const PersonalBookNote = pgTable(
   "PersonalBookNote",
   {
-    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
-    bookId: varchar("book_id").notNull().references(() => Book.id, { onDelete: "cascade" }),
-    userId: varchar("user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    bookId: varchar("book_id")
+      .notNull()
+      .references(() => Book.id, { onDelete: "cascade" }),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => User.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     pageNumber: integer("page_number"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => ({
-    bookUserIdx: index("PersonalBookNote_book_user_idx").on(table.bookId, table.userId),
+    bookUserIdx: index("PersonalBookNote_book_user_idx").on(
+      table.bookId,
+      table.userId,
+    ),
     createdAtIdx: index("PersonalBookNote_created_at_idx").on(table.createdAt),
   }),
 );
@@ -538,7 +601,10 @@ export const PersonalBookNote = pgTable(
 export const PublicBookThought = pgTable(
   "PublicBookThought",
   {
-    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
     catalogBookId: varchar("catalog_book_id")
       .notNull()
       .references(() => CatalogBook.id, { onDelete: "cascade" }),
@@ -573,7 +639,10 @@ export const PublicBookThought = pgTable(
 export const ReadingEvent = pgTable(
   "ReadingEvent",
   {
-    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
     userId: varchar("user_id")
       .notNull()
       .references(() => User.id, { onDelete: "cascade" }),
@@ -667,9 +736,14 @@ export const IranKetabImportEvent = pgTable(
 export const IranKetabPreviewOperation = pgTable(
   "IranKetabPreviewOperation",
   {
-    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
     sourceIdentity: text("source_identity").notNull(),
-    status: IranKetabPreviewOperationStatus("status").default("PROCESSING").notNull(),
+    status: IranKetabPreviewOperationStatus("status")
+      .default("PROCESSING")
+      .notNull(),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),
     expiresAt: timestamp("expires_at", { mode: "date" }),
     result: jsonb("result").$type<Record<string, unknown> | null>(),
@@ -681,8 +755,14 @@ export const IranKetabPreviewOperation = pgTable(
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (t) => ({
-    sourceIdentityUnique: unique("IranKetabPreviewOperation_source_identity_unique").on(t.sourceIdentity),
-    reclaimIdx: index("IranKetabPreviewOperation_reclaim_idx").on(t.status, t.leaseExpiresAt, t.expiresAt),
+    sourceIdentityUnique: unique(
+      "IranKetabPreviewOperation_source_identity_unique",
+    ).on(t.sourceIdentity),
+    reclaimIdx: index("IranKetabPreviewOperation_reclaim_idx").on(
+      t.status,
+      t.leaseExpiresAt,
+      t.expiresAt,
+    ),
   }),
 );
 
@@ -937,15 +1017,36 @@ export const UserRelations = relations(User, ({ many }) => ({
   publicThoughts: many(PublicBookThought),
 }));
 
-export const BookEditionContributor = pgTable("BookEditionContributor", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
-  bookEditionId: varchar("book_edition_id").notNull().references(() => BookEdition.id, { onDelete: "cascade" }),
-  referenceItemId: varchar("reference_item_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
-  role: CatalogBookContributorRole("role").notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  sourceName: text("source_name"),
-  sourceUrl: text("source_url"),
-}, (t) => ({ uniqueContributor: unique("BookEditionContributor_unique").on(t.bookEditionId, t.referenceItemId, t.role), editionIdx: index("BookEditionContributor_edition_idx").on(t.bookEditionId), referenceIdx: index("BookEditionContributor_reference_idx").on(t.referenceItemId) }));
+export const BookEditionContributor = pgTable(
+  "BookEditionContributor",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`)
+      .notNull(),
+    bookEditionId: varchar("book_edition_id")
+      .notNull()
+      .references(() => BookEdition.id, { onDelete: "cascade" }),
+    referenceItemId: varchar("reference_item_id")
+      .notNull()
+      .references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    role: CatalogBookContributorRole("role").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    sourceName: text("source_name"),
+    sourceUrl: text("source_url"),
+  },
+  (t) => ({
+    uniqueContributor: unique("BookEditionContributor_unique").on(
+      t.bookEditionId,
+      t.referenceItemId,
+      t.role,
+    ),
+    editionIdx: index("BookEditionContributor_edition_idx").on(t.bookEditionId),
+    referenceIdx: index("BookEditionContributor_reference_idx").on(
+      t.referenceItemId,
+    ),
+  }),
+);
 
 export const PasswordResetTokenRelations = relations(
   PasswordResetToken,

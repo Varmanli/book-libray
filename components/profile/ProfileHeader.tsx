@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { CalendarDays, Lock, MapPin } from "lucide-react";
+import { CalendarDays, Lock, MapPin, Settings } from "lucide-react";
 import type { ElementType } from "react";
 
-import { Button } from "@/components/ui/button";
 import ReaderRankBadge from "@/components/profile/ReaderRankBadge";
+import ProfileBio from "@/components/profile/ProfileBio";
 
 export interface ProfileSocialLink {
   href: string;
@@ -11,12 +11,6 @@ export interface ProfileSocialLink {
   icon: ElementType;
 }
 
-/**
- * Social-style profile header: banner background with a readability overlay, an
- * avatar overlapping the banner, identity + meta, social links, owner actions,
- * and the reader-rank badge. Server component; only the rank badge (modal) is
- * client.
- */
 export default function ProfileHeader({
   name,
   username,
@@ -45,8 +39,9 @@ export default function ProfileHeader({
   const displayName = name || username;
 
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-border/80 bg-card/80 shadow-[0_24px_70px_-50px_rgba(0,0,0,0.42)]">
-      <div className="relative h-32 overflow-hidden rounded-t-[2rem] sm:h-40 lg:h-44">
+    <section className="overflow-hidden rounded-[1.6rem] border border-border/80 bg-card/80 shadow-[0_20px_55px_-46px_rgba(0,0,0,0.4)] sm:rounded-[2rem]">
+      {/* Banner */}
+      <div className="relative h-24 overflow-hidden sm:h-36 lg:h-44">
         {bannerImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -57,24 +52,30 @@ export default function ProfileHeader({
         ) : (
           <div className="h-full w-full bg-[radial-gradient(circle_at_top_right,rgba(128,167,150,0.2),transparent_42%),radial-gradient(circle_at_top_left,rgba(43,98,82,0.16),transparent_38%),linear-gradient(135deg,var(--surface-2),var(--card))]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-black/10 dark:from-black/60 dark:via-black/15 dark:to-black/25" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.12),transparent_32%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.06),transparent_32%)]" />
 
-        <div className="absolute right-4 top-4">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-black/10 dark:from-black/60 dark:via-black/15 dark:to-black/25" />
+
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.1),transparent_32%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_32%)]" />
+
+        <div className="absolute right-3 top-3 origin-top-right scale-90 sm:right-4 sm:top-4 sm:scale-100">
           <ReaderRankBadge finished={finished} />
         </div>
+
         {isOwner && visibility === "PRIVATE" ? (
-          <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-500/12 px-2.5 py-1 text-xs font-bold text-amber-100 backdrop-blur-sm dark:text-amber-200">
-            <Lock className="h-3.5 w-3.5" />
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-500/12 px-2 py-1 text-[10px] font-bold text-amber-100 backdrop-blur-sm sm:left-4 sm:top-4 sm:gap-1.5 sm:px-2.5 sm:text-xs dark:text-amber-200">
+            <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             خصوصی
           </span>
         ) : null}
       </div>
 
-      <div className="px-5 pb-6 sm:px-7 sm:pb-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:gap-4">
-            <div className="relative z-10 -mt-10 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-secondary text-3xl font-bold text-foreground ring-4 ring-background shadow-[0_20px_44px_-28px_rgba(0,0,0,0.4)] sm:-mt-12 sm:h-28 sm:w-28">
+      {/* Content */}
+      <div className="px-4 pb-5 sm:px-7 sm:pb-7">
+        {/* Identity */}
+        <div className="flex items-end gap-3.5 sm:gap-4">
+          {/* Avatar */}
+          <div className="relative z-10 -mt-8 shrink-0 sm:-mt-12">
+            <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xl font-bold text-foreground ring-[3px] ring-background shadow-sm sm:h-28 sm:w-28 sm:text-3xl sm:ring-4">
               {image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -88,78 +89,76 @@ export default function ProfileHeader({
                 </span>
               )}
             </div>
-            <div className="min-w-0 sm:py-1.5">
-              <div className="min-w-0 flex-1 text-center sm:text-right">
-                <div className="flex min-w-0 flex-col items-center gap-1 sm:items-start">
-                  <h1 className="max-w-full truncate text-xl font-black leading-tight tracking-tight text-foreground sm:text-[1.8rem]">
-                    {displayName}
-                  </h1>
 
-                  <span
-                    dir="ltr"
-                    className="inline-flex max-w-full items-center rounded-full border border-border/60 bg-background/35 px-2.5 py-1 text-xs font-medium text-muted-foreground backdrop-blur"
-                  >
-                    @{username}
-                  </span>
-                </div>
-              </div>
-            </div>
+            {/* Owner settings */}
+            {isOwner ? (
+              <Link
+                href="/settings/profile"
+                aria-label="تنظیمات پروفایل"
+                title="تنظیمات پروفایل"
+                className="absolute -bottom-1 -left-1 inline-flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-card bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-8 sm:w-8"
+              >
+                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Link>
+            ) : null}
           </div>
 
-          {isOwner ? (
-            <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end sm:pb-1.5">
-              <Button
-                asChild
-                className="h-10 rounded-2xl px-4 text-sm font-semibold"
+          {/* Name + username */}
+          <div className="min-w-0 pb-1 sm:pb-1.5">
+            <div className="flex min-w-0 flex-col items-start gap-1">
+              <h1 className="max-w-full truncate text-base font-black leading-tight tracking-tight text-foreground sm:text-[1.8rem]">
+                {displayName}
+              </h1>
+
+              <span
+                dir="ltr"
+                className="inline-flex max-w-full items-center text-[11px] font-medium text-muted-foreground sm:text-xs"
               >
-                <Link href="/settings/profile">ویرایش پروفایل</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-10 rounded-2xl border-border/80 bg-background/65 px-4 text-sm font-semibold text-foreground hover:bg-primary/5 hover:text-primary"
-              >
-                <Link href="/dashboard">داشبورد</Link>
-              </Button>
+                @{username}
+              </span>
             </div>
-          ) : null}
+          </div>
         </div>
 
+        {/* Bio */}
         {bio ? (
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-foreground/90">
-            {bio}
-          </p>
+          <ProfileBio bio={bio} />
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-5 text-[11px] text-muted-foreground sm:mt-4 sm:text-sm">
             هنوز توضیحی برای این پروفایل ثبت نشده است.
           </p>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/65 px-3 py-1.5">
-            <CalendarDays className="h-3.5 w-3.5" />
+        {/* Meta */}
+        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-border/60 pt-4 sm:mt-5 sm:gap-5 sm:border-0 sm:pt-0">
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
+            <CalendarDays className="h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]" />
             عضو از {joined}
           </span>
+
           {location ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/65 px-3 py-1.5">
-              <MapPin className="h-3.5 w-3.5" />
-              {location}
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
+              <MapPin className="h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]" />
+
+              <span className="max-w-[7rem] truncate sm:max-w-none">
+                {location}
+              </span>
             </span>
           ) : null}
 
           {socialLinks.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 sm:ms-auto">
-              {socialLinks.map((l) => (
+            <div className="ms-auto flex shrink-0 items-center gap-2.5 sm:gap-3">
+              {socialLinks.map((link) => (
                 <a
-                  key={l.label}
-                  href={l.href}
+                  key={link.label}
+                  href={link.href}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  aria-label={l.label}
-                  title={l.label}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/75 bg-background/65 text-muted-foreground transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  aria-label={link.label}
+                  title={link.label}
+                  className="inline-flex items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
-                  <l.icon className="h-4 w-4" />
+                  <link.icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
                 </a>
               ))}
             </div>

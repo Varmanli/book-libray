@@ -34,6 +34,7 @@ export interface DashboardQuotePreview {
   id: string;
   content: string;
   imageKey: string | null;
+  background: string;
   page: number | null;
   bookId: string;
   bookSlug: string | null;
@@ -169,6 +170,7 @@ export async function getUserDashboardData(
           id: Quote.id,
           content: Quote.content,
           imageKey: Quote.imageKey,
+          background: Quote.background,
           page: Quote.page,
           bookId: Quote.bookId,
           bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,

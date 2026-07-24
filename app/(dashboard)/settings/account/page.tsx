@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, Loader2, Mail, Shield, Lock } from "lucide-react";
+import { KeyRound, Loader2, Mail, Palette } from "lucide-react";
 import toast from "react-hot-toast";
 
 import {
   changePasswordSchema,
   type ChangePasswordInput,
 } from "@/lib/validations/auth";
+
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,8 +21,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AuthAlert } from "@/components/auth/AuthAlert";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 export default function AccountSettingsPage() {
   const [email, setEmail] = useState<string | null>(null);
@@ -30,18 +33,28 @@ export default function AccountSettingsPage() {
 
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
-    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
     mode: "onTouched",
   });
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/profile", { credentials: "include" });
+        const res = await fetch("/api/profile", {
+          credentials: "include",
+        });
+
         const data = await res.json();
-        if (res.ok) setEmail(data.profile?.email ?? null);
+
+        if (res.ok) {
+          setEmail(data.profile?.email ?? null);
+        }
       } catch {
-        /* بی‌صدا */
+        // بی‌صدا
       }
     })();
   }, []);
@@ -49,18 +62,24 @@ export default function AccountSettingsPage() {
   const onSubmit = async (values: ChangePasswordInput) => {
     setServerError(null);
     setSubmitting(true);
+
     try {
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         body: JSON.stringify(values),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setServerError(data.error || "تغییر رمز ناموفق بود");
         return;
       }
+
       toast.success(data.message || "رمز عبور تغییر کرد");
       form.reset();
     } catch {
@@ -71,56 +90,48 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-[32px] border border-border/80 bg-gradient-to-b from-card/80 to-card/50 shadow-xl shadow-black/10">
       {/* اطلاعات حساب */}
-      <section className="rounded-[30px] border border-border bg-gradient-to-b from-card/70 to-card/40 p-6 shadow-lg shadow-black/20 sm:p-7">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+      <section className="p-6 sm:p-7">
+        <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Mail className="h-4 w-4 text-primary" />
           اطلاعات حساب
         </h2>
-        <Label className="pb-2">ایمیل</Label>
-        <div
-          dir="ltr"
-          className="flex h-10 items-center rounded-lg border border-input/70 bg-black/20 px-3 text-sm text-muted-foreground"
-        >
-          {email ?? "—"}
+
+        <div className="space-y-2">
+          <Label>ایمیل</Label>
+
+          <div
+            dir="ltr"
+            className="flex h-11 items-center rounded-xl border border-input/70 bg-background/40 px-3 text-sm text-muted-foreground"
+          >
+            {email ?? "—"}
+          </div>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          تغییر ایمیل در این نسخه پشتیبانی نمی‌شود.
-        </p>
       </section>
 
-      <section className="rounded-[30px] border border-border bg-gradient-to-b from-card/70 to-card/40 p-6 shadow-lg shadow-black/20 sm:p-7">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Shield className="h-4 w-4 text-primary" />
-          امنیت و حریم خصوصی
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-border bg-black/20 p-4 text-sm leading-7 text-muted-foreground">
-            <div className="mb-2 flex items-center gap-2 text-foreground">
-              <Lock className="h-4 w-4 text-primary" />
-              رمز عبور امن
-            </div>
-            برای حسابی که بعداً قرار است قابلیت‌های اجتماعی بیشتری بگیرد، رمز
-            عبور قوی و منحصربه‌فرد نگه دار.
-          </div>
-          <div className="rounded-2xl border border-border bg-black/20 p-4 text-sm leading-7 text-muted-foreground">
-            نمایانی پروفایل از بخش «تنظیمات پروفایل» کنترل می‌شود و روی دیدن
-            کتابخانه‌ی تو توسط دیگران اثر مستقیم دارد.
-          </div>
+      <div className="mx-6 border-t border-border/70 sm:mx-7" />
+
+      {/* ظاهر */}
+      <section className="p-6 sm:p-7">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Palette className="h-4 w-4 text-primary" />
+            تم سایت
+          </h2>
+
+          <ThemeToggle />
         </div>
       </section>
+
+      <div className="mx-6 border-t border-border/70 sm:mx-7" />
 
       {/* تغییر رمز عبور */}
-      <section className="rounded-[30px] border border-border bg-gradient-to-b from-card/70 to-card/40 p-6 shadow-lg shadow-black/20 sm:p-7">
+      <section className="p-6 sm:p-7">
         <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold text-foreground">
           <KeyRound className="h-4 w-4 text-primary" />
           تغییر رمز عبور
         </h2>
-        <p className="mb-5 text-sm leading-7 text-muted-foreground">
-          بعد از تغییر رمز، نشست فعلی تو باقی می‌ماند اما از این به بعد باید با
-          رمز جدید وارد شوی.
-        </p>
 
         <Form {...form}>
           <form
@@ -136,6 +147,7 @@ export default function AccountSettingsPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>رمز عبور فعلی</FormLabel>
+
                   <FormControl>
                     <PasswordInput
                       autoComplete="current-password"
@@ -144,6 +156,7 @@ export default function AccountSettingsPage() {
                       {...field}
                     />
                   </FormControl>
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -155,6 +168,7 @@ export default function AccountSettingsPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>رمز عبور جدید</FormLabel>
+
                   <FormControl>
                     <PasswordInput
                       autoComplete="new-password"
@@ -163,6 +177,7 @@ export default function AccountSettingsPage() {
                       {...field}
                     />
                   </FormControl>
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -174,6 +189,7 @@ export default function AccountSettingsPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>تکرار رمز عبور جدید</FormLabel>
+
                   <FormControl>
                     <PasswordInput
                       autoComplete="new-password"
@@ -182,6 +198,7 @@ export default function AccountSettingsPage() {
                       {...field}
                     />
                   </FormControl>
+
                   <FormMessage />
                 </FormItem>
               )}

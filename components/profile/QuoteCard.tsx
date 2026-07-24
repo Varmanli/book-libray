@@ -12,6 +12,7 @@ import {
   Pencil,
   Quote as QuoteIcon,
   Share2,
+  Star,
   Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -20,6 +21,7 @@ import BookCoverImage from "@/components/books/BookCoverImage";
 import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
 import { getQuoteDirectionProps } from "@/lib/text-direction";
+import type { QuoteBackground as QuoteBackgroundVariant } from "@/lib/quotes/backgrounds";
 
 const QuoteReadingDialog = dynamic(
   () => import("@/components/profile/QuoteReadingDialog"),
@@ -29,18 +31,6 @@ const QuoteReadingDialog = dynamic(
 const PLACEHOLDER = "/placeholder-cover.svg";
 const LONG_QUOTE_CHAR_LIMIT = 220;
 const LONG_QUOTE_WORD_LIMIT = 42;
-
-export type QuoteBackgroundVariant =
-  | "paper"
-  | "grid"
-  | "editorial"
-  | "aurora"
-  | "minimal"
-  | "linen"
-  | "dust"
-  | "ornament"
-  | "marble"
-  | "light";
 
 export interface CardManage {
   onEdit: () => void;
@@ -63,7 +53,7 @@ export default function QuoteCard({
   showAuthor = false,
   showBook = true,
   manage,
-  background = "paper",
+  background = "default",
   className,
 }: QuoteCardProps) {
   const [liked, setLiked] = useState(quote.likedByViewer);
@@ -179,7 +169,10 @@ export default function QuoteCard({
   }
 
   function handleQuoteKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if ((!isLongQuote && !hasImage) || (event.key !== "Enter" && event.key !== " ")) {
+    if (
+      (!isLongQuote && !hasImage) ||
+      (event.key !== "Enter" && event.key !== " ")
+    ) {
       return;
     }
 
@@ -190,42 +183,57 @@ export default function QuoteCard({
   return (
     <>
       <article
+        dir="rtl"
         className={cn(
-          "group relative flex h-full min-h-[410px] flex-col overflow-hidden",
-          "rounded-[1.9rem] border border-border/55 bg-card/90",
-          "p-3 shadow-[0_24px_70px_-46px_rgba(0,0,0,0.85)]",
-          "transition-[transform,box-shadow,border-color] duration-300",
-          "hover:-translate-y-1 hover:border-primary/20",
-          "hover:shadow-[0_34px_90px_-50px_rgba(0,0,0,0.95)]",
-          "sm:min-h-[440px] sm:p-4",
+          "group relative flex h-full min-h-[390px] flex-col overflow-hidden",
+          "rounded-[1.75rem] border border-border/65 bg-card/80",
+          "p-3.5 sm:min-h-[420px] sm:p-4",
+          "shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)]",
+          "transition-[border-color,background-color,box-shadow] duration-300",
+          "hover:border-primary/20 hover:bg-card/90",
+          "hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
           className,
         )}
       >
-        <QuoteBackground variant={background} />
-
+        {/* top highlight */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-12 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
+          className="pointer-events-none absolute inset-x-10 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
         />
 
-        <QuoteCardHeader
-          quote={quote}
-          bookHref={bookHref}
-          showAuthor={showAuthor}
-          showBook={showBook}
-        />
+        {/* Author */}
+        {showAuthor && quote.authorUsername ? (
+          <AuthorHeader
+            username={quote.authorUsername}
+            name={quote.authorName}
+            image={quote.authorImage}
+          />
+        ) : null}
 
+        {/* Book */}
+        {showBook ? (
+          <BookHeader
+            href={bookHref}
+            cover={quote.bookCover}
+            title={quote.bookTitle}
+            author={quote.bookAuthor}
+          />
+        ) : null}
+
+        {/* Quote */}
         <QuoteContent
           quoteText={quoteText}
           imageKey={quote.imageKey}
           bookTitle={quote.bookTitle}
           page={quote.page}
+          background={background}
           isLongQuote={isLongQuote}
           canOpen={isLongQuote || hasImage}
           onOpen={openFullQuote}
           onKeyDown={handleQuoteKeyDown}
         />
 
+        {/* Actions */}
         <QuoteCardFooter
           liked={liked}
           likeCount={likeCount}
@@ -254,47 +262,146 @@ export default function QuoteCard({
   );
 }
 
-function QuoteCardHeader({
-  quote,
-  bookHref,
-  showAuthor,
-  showBook,
+function AuthorHeader({
+  username,
+  name,
+  image,
 }: {
-  quote: PublicQuote;
-  bookHref: string;
-  showAuthor: boolean;
-  showBook: boolean;
+  username: string;
+  name: string | null;
+  image: string | null;
 }) {
+  const displayName = name || `@${username}`;
+  const initial = displayName.trim().charAt(0) || "؟";
+
   return (
-    <header className="relative z-10 shrink-0 px-1 pb-2 pt-1">
-      <div
-        className={cn(
-          "flex min-w-0 items-center gap-3",
-          showAuthor && showBook ? "justify-between" : "justify-start",
-        )}
-      >
-        {showAuthor && quote.authorUsername ? (
-          <AuthorChip
-            username={quote.authorUsername}
-            name={quote.authorName}
-            image={quote.authorImage}
+    <Link
+      href={`/${username}`}
+      onClick={(event) => event.stopPropagation()}
+      className="
+        group/author
+        relative
+        z-10
+        flex
+        min-w-0
+        items-center
+        gap-3
+        pb-3
+      "
+    >
+      {/* Avatar — right side in RTL */}
+      <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xs font-black text-foreground shadow-sm sm:h-12 sm:w-12">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt={displayName}
+            className="h-full w-full object-cover"
           />
         ) : (
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
-            <QuoteIcon className="h-4 w-4" />
-          </span>
+          <span>{initial}</span>
         )}
+      </span>
 
-        {showBook ? (
-          <BookChip
-            href={bookHref}
-            cover={quote.bookCover}
-            title={quote.bookTitle}
-            author={quote.bookAuthor}
-          />
+      <span className="min-w-0 text-right">
+        <span className="block max-w-[190px] truncate text-[13px] font-black text-foreground transition-colors group-hover/author:text-primary sm:text-sm">
+          {displayName}
+        </span>
+
+        {name ? (
+          <span
+            dir="ltr"
+            className="mt-0.5 block max-w-[190px] truncate text-[10px] font-medium text-muted-foreground sm:text-[11px]"
+          >
+            @{username}
+          </span>
         ) : null}
-      </div>
-    </header>
+      </span>
+    </Link>
+  );
+}
+
+function BookHeader({
+  href,
+  cover,
+  title,
+  author,
+  rating,
+}: {
+  href: string;
+  cover: string | null;
+  title: string;
+  author: string | null;
+  rating?: number | null;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={(event) => event.stopPropagation()}
+      className="
+        group/book
+        relative
+        z-10
+        flex
+        min-w-0
+        items-center
+        gap-4
+        py-1
+      "
+    >
+      <span
+        className="
+          relative
+          h-[6rem]
+          w-[4.15rem]
+          shrink-0
+          overflow-hidden
+          rounded-[4px]
+          bg-muted
+          shadow-[0_14px_28px_-16px_rgba(0,0,0,0.75)]
+          ring-1
+          ring-border/40
+          sm:h-[6.5rem]
+          sm:w-[4.5rem]
+        "
+      >
+        <BookCoverImage
+          src={cover || PLACEHOLDER}
+          alt={title}
+          fill
+          sizes="76px"
+          className="object-cover transition-transform duration-300 group-hover/book:scale-[1.025]"
+        />
+      </span>
+
+      <span className="min-w-0 flex-1 text-right">
+        <span className="block truncate text-[15px] font-black leading-7 text-foreground transition-colors group-hover/book:text-primary sm:text-base">
+          {title}
+        </span>
+
+        {author ? (
+          <span className="mt-0.5 block truncate text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+            {author}
+          </span>
+        ) : null}
+
+        {typeof rating === "number" ? (
+          <span className="mt-1.5 flex items-center gap-1 text-xs font-bold text-muted-foreground">
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+
+            <span className="tabular-nums text-foreground/85">
+              {rating.toLocaleString("fa-IR", {
+                maximumFractionDigits: 1,
+              })}
+            </span>
+
+            <span className="text-[10px] font-medium text-muted-foreground/70">
+              از ۵
+            </span>
+          </span>
+        ) : null}
+      </span>
+    </Link>
   );
 }
 
@@ -303,6 +410,7 @@ function QuoteContent({
   imageKey,
   bookTitle,
   page,
+  background,
   isLongQuote,
   canOpen,
   onOpen,
@@ -312,11 +420,14 @@ function QuoteContent({
   imageKey: string | null;
   bookTitle: string;
   page: number | null;
+  background: QuoteBackgroundVariant;
   isLongQuote: boolean;
   canOpen: boolean;
   onOpen: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }) {
+  const hasArtwork = background !== "default";
+
   return (
     <div
       role={canOpen ? "button" : undefined}
@@ -325,75 +436,87 @@ function QuoteContent({
       onClick={onOpen}
       onKeyDown={onKeyDown}
       className={cn(
-        "relative z-10 mt-2 flex min-h-0 flex-1 overflow-hidden",
-        "rounded-[1.55rem] border border-white/[0.055]",
-        "bg-background/35 backdrop-blur-sm",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "relative z-10 mt-3 flex min-h-0 flex-1 overflow-hidden",
+        "rounded-[1.45rem] border",
+        hasArtwork
+          ? "border-white/10 bg-black"
+          : "border-border/60 bg-background/30",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]",
         canOpen &&
-          "cursor-pointer transition-colors duration-300 hover:bg-background/45",
+          "cursor-pointer transition-[border-color,box-shadow] duration-300",
         canOpen &&
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          (hasArtwork
+            ? "hover:border-white/20 hover:shadow-[0_18px_46px_-34px_rgba(0,0,0,0.9)]"
+            : "hover:border-primary/15"),
+        canOpen &&
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
       )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.025] via-transparent to-black/[0.025]"
-      />
+      {/* Background belongs ONLY to the quote area. */}
+      <QuoteBackground variant={background} />
 
-      <div
+      {/* Decorative quote marks */}
+      <QuoteIcon
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.09] to-transparent"
+        className={cn(
+          "pointer-events-none absolute right-4 top-4 z-[1] h-7 w-7 sm:right-5 sm:top-5 sm:h-8 sm:w-8",
+          hasArtwork ? "text-white/35" : "text-primary/25",
+        )}
       />
 
       <QuoteIcon
         aria-hidden="true"
-        className="pointer-events-none absolute right-6 top-6 h-9 w-9 text-primary/[0.09] sm:right-8 sm:top-8"
+        className={cn(
+          "pointer-events-none absolute bottom-4 left-4 z-[1] h-7 w-7 rotate-180 sm:bottom-5 sm:left-5 sm:h-8 sm:w-8",
+          hasArtwork ? "text-white/15" : "text-primary/10",
+        )}
       />
 
-      <QuoteIcon
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-7 left-6 h-9 w-9 rotate-180 text-primary/[0.07] sm:bottom-8 sm:left-8"
-      />
-
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-10 right-0 w-px bg-gradient-to-b from-transparent via-primary/45 to-transparent"
-      />
-
-      <div className="relative z-10 flex min-h-[285px] w-full flex-1 flex-col px-7 py-9 sm:min-h-[310px] sm:px-10 sm:py-11">
+      <div className="relative z-10 flex min-h-[205px] w-full flex-1 flex-col px-5 py-6 sm:min-h-[230px] sm:px-7 sm:py-7">
         {imageKey ? (
-          <div className="relative mb-5 flex max-h-56 min-h-40 w-full items-center justify-center overflow-hidden rounded-2xl bg-black/15 ring-1 ring-border/50">
+          <div
+            className={cn(
+              "relative mb-4 flex max-h-48 min-h-32 w-full items-center justify-center overflow-hidden rounded-xl",
+              hasArtwork
+                ? "bg-black/25 ring-1 ring-white/15 backdrop-blur-[2px]"
+                : "bg-black/10 ring-1 ring-border/40",
+            )}
+          >
             <BookCoverImage
               src={imageKey}
               alt={`تصویر تکه‌ای از کتاب «${bookTitle}»`}
               width={700}
               height={900}
-              className="h-auto max-h-56 w-auto max-w-full object-contain"
+              className="h-auto max-h-48 w-auto max-w-full object-contain"
             />
           </div>
         ) : null}
 
-        {quoteText ? <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="mx-auto w-full max-w-[34rem]">
-            <p
-              {...getQuoteDirectionProps(quoteText)}
-              className={cn(
-                "whitespace-pre-line text-center",
-                "text-[13px] font-medium leading-7",
-                "text-foreground/95",
-                "sm:text-[15px] sm:leading-[2.2]",
-                "md:text-[1rem] md:leading-[2.3]",
-                "lg:text-base lg:leading-[2.4]",
-                isLongQuote && "line-clamp-6",
-              )}
-            >
-              {quoteText}
-            </p>
+        {quoteText ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="mx-auto w-full max-w-[34rem]">
+              <p
+                {...getQuoteDirectionProps(quoteText)}
+                className={cn(
+                  "whitespace-pre-line text-center",
+                  "text-[13px] font-medium leading-7",
+                  hasArtwork
+                    ? "text-white [text-shadow:0_1px_18px_rgba(0,0,0,0.55)]"
+                    : "text-foreground/95",
+                  "sm:text-[15px] sm:leading-[2.2]",
+                  "md:text-[1rem] md:leading-[2.3]",
+                  "lg:text-base lg:leading-[2.4]",
+                  isLongQuote && "line-clamp-6",
+                )}
+              >
+                {quoteText}
+              </p>
+            </div>
           </div>
-        </div> : null}
+        ) : null}
 
         {(isLongQuote || page) && (
-          <div className="mt-5 flex min-h-8 shrink-0 items-center justify-between gap-3">
+          <div className="mt-4 flex min-h-8 shrink-0 items-center justify-between gap-3">
             {isLongQuote ? (
               <button
                 type="button"
@@ -402,10 +525,12 @@ function QuoteContent({
                   onOpen();
                 }}
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-full",
-                  "px-2.5 text-[11px] font-black text-primary",
-                  "transition-colors hover:bg-primary/10",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-1.5",
+                  "text-[11px] font-black transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
+                  hasArtwork
+                    ? "text-white/90 hover:bg-white/10 hover:text-white"
+                    : "text-primary hover:bg-primary/8",
                 )}
               >
                 ادامه خواندن
@@ -415,7 +540,7 @@ function QuoteContent({
               <span />
             )}
 
-            {page ? <PageBadge page={page} /> : null}
+            {page ? <PageBadge page={page} inverted={hasArtwork} /> : null}
           </div>
         )}
       </div>
@@ -445,7 +570,7 @@ function QuoteCardFooter({
   onShare: () => void;
 }) {
   return (
-    <footer className="relative z-10 mt-3 flex shrink-0 items-center justify-between gap-3 px-1 pb-1">
+    <footer className="relative z-10 mt-3 flex shrink-0 items-center justify-between gap-2">
       <LikePill
         liked={liked}
         count={likeCount}
@@ -453,8 +578,8 @@ function QuoteCardFooter({
         onClick={onLike}
       />
 
-      <div className="flex items-center gap-0.5 rounded-2xl border border-border/45 bg-background/25 p-1 backdrop-blur-sm">
-        <IconAction
+      <div className="flex items-center gap-1.5">
+        <ActionPill
           label={canCopy ? "کپی تکه" : "تکه تصویری متنی برای کپی ندارد"}
           onClick={onCopy}
           disabled={!canCopy}
@@ -468,7 +593,7 @@ function QuoteCardFooter({
           }
         />
 
-        <IconAction
+        <ActionPill
           label="اشتراک‌گذاری"
           onClick={onShare}
           icon={<Share2 className="h-4 w-4" />}
@@ -476,8 +601,6 @@ function QuoteCardFooter({
 
         {manage ? (
           <>
-            <span aria-hidden="true" className="mx-1 h-4 w-px bg-border/65" />
-
             <IconAction
               label="ویرایش"
               onClick={manage.onEdit}
@@ -498,185 +621,23 @@ function QuoteCardFooter({
   );
 }
 
-export function QuoteBackground({
-  variant,
+function PageBadge({
+  page,
+  inverted = false,
 }: {
-  variant: QuoteBackgroundVariant;
-}) {
-  const variants: Record<QuoteBackgroundVariant, ReactNode> = {
-    paper: <PaperBackground />,
-    grid: <GridBackground />,
-    editorial: <EditorialBackground />,
-    aurora: <AuroraBackground />,
-    minimal: <MinimalBackground />,
-    linen: <LinenBackground />,
-    dust: <DustBackground />,
-    ornament: <OrnamentBackground />,
-    marble: <MarbleBackground />,
-    light: <LightBackground />,
-  };
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {variants[variant]}
-    </div>
-  );
-}
-
-function PaperBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_0%,hsl(var(--primary)/0.14),transparent_36%),radial-gradient(circle_at_5%_100%,rgba(255,255,255,0.04),transparent_38%)]" />
-
-      <div className="absolute inset-0 opacity-[0.055] [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:12px_12px]" />
-    </>
-  );
-}
-
-function GridBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_38%)]" />
-
-      <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(hsl(var(--border)/0.45)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/0.45)_1px,transparent_1px)] [background-size:24px_24px]" />
-    </>
-  );
-}
-
-function EditorialBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.11),transparent_36%)]" />
-
-      <div className="absolute inset-0 opacity-[0.18] [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_31px,hsl(var(--border)/0.42)_32px)]" />
-    </>
-  );
-}
-
-function AuroraBackground() {
-  return (
-    <>
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-
-      <div className="absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-sky-400/10 blur-3xl" />
-
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.025] via-transparent to-primary/[0.025]" />
-    </>
-  );
-}
-
-function MinimalBackground() {
-  return (
-    <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.07),transparent_42%,rgba(255,255,255,0.02))]" />
-  );
-}
-
-function LinenBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.1),transparent_38%)]" />
-
-      <div className="absolute inset-0 opacity-[0.07] [background-image:repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.22)_4px),repeating-linear-gradient(90deg,transparent_0,transparent_4px,rgba(255,255,255,0.13)_5px)]" />
-    </>
-  );
-}
-
-function DustBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,hsl(var(--primary)/0.11),transparent_38%)]" />
-
-      <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.42)_0_1px,transparent_1.5px),radial-gradient(circle_at_70%_60%,hsl(var(--primary)/0.5)_0_1px,transparent_1.5px)] [background-size:47px_53px,71px_67px]" />
-    </>
-  );
-}
-
-function OrnamentBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.1),transparent_40%)]" />
-
-      <div className="absolute inset-0 opacity-[0.055] [background-image:linear-gradient(45deg,hsl(var(--primary)/0.9)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.9)_88%),linear-gradient(-45deg,hsl(var(--primary)/0.9)_12%,transparent_12%,transparent_88%,hsl(var(--primary)/0.9)_88%)] [background-size:30px_30px]" />
-    </>
-  );
-}
-
-function MarbleBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.09),transparent_40%)]" />
-
-      <div className="absolute inset-0 opacity-[0.08] [background-image:radial-gradient(ellipse_at_20%_20%,transparent_42%,rgba(255,255,255,0.32)_43%,transparent_45%),radial-gradient(ellipse_at_75%_80%,transparent_47%,hsl(var(--primary)/0.4)_48%,transparent_50%)]" />
-    </>
-  );
-}
-
-function LightBackground() {
-  return (
-    <>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.14),transparent_44%)]" />
-
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.025] to-transparent" />
-    </>
-  );
-}
-
-function PageBadge({ page }: { page: number }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-background/30 px-2.5 py-1.5 text-[10px] font-medium tabular-nums text-muted-foreground ring-1 ring-border/40">
-      <BookOpen className="h-3 w-3 opacity-70" />
-      صفحه {page.toLocaleString("fa-IR")}
-    </span>
-  );
-}
-
-function BookChip({
-  href,
-  cover,
-  title,
-  author,
-}: {
-  href: string;
-  cover: string | null;
-  title: string;
-  author: string | null;
+  page: number;
+  inverted?: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      onClick={(event) => event.stopPropagation()}
+    <span
       className={cn(
-        "group/book flex min-w-0 items-center gap-2.5",
-        "rounded-2xl px-2 py-1.5",
-        "transition-colors hover:bg-background/30",
-        "sm:max-w-[60%]",
+        "inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium tabular-nums",
+        inverted ? "text-white/75" : "text-muted-foreground",
       )}
     >
-      <span className="relative h-10 w-7 shrink-0 overflow-hidden rounded-lg bg-muted shadow-[0_7px_18px_-8px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
-        <BookCoverImage
-          src={cover || PLACEHOLDER}
-          alt={title}
-          fill
-          sizes="28px"
-          className="object-cover transition-transform duration-500 group-hover/book:scale-105"
-        />
-      </span>
-
-      <span className="min-w-0 text-right">
-        <span className="block truncate text-[11px] font-black text-foreground transition-colors group-hover/book:text-primary">
-          {title}
-        </span>
-
-        {author ? (
-          <span className="mt-1 block truncate text-[10px] font-medium text-muted-foreground">
-            {author}
-          </span>
-        ) : null}
-      </span>
-    </Link>
+      <BookOpen className="h-3.5 w-3.5 opacity-70" />
+      صفحه {page.toLocaleString("fa-IR")}
+    </span>
   );
 }
 
@@ -698,19 +659,20 @@ function LikePill({
       disabled={pending}
       aria-pressed={liked}
       className={cn(
-        "inline-flex h-9 min-w-[58px] items-center justify-center gap-1.5",
-        "rounded-2xl px-3 text-xs font-black tabular-nums",
-        "transition-all duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        "inline-flex h-10 min-w-[68px] items-center justify-center gap-2 rounded-full",
+        "border border-border/60 bg-background/30 px-3",
+        "text-xs font-black tabular-nums",
+        "transition-[border-color,background-color,color] duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
         "disabled:cursor-not-allowed disabled:opacity-60",
         liked
-          ? "bg-rose-500/14 text-rose-300 ring-1 ring-rose-300/15"
-          : "bg-background/25 text-muted-foreground ring-1 ring-border/45 hover:bg-rose-500/10 hover:text-rose-300",
+          ? "border-rose-400/15 bg-rose-500/10 text-rose-400"
+          : "text-muted-foreground hover:border-rose-400/15 hover:bg-rose-500/8 hover:text-rose-400",
       )}
     >
       <Heart
         className={cn(
-          "h-4 w-4 transition-transform duration-200",
+          "h-[17px] w-[17px] transition-transform duration-200",
           liked && "scale-110 fill-current",
         )}
       />
@@ -720,18 +682,55 @@ function LikePill({
   );
 }
 
-export function IconAction({
+function ActionPill({
   label,
   icon,
   onClick,
   active,
-  tone = "default",
   disabled = false,
 }: {
   label: string;
   icon: ReactNode;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "grid h-10 w-12 place-items-center rounded-full",
+        "border border-border/60 bg-background/30",
+        "text-muted-foreground",
+        "transition-[border-color,background-color,color] duration-200",
+        "hover:border-primary/15 hover:bg-primary/5 hover:text-foreground",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
+        "disabled:cursor-not-allowed disabled:opacity-30",
+        active && "border-primary/15 bg-primary/8 text-primary",
+      )}
+    >
+      {icon}
+    </button>
+  );
+}
+
+export function IconAction({
+  label,
+  icon,
+  onClick,
+  tone = "default",
+  disabled = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
   tone?: "default" | "primary" | "danger";
   disabled?: boolean;
 }) {
@@ -746,20 +745,113 @@ export function IconAction({
       aria-label={label}
       title={label}
       className={cn(
-        "grid h-8 w-8 place-items-center rounded-xl",
-        "text-muted-foreground transition-all duration-200",
-        "hover:-translate-y-0.5",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-        "disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0",
-        active && "bg-primary/12 text-primary",
-        tone === "primary" && "text-primary hover:bg-primary/10",
+        "grid h-9 w-9 place-items-center rounded-full",
+        "text-muted-foreground transition-colors duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
+        "disabled:cursor-not-allowed disabled:opacity-30",
+        tone === "primary" && "text-primary hover:bg-primary/8",
         tone === "danger" &&
-          "text-red-300 hover:bg-red-500/10 hover:text-red-200",
-        tone === "default" && "hover:bg-white/[0.06] hover:text-foreground",
+          "text-red-400 hover:bg-red-500/8 hover:text-red-300",
+        tone === "default" && "hover:bg-foreground/5 hover:text-foreground",
       )}
     >
       {icon}
     </button>
+  );
+}
+
+/* Quote backgrounds — rendered only inside the quote-content area. */
+export function QuoteBackground({
+  variant,
+}: {
+  variant: QuoteBackgroundVariant;
+}) {
+  if (variant === "default") {
+    return <DefaultQuoteBackground />;
+  }
+
+  return <ImageQuoteBackground variant={variant} />;
+}
+
+function DefaultQuoteBackground() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+    >
+      {/* Deep paper base */}
+      <div className="absolute inset-0 bg-background/65" />
+
+      {/* Soft literary glows */}
+      <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/[0.11] blur-3xl" />
+      <div className="absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-primary/[0.045] blur-3xl" />
+
+      {/* Elegant ruled-paper lines */}
+      <div className="absolute inset-0 opacity-[0.15] [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_31px,hsl(var(--border)/0.85)_32px)]" />
+
+      {/* Subtle notebook margin */}
+      <div className="absolute bottom-0 right-9 top-0 w-px bg-primary/[0.14]" />
+
+      {/* Fine paper grain */}
+      <div className="absolute inset-0 opacity-[0.11] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:17px_17px]" />
+
+      {/* Top highlight */}
+      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+
+      {/* Soft vignette keeps focus on the writing */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,hsl(var(--background)/0.18)_100%)]" />
+    </div>
+  );
+}
+
+function ImageQuoteBackground({
+  variant,
+}: {
+  variant: Exclude<QuoteBackgroundVariant, "default">;
+}) {
+  const backgroundMap: Record<
+    Exclude<QuoteBackgroundVariant, "default">,
+    string
+  > = {
+    "bg-1": "/quotebg/bg-1.webp",
+    "bg-2": "/quotebg/bg-2.webp",
+    "bg-3": "/quotebg/bg-3.webp",
+    "bg-4": "/quotebg/bg-4.webp",
+    "bg-5": "/quotebg/bg-5.webp",
+    "bg-6": "/quotebg/bg-6.webp",
+    "bg-7": "/quotebg/bg-7.webp",
+    "bg-8": "/quotebg/bg-8.webp",
+    "bg-9": "/quotebg/bg-9.webp",
+    "bg-10": "/quotebg/bg-10.webp",
+    "bg-11": "/quotebg/bg-11.webp",
+    "bg-12": "/quotebg/bg-12.webp",
+  };
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+    >
+      {/* Artwork */}
+      <div
+        className="absolute inset-0 scale-[1.01] bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url("${backgroundMap[variant]}")`,
+        }}
+      />
+
+      {/* Readability — keep the artwork visible, not washed out */}
+      <div className="absolute inset-0 bg-black/34" />
+
+      {/* Gentle center focus */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.10)_0%,rgba(0,0,0,0.18)_52%,rgba(0,0,0,0.38)_100%)]" />
+
+      {/* Cinematic depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/25" />
+
+      {/* Thin glass-like highlight */}
+      <div className="absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+    </div>
   );
 }
 
@@ -779,9 +871,9 @@ export function AuthorChip({
     <Link
       href={`/${username}`}
       onClick={(event) => event.stopPropagation()}
-      className="group/author flex min-w-0 items-center gap-2 rounded-2xl px-1.5 py-1 transition-colors hover:bg-background/25"
+      className="group/author flex min-w-0 items-center gap-2.5"
     >
-      <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-primary/30 to-sky-400/15 text-xs font-black text-foreground ring-1 ring-white/12">
+      <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xs font-black text-foreground shadow-sm">
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -795,13 +887,16 @@ export function AuthorChip({
       </span>
 
       <span className="min-w-0 text-right">
-        <span className="block max-w-[140px] truncate text-[11px] font-black text-foreground transition-colors group-hover/author:text-primary">
+        <span className="block max-w-[150px] truncate text-[11px] font-black text-foreground transition-colors group-hover/author:text-primary">
           {displayName}
         </span>
 
         {name ? (
-          <span className="mt-0.5 block max-w-[140px] truncate text-[10px] font-medium text-muted-foreground">
-            {username}@
+          <span
+            dir="ltr"
+            className="mt-0.5 block max-w-[150px] truncate text-[10px] font-medium text-muted-foreground"
+          >
+            @{username}
           </span>
         ) : null}
       </span>

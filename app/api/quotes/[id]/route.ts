@@ -10,6 +10,7 @@ import {
   normalizeQuoteImageKey,
   normalizeQuoteText,
 } from "@/lib/quotes/image";
+import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
 
 async function manageableQuote(id: string, userId: string, admin: boolean) {
@@ -53,6 +54,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const imageKey = Object.prototype.hasOwnProperty.call(body, "imageKey")
       ? normalizeQuoteImageKey(body.imageKey)
       : existing.quote.imageKey;
+    const background = Object.prototype.hasOwnProperty.call(body, "background")
+      ? normalizeQuoteBackground(body.background)
+      : existing.quote.background;
     const page = typeof body.page === "number" && Number.isInteger(body.page) && body.page > 0
       ? body.page
       : null;
@@ -76,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const [quote] = await db
       .update(Quote)
-      .set({ content, imageKey, page, updatedAt: new Date() })
+      .set({ content, imageKey, page, background, updatedAt: new Date() })
       .where(eq(Quote.id, id))
       .returning();
     if (existing.quote.imageKey && existing.quote.imageKey !== imageKey) {

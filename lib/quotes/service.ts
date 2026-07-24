@@ -7,11 +7,13 @@ import {
   ensureBookSlug,
   ensureCatalogBookSlug,
 } from "@/lib/book/public-slug";
+import { normalizeQuoteBackground, type QuoteBackground } from "@/lib/quotes/backgrounds";
 
 export interface PublicQuote {
   id: string;
   content: string;
   imageKey: string | null;
+  background: QuoteBackground;
   page: number | null;
   bookId: string;
   bookSlug?: string | null;
@@ -65,6 +67,7 @@ export async function getPublicQuotesByUsername(
       id: Quote.id,
       content: Quote.content,
       imageKey: Quote.imageKey,
+      background: Quote.background,
       page: Quote.page,
       bookId: Quote.bookId,
       bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
@@ -97,6 +100,7 @@ export async function getPublicQuotesByUsername(
     hasMore,
     quotes: visibleRows.map((r) => ({
       ...r,
+      background: normalizeQuoteBackground(r.background),
       likedByViewer: Boolean(r.likedByViewer),
       authorUsername: user.username,
       authorName: user.name,
@@ -120,6 +124,7 @@ export async function getLatestPublicQuotes(
       id: Quote.id,
       content: Quote.content,
       imageKey: Quote.imageKey,
+      background: Quote.background,
       page: Quote.page,
       bookId: Book.id,
       bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
@@ -173,6 +178,7 @@ export async function getLatestPublicQuotes(
         id: row.id,
         content: row.content,
         imageKey: row.imageKey,
+        background: normalizeQuoteBackground(row.background),
         page: row.page,
         bookId: row.bookId,
         bookTitle: row.bookTitle,

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   BookOpenText,
+  Check,
   Loader2,
   Plus,
   Quote,
@@ -23,12 +24,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "@/components/upload/ImageUploader";
 import { Carousel } from "@/components/ui/Carousel";
-import QuoteCard from "@/components/profile/QuoteCard";
+import QuoteCard, {
+  QuoteBackground as QuoteBackgroundPreview,
+} from "@/components/profile/QuoteCard";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import type { PublicQuote } from "@/lib/quotes/service";
+import {
+  QUOTE_BACKGROUNDS,
+  type QuoteBackground as QuoteBackgroundVariant,
+} from "@/lib/quotes/backgrounds";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/book/cover";
 import { getQuoteTextareaDirectionProps } from "@/lib/text-direction";
+import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 
 export default function BookQuotesSection({
   subjectBookId,
@@ -61,6 +69,8 @@ export default function BookQuotesSection({
   const [page, setPage] = useState("");
   const [imageKey, setImageKey] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [background, setBackground] =
+    useState<QuoteBackgroundVariant>("default");
   const [uploading, setUploading] = useState(false);
   const unsavedImageKeys = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
@@ -75,6 +85,7 @@ export default function BookQuotesSection({
     setPage("");
     setImageKey(null);
     setImagePreview(null);
+    setBackground("default");
     setOpen(true);
   }
 
@@ -84,6 +95,7 @@ export default function BookQuotesSection({
     setPage(quote.page ? String(quote.page) : "");
     setImageKey(quote.imageKey);
     setImagePreview(normalizeMediaUrl(quote.imageKey));
+    setBackground(normalizeQuoteBackground(quote.background));
     setOpen(true);
   }
 
@@ -122,6 +134,7 @@ export default function BookQuotesSection({
             content: text,
             page: normalizedPage,
             imageKey,
+            background,
           }),
         });
 
@@ -141,6 +154,7 @@ export default function BookQuotesSection({
             page: normalizedPage ?? undefined,
             bookId,
             imageKey,
+            background,
           }),
         });
 
@@ -223,12 +237,13 @@ export default function BookQuotesSection({
       viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
 
     return (
-      <QuoteCard
+        <QuoteCard
         key={quote.id}
         quote={quote}
         canLike={isLoggedIn}
         showAuthor
         showBook={showBook}
+        background={quote.background}
         manage={
           canManage
             ? {
@@ -323,12 +338,14 @@ export default function BookQuotesSection({
         imageKey={imageKey}
         imagePreview={imagePreview}
         uploading={uploading}
+        background={background}
         onOpenChange={handleDialogOpenChange}
         onContentChange={setContent}
         onPageChange={setPage}
         onImagePreviewChange={(value) => setImagePreview(value || null)}
         onImageKeyChange={handleImageKeyChange}
         onUploadStateChange={setUploading}
+        onBackgroundChange={setBackground}
         onSubmit={submit}
       />
     </section>
@@ -383,12 +400,14 @@ function QuoteDialog({
   imageKey,
   imagePreview,
   uploading,
+  background,
   onOpenChange,
   onContentChange,
   onPageChange,
   onImagePreviewChange,
   onImageKeyChange,
   onUploadStateChange,
+  onBackgroundChange,
   onSubmit,
 }: {
   open: boolean;
@@ -399,12 +418,14 @@ function QuoteDialog({
   imageKey: string | null;
   imagePreview: string | null;
   uploading: boolean;
+  background: QuoteBackgroundVariant;
   onOpenChange: (open: boolean) => void;
   onContentChange: (value: string) => void;
   onPageChange: (value: string) => void;
   onImagePreviewChange: (value: string) => void;
   onImageKeyChange: (key: string) => void;
   onUploadStateChange: (uploading: boolean) => void;
+  onBackgroundChange: (background: QuoteBackgroundVariant) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -430,14 +451,55 @@ function QuoteDialog({
         </div>
 
         <div className="space-y-4 p-4 sm:p-5">
-          <Textarea
-            {...getQuoteTextareaDirectionProps(content)}
-            value={content}
-            onChange={(event) => onContentChange(event.target.value)}
-            placeholder="یک تکه از کتاب را نقل کن..."
-            className="min-h-40 resize-none rounded-xl border-border/60 bg-background/40 text-xs leading-6 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/40 sm:text-sm sm:leading-7"
-          />
+          <div
+            className={cn(
+              "relative overflow-hidden rounded-[1.35rem] border",
+              background === "default"
+                ? "border-border/60 bg-background/30"
+                : "border-border/50 bg-card/20",
+            )}
+          >
+            {/* Live preview: exactly the selected quote background, only behind writing. */}
+            <QuoteBackgroundPreview variant={background} />
 
+            <Quote
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute right-4 top-4 z-[1] h-7 w-7",
+                background === "default"
+                  ? "text-primary/20"
+                  : "text-white/75 [filter:drop-shadow(0_1px_5px_rgba(0,0,0,0.45))]",
+              )}
+            />
+
+            <Quote
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute bottom-4 left-4 z-[1] h-7 w-7 rotate-180",
+                background === "default"
+                  ? "text-primary/10"
+                  : "text-white/35 [filter:drop-shadow(0_1px_5px_rgba(0,0,0,0.4))]",
+              )}
+            />
+
+            <Textarea
+              {...getQuoteTextareaDirectionProps(content)}
+              value={content}
+              onChange={(event) => onContentChange(event.target.value)}
+              placeholder="یک تکه از کتاب را نقل کن..."
+              className={cn(
+                "relative z-10 min-h-44 resize-none",
+                "border-0 bg-transparent px-5 py-6",
+                "text-xs leading-7",
+                background === "default"
+                  ? "text-foreground placeholder:text-muted-foreground/70"
+                  : "text-white placeholder:text-white/60 [text-shadow:0_1px_3px_rgba(0,0,0,0.8),0_0_16px_rgba(0,0,0,0.28)]",
+                "shadow-none outline-none",
+                "focus-visible:ring-0 focus-visible:ring-offset-0",
+                "sm:min-h-48 sm:px-6 sm:py-7 sm:text-sm sm:leading-8",
+              )}
+            />
+          </div>
           <div className="rounded-xl border border-border/50 bg-background/30 p-2.5">
             <ImageUploader
               value={imagePreview}
@@ -450,6 +512,68 @@ function QuoteDialog({
               description="فرمت‌های JPEG، PNG و WebP تا حجم ۸ مگابایت پذیرفته می‌شوند."
               disabled={busy}
             />
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  ظاهر تکه
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  پس‌زمینه‌ای که با حال‌وهوای تکه هماهنگ‌تر است انتخاب کن.
+                </p>
+              </div>
+
+              <span className="text-[10px] font-medium text-muted-foreground">
+                {QUOTE_BACKGROUNDS.find((item) => item.value === background)
+                  ?.label ?? "پیش‌فرض"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {QUOTE_BACKGROUNDS.map((item) => {
+                const selected = background === item.value;
+
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => onBackgroundChange(item.value)}
+                    disabled={busy || uploading}
+                    aria-pressed={selected}
+                    className={cn(
+                      "group relative h-20 overflow-hidden rounded-xl border text-right",
+                      "transition-[border-color,box-shadow,opacity] duration-200",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                      selected
+                        ? "border-primary/55 ring-2 ring-primary/10"
+                        : "border-border/60 hover:border-primary/25",
+                    )}
+                  >
+                    <QuoteBackgroundPreview variant={item.value} />
+
+                    <span
+                      className={cn(
+                        "absolute bottom-2 right-2 z-10 rounded-md px-1.5 py-1 text-[10px] font-bold backdrop-blur-sm",
+                        item.value === "default"
+                          ? "bg-background/65 text-foreground"
+                          : "bg-black/35 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]",
+                      )}
+                    >
+                      {item.label}
+                    </span>
+
+                    {selected ? (
+                      <span className="absolute left-2 top-2 z-10 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                        <Check className="h-3 w-3" />
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
