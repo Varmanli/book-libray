@@ -22,6 +22,7 @@ import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
 import { getQuoteDirectionProps } from "@/lib/text-direction";
 import type { QuoteBackground as QuoteBackgroundVariant } from "@/lib/quotes/backgrounds";
+import { useQuoteBackgroundImage } from "@/lib/quotes/background-client";
 
 const QuoteReadingDialog = dynamic(
   () => import("@/components/profile/QuoteReadingDialog"),
@@ -766,11 +767,13 @@ export function QuoteBackground({
 }: {
   variant: QuoteBackgroundVariant;
 }) {
-  if (variant === "default") {
+  const imageSrc = useQuoteBackgroundImage(variant);
+
+  if (!imageSrc || variant === "default") {
     return <DefaultQuoteBackground />;
   }
 
-  return <ImageQuoteBackground variant={variant} />;
+  return <ImageQuoteBackground src={imageSrc} />;
 }
 
 function DefaultQuoteBackground() {
@@ -804,29 +807,7 @@ function DefaultQuoteBackground() {
   );
 }
 
-function ImageQuoteBackground({
-  variant,
-}: {
-  variant: Exclude<QuoteBackgroundVariant, "default">;
-}) {
-  const backgroundMap: Record<
-    Exclude<QuoteBackgroundVariant, "default">,
-    string
-  > = {
-    "bg-1": "/quotebg/bg-1.webp",
-    "bg-2": "/quotebg/bg-2.webp",
-    "bg-3": "/quotebg/bg-3.webp",
-    "bg-4": "/quotebg/bg-4.webp",
-    "bg-5": "/quotebg/bg-5.webp",
-    "bg-6": "/quotebg/bg-6.webp",
-    "bg-7": "/quotebg/bg-7.webp",
-    "bg-8": "/quotebg/bg-8.webp",
-    "bg-9": "/quotebg/bg-9.webp",
-    "bg-10": "/quotebg/bg-10.webp",
-    "bg-11": "/quotebg/bg-11.webp",
-    "bg-12": "/quotebg/bg-12.webp",
-  };
-
+function ImageQuoteBackground({ src }: { src: string }) {
   return (
     <div
       aria-hidden="true"
@@ -836,7 +817,7 @@ function ImageQuoteBackground({
       <div
         className="absolute inset-0 scale-[1.01] bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url("${backgroundMap[variant]}")`,
+          backgroundImage: `url("${src}")`,
         }}
       />
 

@@ -20,6 +20,7 @@ export const IMAGE_UPLOAD_FOLDERS = [
   "references",
   "settings",
   "quotes",
+  "quote-backgrounds",
   "temp",
 ] as const;
 
@@ -34,7 +35,12 @@ export const IMAGE_UPLOAD_POLICIES: Record<
 > = Object.fromEntries(
   IMAGE_UPLOAD_FOLDERS.map((folder) => [
     folder,
-    { maxInputBytes: folder === "quotes" ? QUOTE_MAX_UPLOAD_BYTES : MAX_UPLOAD_BYTES },
+    {
+      maxInputBytes:
+        folder === "quotes" || folder === "quote-backgrounds"
+          ? QUOTE_MAX_UPLOAD_BYTES
+          : MAX_UPLOAD_BYTES,
+    },
   ]),
 ) as Record<ImageUploadFolder, { maxInputBytes: number }>;
 

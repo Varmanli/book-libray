@@ -68,9 +68,10 @@ export async function POST(req: NextRequest) {
       uploadOwnerId = target.id;
     }
 
-    // دارایی‌های تنظیمات فقط برای ادمین (لوگو/فاوآیکون/تصویر سوشال).
+    // دارایی‌های تنظیمات و پس‌زمینه‌ها فقط برای ادمین.
     const isSettings = folder === "settings";
-    if (isSettings && !isAdmin(user)) {
+    const isAdminOnlyFolder = isSettings || folder === "quote-backgrounds";
+    if (isAdminOnlyFolder && !isAdmin(user)) {
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
     }
 

@@ -18,6 +18,7 @@ import {
   Newspaper,
   PenTool,
   Quote as QuoteIcon,
+  Palette,
   NotebookPen,
   Plus,
   Settings,
@@ -167,6 +168,11 @@ export const ADMIN_NAV: AdminNavEntry[] = [
           href: "/admin/quotes",
           label: "تکه‌های کتاب",
           icon: QuoteIcon,
+        },
+        {
+          href: "/admin/quotes/backgrounds",
+          label: "پس‌زمینه‌های تکه کتاب",
+          icon: Palette,
         },
         {
           href: "/admin/notes",

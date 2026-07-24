@@ -565,6 +565,31 @@ export const Quote = pgTable(
     updatedAtIdx: index("Quote_updated_at_idx").on(table.updatedAt),
   }),
 );
+
+// ---------------- QuoteBackground (پس‌زمینه‌های مدیریت‌شده‌ی تکه کتاب) ----------------
+export const QuoteBackground = pgTable(
+  "QuoteBackground",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    value: text("value").notNull().unique("QuoteBackground_value_unique"),
+    label: text("label").notNull(),
+    imageKey: text("image_key"),
+    imageUrl: text("image_url"),
+    isActive: boolean("is_active").default(true).notNull(),
+    displayOrder: integer("display_order").default(0).notNull(),
+    isSystem: boolean("is_system").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    displayOrderIdx: index("QuoteBackground_display_order_idx").on(table.displayOrder),
+    isActiveIdx: index("QuoteBackground_is_active_idx").on(table.isActive),
+  }),
+);
+
 // ---------------- PersonalBookNote (دفترچه‌ی خصوصی مطالعه) ----------------
 // این یادداشت‌ها جدا از یادداشت‌های منتشرشده‌اند و فقط به رکورد کتابِ شخصیِ
 // کاربر وصل می‌شوند؛ بنابراین هرگز در پروفایل یا صفحه‌ی عمومی نمایش داده نمی‌شوند.

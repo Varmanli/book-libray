@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -71,9 +71,32 @@ export default function BookQuotesSection({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [background, setBackground] =
     useState<QuoteBackgroundVariant>("default");
+  const [backgroundsList, setBackgroundsList] = useState<
+    Array<{ value: string; label: string }>
+  >([...QUOTE_BACKGROUNDS]);
   const [uploading, setUploading] = useState(false);
   const unsavedImageKeys = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/quotes/backgrounds")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (
+          isMounted &&
+          data?.backgrounds &&
+          Array.isArray(data.backgrounds) &&
+          data.backgrounds.length > 0
+        ) {
+          setBackgroundsList(data.backgrounds);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const hasQuotes = quotes.length > 0;
   const showViewAll =
@@ -339,6 +362,7 @@ export default function BookQuotesSection({
         imagePreview={imagePreview}
         uploading={uploading}
         background={background}
+        backgroundsList={backgroundsList}
         onOpenChange={handleDialogOpenChange}
         onContentChange={setContent}
         onPageChange={setPage}
@@ -401,6 +425,7 @@ function QuoteDialog({
   imagePreview,
   uploading,
   background,
+  backgroundsList,
   onOpenChange,
   onContentChange,
   onPageChange,
@@ -419,6 +444,7 @@ function QuoteDialog({
   imagePreview: string | null;
   uploading: boolean;
   background: QuoteBackgroundVariant;
+  backgroundsList: Array<{ value: string; label: string }>;
   onOpenChange: (open: boolean) => void;
   onContentChange: (value: string) => void;
   onPageChange: (value: string) => void;
@@ -526,13 +552,13 @@ function QuoteDialog({
               </div>
 
               <span className="text-[10px] font-medium text-muted-foreground">
-                {QUOTE_BACKGROUNDS.find((item) => item.value === background)
+                {backgroundsList.find((item) => item.value === background)
                   ?.label ?? "پیش‌فرض"}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {QUOTE_BACKGROUNDS.map((item) => {
+              {backgroundsList.map((item) => {
                 const selected = background === item.value;
 
                 return (

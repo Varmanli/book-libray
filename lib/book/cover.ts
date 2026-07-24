@@ -50,13 +50,13 @@ export function normalizeMediaUrl(input?: string | null): string | null {
   }
   if (raw.startsWith("/")) {
     const key = normalizePath(raw);
-    if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(key)) {
+    if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes|quote-backgrounds)\//i.test(key)) {
       return `${storagePublicBase()}/${key}`;
     }
     return raw;
   }
   if (raw.startsWith("uploads/")) return `/${normalizePath(raw)}`;
-  if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes)\//i.test(raw)) {
+  if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes|quote-backgrounds)\//i.test(raw)) {
     return `${storagePublicBase()}/${normalizePath(raw)}`;
   }
 
