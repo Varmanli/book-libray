@@ -1,23 +1,23 @@
-CREATE TYPE "public"."ApprovalStatus" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
-CREATE TYPE "public"."AuthProvider" AS ENUM('password', 'google', 'otp');--> statement-breakpoint
-CREATE TYPE "public"."BlogPostStatus" AS ENUM('DRAFT', 'PUBLISHED');--> statement-breakpoint
-CREATE TYPE "public"."CatalogBookContributorRole" AS ENUM('AUTHOR', 'TRANSLATOR');--> statement-breakpoint
-CREATE TYPE "public"."ExternalLinkProvider" AS ENUM('taaghche', 'fidibo', 'iranketab', 'ketabrah', 'digikala', 'publisher', 'other');--> statement-breakpoint
-CREATE TYPE "public"."ExternalLinkType" AS ENUM('print', 'ebook', 'audiobook', 'unknown');--> statement-breakpoint
-CREATE TYPE "public"."IranKetabImportEventType" AS ENUM('SESSION_CREATED', 'EXTRACTION_STARTED', 'EXTRACTION_COMPLETED', 'DRAFT_SAVED', 'COVER_PREPARATION_STARTED', 'COVER_PREPARATION_COMPLETED', 'CONTRIBUTOR_STEP_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_COMPLETED', 'CONTRIBUTOR_MATCHED', 'CONTRIBUTOR_CREATED', 'CONTRIBUTOR_UPDATED', 'CONTRIBUTOR_IGNORED', 'CONTRIBUTOR_IMAGE_STAGED', 'CONTRIBUTOR_FAILED', 'CONTRIBUTOR_STEP_COMPLETED', 'COMMIT_STARTED', 'COMMIT_COMPLETED', 'COMMIT_FAILED');--> statement-breakpoint
-CREATE TYPE "public"."IranKetabImportStatus" AS ENUM('CREATED', 'EXTRACTING', 'PREVIEW_READY', 'DRAFT_REVIEW', 'COVER_PREPARATION', 'IMPORTING_REFERENCES', 'READY_TO_COMMIT', 'COMMITTING', 'SUCCESS', 'FAILED', 'CANCELLED');--> statement-breakpoint
-CREATE TYPE "public"."IranKetabPreviewOperationStatus" AS ENUM('PROCESSING', 'COMPLETED', 'FAILED');--> statement-breakpoint
-CREATE TYPE "public"."NoteScope" AS ENUM('book', 'edition');--> statement-breakpoint
-CREATE TYPE "public"."ProfileVisibility" AS ENUM('PUBLIC', 'PRIVATE');--> statement-breakpoint
-CREATE TYPE "public"."PublicBookThoughtType" AS ENUM('THOUGHT', 'QUOTE', 'REFLECTION');--> statement-breakpoint
-CREATE TYPE "public"."PurchasePriority" AS ENUM('MUST_HAVE', 'WANT_IT', 'NICE_TO_HAVE', 'IF_EXTRA_MONEY', 'NOT_IMPORTANT');--> statement-breakpoint
-CREATE TYPE "public"."ReadingEventType" AS ENUM('START', 'PROGRESS', 'FINISH');--> statement-breakpoint
-CREATE TYPE "public"."ReferenceType" AS ENUM('AUTHOR', 'GENRE', 'TRANSLATOR', 'PUBLISHER', 'COUNTRY');--> statement-breakpoint
-CREATE TYPE "public"."StaticPageStatus" AS ENUM('DRAFT', 'PUBLISHED');--> statement-breakpoint
-CREATE TYPE "public"."UserRole" AS ENUM('USER', 'ADMIN');--> statement-breakpoint
-CREATE TYPE "public"."VerificationCodePurpose" AS ENUM('email_verification', 'login', 'password_reset');--> statement-breakpoint
-ALTER TYPE "public"."BookStatus" ADD VALUE 'PAUSED' BEFORE 'FINISHED';--> statement-breakpoint
-CREATE TABLE "BlogCategory" (
+DO $$ BEGIN CREATE TYPE "public"."ApprovalStatus" AS ENUM('PENDING', 'APPROVED', 'REJECTED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."AuthProvider" AS ENUM('password', 'google', 'otp'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."BlogPostStatus" AS ENUM('DRAFT', 'PUBLISHED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."CatalogBookContributorRole" AS ENUM('AUTHOR', 'TRANSLATOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."ExternalLinkProvider" AS ENUM('taaghche', 'fidibo', 'iranketab', 'ketabrah', 'digikala', 'publisher', 'other'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."ExternalLinkType" AS ENUM('print', 'ebook', 'audiobook', 'unknown'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."IranKetabImportEventType" AS ENUM('SESSION_CREATED', 'EXTRACTION_STARTED', 'EXTRACTION_COMPLETED', 'DRAFT_SAVED', 'COVER_PREPARATION_STARTED', 'COVER_PREPARATION_COMPLETED', 'CONTRIBUTOR_STEP_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_STARTED', 'CONTRIBUTOR_PROFILE_FETCH_COMPLETED', 'CONTRIBUTOR_MATCHED', 'CONTRIBUTOR_CREATED', 'CONTRIBUTOR_UPDATED', 'CONTRIBUTOR_IGNORED', 'CONTRIBUTOR_IMAGE_STAGED', 'CONTRIBUTOR_FAILED', 'CONTRIBUTOR_STEP_COMPLETED', 'COMMIT_STARTED', 'COMMIT_COMPLETED', 'COMMIT_FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."IranKetabImportStatus" AS ENUM('CREATED', 'EXTRACTING', 'PREVIEW_READY', 'DRAFT_REVIEW', 'COVER_PREPARATION', 'IMPORTING_REFERENCES', 'READY_TO_COMMIT', 'COMMITTING', 'SUCCESS', 'FAILED', 'CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."IranKetabPreviewOperationStatus" AS ENUM('PROCESSING', 'COMPLETED', 'FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."NoteScope" AS ENUM('book', 'edition'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."ProfileVisibility" AS ENUM('PUBLIC', 'PRIVATE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."PublicBookThoughtType" AS ENUM('THOUGHT', 'QUOTE', 'REFLECTION'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."PurchasePriority" AS ENUM('MUST_HAVE', 'WANT_IT', 'NICE_TO_HAVE', 'IF_EXTRA_MONEY', 'NOT_IMPORTANT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."ReadingEventType" AS ENUM('START', 'PROGRESS', 'FINISH'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."ReferenceType" AS ENUM('AUTHOR', 'GENRE', 'TRANSLATOR', 'PUBLISHER', 'COUNTRY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."StaticPageStatus" AS ENUM('DRAFT', 'PUBLISHED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."UserRole" AS ENUM('USER', 'ADMIN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."VerificationCodePurpose" AS ENUM('email_verification', 'login', 'password_reset'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+ALTER TYPE "public"."BookStatus" ADD VALUE IF NOT EXISTS 'PAUSED' BEFORE 'FINISHED';--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "BlogCategory" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE "BlogCategory" (
 	CONSTRAINT "BlogCategory_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "BlogPost" (
+CREATE TABLE IF NOT EXISTS "BlogPost" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" text NOT NULL,
 	"slug" text NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE "BlogPost" (
 	CONSTRAINT "BlogPost_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "BookEdition" (
+CREATE TABLE IF NOT EXISTS "BookEdition" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"catalog_book_id" varchar NOT NULL,
 	"title_override" text,
@@ -72,7 +72,7 @@ CREATE TABLE "BookEdition" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "BookEditionContributor" (
+CREATE TABLE IF NOT EXISTS "BookEditionContributor" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"book_edition_id" varchar NOT NULL,
 	"reference_item_id" varchar NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE "BookEditionContributor" (
 	CONSTRAINT "BookEditionContributor_unique" UNIQUE("book_edition_id","reference_item_id","role")
 );
 --> statement-breakpoint
-CREATE TABLE "BookEditionPublisher" (
+CREATE TABLE IF NOT EXISTS "BookEditionPublisher" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"book_edition_id" varchar NOT NULL,
 	"reference_item_id" varchar NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE "BookEditionPublisher" (
 	CONSTRAINT "BookEditionPublisher_unique" UNIQUE("book_edition_id","reference_item_id")
 );
 --> statement-breakpoint
-CREATE TABLE "BookExternalLink" (
+CREATE TABLE IF NOT EXISTS "BookExternalLink" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"catalog_book_id" varchar NOT NULL,
 	"edition_id" varchar,
@@ -108,7 +108,7 @@ CREATE TABLE "BookExternalLink" (
 	CONSTRAINT "BookExternalLink_catalog_provider_url_unique" UNIQUE("catalog_book_id","provider","url")
 );
 --> statement-breakpoint
-CREATE TABLE "CatalogBook" (
+CREATE TABLE IF NOT EXISTS "CatalogBook" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" text NOT NULL,
 	"subtitle" text,
@@ -131,7 +131,7 @@ CREATE TABLE "CatalogBook" (
 	CONSTRAINT "CatalogBook_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "CatalogBookContributor" (
+CREATE TABLE IF NOT EXISTS "CatalogBookContributor" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"catalog_book_id" varchar NOT NULL,
 	"reference_item_id" varchar NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE "CatalogBookContributor" (
 	CONSTRAINT "CatalogBookContributor_unique" UNIQUE("catalog_book_id","reference_item_id","role")
 );
 --> statement-breakpoint
-CREATE TABLE "HomeFeaturedBook" (
+CREATE TABLE IF NOT EXISTS "HomeFeaturedBook" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"catalog_book_id" varchar,
 	"book_id" varchar,
@@ -154,7 +154,7 @@ CREATE TABLE "HomeFeaturedBook" (
 	CONSTRAINT "HomeFeaturedBook_book_id_unique" UNIQUE("book_id")
 );
 --> statement-breakpoint
-CREATE TABLE "HomeHeroSlide" (
+CREATE TABLE IF NOT EXISTS "HomeHeroSlide" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" text NOT NULL,
 	"description" text,
@@ -170,7 +170,7 @@ CREATE TABLE "HomeHeroSlide" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "HomeHeroSlideBook" (
+CREATE TABLE IF NOT EXISTS "HomeHeroSlideBook" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"slide_id" varchar NOT NULL,
 	"catalog_book_id" varchar,
@@ -178,7 +178,7 @@ CREATE TABLE "HomeHeroSlideBook" (
 	"sort_order" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "IranKetabImportEvent" (
+CREATE TABLE IF NOT EXISTS "IranKetabImportEvent" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"session_id" varchar NOT NULL,
 	"type" "IranKetabImportEventType" NOT NULL,
@@ -186,7 +186,7 @@ CREATE TABLE "IranKetabImportEvent" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "IranKetabImportSession" (
+CREATE TABLE IF NOT EXISTS "IranKetabImportSession" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"admin_id" varchar NOT NULL,
 	"source_url" text NOT NULL,
@@ -210,7 +210,7 @@ CREATE TABLE "IranKetabImportSession" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "IranKetabPreviewOperation" (
+CREATE TABLE IF NOT EXISTS "IranKetabPreviewOperation" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"source_identity" text NOT NULL,
 	"status" "IranKetabPreviewOperationStatus" DEFAULT 'PROCESSING' NOT NULL,
@@ -226,7 +226,7 @@ CREATE TABLE "IranKetabPreviewOperation" (
 	CONSTRAINT "IranKetabPreviewOperation_source_identity_unique" UNIQUE("source_identity")
 );
 --> statement-breakpoint
-CREATE TABLE "PasswordResetToken" (
+CREATE TABLE IF NOT EXISTS "PasswordResetToken" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" varchar NOT NULL,
 	"token_hash" text NOT NULL,
@@ -236,7 +236,7 @@ CREATE TABLE "PasswordResetToken" (
 	CONSTRAINT "PasswordResetToken_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
-CREATE TABLE "PersonalBookNote" (
+CREATE TABLE IF NOT EXISTS "PersonalBookNote" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"book_id" varchar NOT NULL,
 	"user_id" varchar NOT NULL,
@@ -246,7 +246,7 @@ CREATE TABLE "PersonalBookNote" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "PublicBookThought" (
+CREATE TABLE IF NOT EXISTS "PublicBookThought" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"catalog_book_id" varchar NOT NULL,
 	"user_id" varchar NOT NULL,
@@ -258,7 +258,7 @@ CREATE TABLE "PublicBookThought" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "PublishedBookNote" (
+CREATE TABLE IF NOT EXISTS "PublishedBookNote" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" varchar NOT NULL,
 	"book_id" varchar,
@@ -271,7 +271,7 @@ CREATE TABLE "PublishedBookNote" (
 	CONSTRAINT "PublishedBookNote_content_length_check" CHECK (char_length("PublishedBookNote"."content") <= 50000)
 );
 --> statement-breakpoint
-CREATE TABLE "PublishedBookNoteLike" (
+CREATE TABLE IF NOT EXISTS "PublishedBookNoteLike" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"note_id" varchar NOT NULL,
 	"user_id" varchar NOT NULL,
@@ -279,7 +279,7 @@ CREATE TABLE "PublishedBookNoteLike" (
 	CONSTRAINT "PublishedBookNoteLike_note_user_unique" UNIQUE("note_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "QuoteLike" (
+CREATE TABLE IF NOT EXISTS "QuoteLike" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quote_id" varchar NOT NULL,
 	"user_id" varchar NOT NULL,
@@ -287,7 +287,7 @@ CREATE TABLE "QuoteLike" (
 	CONSTRAINT "QuoteLike_quote_user_unique" UNIQUE("quote_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "ReadingEvent" (
+CREATE TABLE IF NOT EXISTS "ReadingEvent" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" varchar NOT NULL,
 	"book_id" varchar NOT NULL,
@@ -298,7 +298,7 @@ CREATE TABLE "ReadingEvent" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "ReferenceItem" (
+CREATE TABLE IF NOT EXISTS "ReferenceItem" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"type" "ReferenceType" NOT NULL,
 	"name" text NOT NULL,
@@ -326,13 +326,13 @@ CREATE TABLE "ReferenceItem" (
 	CONSTRAINT "ReferenceItem_type_slug_unique" UNIQUE("type","slug")
 );
 --> statement-breakpoint
-CREATE TABLE "SiteSetting" (
+CREATE TABLE IF NOT EXISTS "SiteSetting" (
 	"key" varchar(100) PRIMARY KEY NOT NULL,
 	"value" text,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "StaticPage" (
+CREATE TABLE IF NOT EXISTS "StaticPage" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"slug" varchar(100) NOT NULL,
 	"title" text NOT NULL,
@@ -346,7 +346,7 @@ CREATE TABLE "StaticPage" (
 	CONSTRAINT "StaticPage_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "VerificationCode" (
+CREATE TABLE IF NOT EXISTS "VerificationCode" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"code_hash" text NOT NULL,
@@ -359,7 +359,7 @@ CREATE TABLE "VerificationCode" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Wishlist" (
+CREATE TABLE IF NOT EXISTS "Wishlist" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" text NOT NULL,
 	"author" text NOT NULL,
@@ -373,116 +373,116 @@ CREATE TABLE "Wishlist" (
 );
 --> statement-breakpoint
 ALTER TABLE "Book" ALTER COLUMN "cover_image" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "slug" text;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "current_page" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "reading_updated_at" timestamp;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "completed_at" timestamp;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "mood_tags" text[];--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "is_favorite" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "catalog_book_id" varchar;--> statement-breakpoint
-ALTER TABLE "Book" ADD COLUMN "edition_id" varchar;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "user_id" varchar NOT NULL;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "image_key" text;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "background" text DEFAULT 'default' NOT NULL;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "catalog_book_id" varchar;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "book_edition_id" varchar;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "created_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "Quote" ADD COLUMN "updated_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "profile_banner_image" text;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "auth_provider" "AuthProvider" DEFAULT 'password' NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "google_id" text;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "password_hash" text;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "username" varchar(30);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "bio" varchar(500);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "location" varchar(100);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "website" text;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "instagram" varchar(100);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "twitter" varchar(100);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "linkedin" text;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "telegram" varchar(100);--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "profile_visibility" "ProfileVisibility" DEFAULT 'PUBLIC' NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "role" "UserRole" DEFAULT 'USER' NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "session_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "created_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "User" ADD COLUMN "updated_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_category_id_BlogCategory_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."BlogCategory"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "HomeFeaturedBook" ADD CONSTRAINT "HomeFeaturedBook_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "HomeFeaturedBook" ADD CONSTRAINT "HomeFeaturedBook_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_slide_id_HomeHeroSlide_id_fk" FOREIGN KEY ("slide_id") REFERENCES "public"."HomeHeroSlide"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "IranKetabImportEvent" ADD CONSTRAINT "IranKetabImportEvent_session_id_IranKetabImportSession_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."IranKetabImportSession"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_admin_id_User_id_fk" FOREIGN KEY ("admin_id") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_catalog_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_source_personal_note_id_PersonalBookNote_id_fk" FOREIGN KEY ("source_personal_note_id") REFERENCES "public"."PersonalBookNote"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_note_id_PublishedBookNote_id_fk" FOREIGN KEY ("note_id") REFERENCES "public"."PublishedBookNote"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_quote_id_Quote_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."Quote"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ReferenceItem" ADD CONSTRAINT "ReferenceItem_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Wishlist" ADD CONSTRAINT "Wishlist_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "BookEditionContributor_edition_idx" ON "BookEditionContributor" USING btree ("book_edition_id");--> statement-breakpoint
-CREATE INDEX "BookEditionContributor_reference_idx" ON "BookEditionContributor" USING btree ("reference_item_id");--> statement-breakpoint
-CREATE INDEX "BookEditionPublisher_edition_idx" ON "BookEditionPublisher" USING btree ("book_edition_id");--> statement-breakpoint
-CREATE INDEX "BookEditionPublisher_reference_idx" ON "BookEditionPublisher" USING btree ("reference_item_id");--> statement-breakpoint
-CREATE INDEX "BookExternalLink_catalog_idx" ON "BookExternalLink" USING btree ("catalog_book_id");--> statement-breakpoint
-CREATE INDEX "BookExternalLink_provider_idx" ON "BookExternalLink" USING btree ("provider");--> statement-breakpoint
-CREATE INDEX "BookExternalLink_active_idx" ON "BookExternalLink" USING btree ("is_active");--> statement-breakpoint
-CREATE INDEX "CatalogBookContributor_catalog_idx" ON "CatalogBookContributor" USING btree ("catalog_book_id");--> statement-breakpoint
-CREATE INDEX "CatalogBookContributor_reference_idx" ON "CatalogBookContributor" USING btree ("reference_item_id");--> statement-breakpoint
-CREATE INDEX "IranKetabImportEvent_session_idx" ON "IranKetabImportEvent" USING btree ("session_id");--> statement-breakpoint
-CREATE INDEX "IranKetabImportEvent_created_idx" ON "IranKetabImportEvent" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "IranKetabImportEvent_type_idx" ON "IranKetabImportEvent" USING btree ("type");--> statement-breakpoint
-CREATE INDEX "IranKetabImportSession_admin_idx" ON "IranKetabImportSession" USING btree ("admin_id");--> statement-breakpoint
-CREATE INDEX "IranKetabImportSession_status_idx" ON "IranKetabImportSession" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "IranKetabImportSession_created_idx" ON "IranKetabImportSession" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "IranKetabImportSession_canonical_idx" ON "IranKetabImportSession" USING btree ("canonical_source_url");--> statement-breakpoint
-CREATE INDEX "IranKetabPreviewOperation_reclaim_idx" ON "IranKetabPreviewOperation" USING btree ("status","lease_expires_at","expires_at");--> statement-breakpoint
-CREATE INDEX "PersonalBookNote_book_user_idx" ON "PersonalBookNote" USING btree ("book_id","user_id");--> statement-breakpoint
-CREATE INDEX "PersonalBookNote_created_at_idx" ON "PersonalBookNote" USING btree ("created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "PublicBookThought_source_note_unique" ON "PublicBookThought" USING btree ("source_personal_note_id");--> statement-breakpoint
-CREATE INDEX "PublicBookThought_book_created_idx" ON "PublicBookThought" USING btree ("catalog_book_id","created_at");--> statement-breakpoint
-CREATE INDEX "PublicBookThought_user_idx" ON "PublicBookThought" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "PublishedBookNote_user_id_idx" ON "PublishedBookNote" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "PublishedBookNote_book_id_idx" ON "PublishedBookNote" USING btree ("book_id");--> statement-breakpoint
-CREATE INDEX "PublishedBookNote_created_at_idx" ON "PublishedBookNote" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "PublishedBookNote_updated_at_idx" ON "PublishedBookNote" USING btree ("updated_at");--> statement-breakpoint
-CREATE INDEX "ReadingEvent_user_book_created_idx" ON "ReadingEvent" USING btree ("user_id","book_id","created_at");--> statement-breakpoint
-CREATE INDEX "VerificationCode_email_purpose_idx" ON "VerificationCode" USING btree ("email","purpose");--> statement-breakpoint
-CREATE INDEX "VerificationCode_expires_at_idx" ON "VerificationCode" USING btree ("expires_at");--> statement-breakpoint
-ALTER TABLE "Book" ADD CONSTRAINT "Book_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Book" ADD CONSTRAINT "Book_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Quote" ADD CONSTRAINT "Quote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "Quote_image_key_unique" ON "Quote" USING btree ("image_key");--> statement-breakpoint
-CREATE INDEX "Quote_book_id_idx" ON "Quote" USING btree ("book_id");--> statement-breakpoint
-CREATE INDEX "Quote_user_id_idx" ON "Quote" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "Quote_created_at_idx" ON "Quote" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "Quote_updated_at_idx" ON "Quote" USING btree ("updated_at");--> statement-breakpoint
-ALTER TABLE "Book" ADD CONSTRAINT "Book_slug_unique" UNIQUE("slug");--> statement-breakpoint
-ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id");--> statement-breakpoint
-ALTER TABLE "User" ADD CONSTRAINT "User_username_unique" UNIQUE("username");
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "slug" text;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "current_page" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "reading_updated_at" timestamp;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "completed_at" timestamp;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "mood_tags" text[];--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "is_favorite" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar;--> statement-breakpoint
+ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "edition_id" varchar;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "user_id" varchar NOT NULL;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "image_key" text;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "background" text DEFAULT 'default' NOT NULL;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "catalog_book_id" varchar;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "book_edition_id" varchar;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "Quote" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "profile_banner_image" text;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "auth_provider" "AuthProvider" DEFAULT 'password' NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "google_id" text;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password_hash" text;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "username" varchar(30);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bio" varchar(500);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "location" varchar(100);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "website" text;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "instagram" varchar(100);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "twitter" varchar(100);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "linkedin" text;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegram" varchar(100);--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "profile_visibility" "ProfileVisibility" DEFAULT 'PUBLIC' NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" "UserRole" DEFAULT 'USER' NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "session_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_category_id_BlogCategory_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."BlogCategory"("id") ON DELETE restrict ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BlogPost" ADD CONSTRAINT "BlogPost_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEdition" ADD CONSTRAINT "BookEdition_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEditionContributor" ADD CONSTRAINT "BookEditionContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookEditionPublisher" ADD CONSTRAINT "BookEditionPublisher_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "BookExternalLink" ADD CONSTRAINT "BookExternalLink_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "CatalogBook" ADD CONSTRAINT "CatalogBook_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "CatalogBookContributor" ADD CONSTRAINT "CatalogBookContributor_reference_item_id_ReferenceItem_id_fk" FOREIGN KEY ("reference_item_id") REFERENCES "public"."ReferenceItem"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "HomeFeaturedBook" ADD CONSTRAINT "HomeFeaturedBook_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "HomeFeaturedBook" ADD CONSTRAINT "HomeFeaturedBook_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_slide_id_HomeHeroSlide_id_fk" FOREIGN KEY ("slide_id") REFERENCES "public"."HomeHeroSlide"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "HomeHeroSlideBook" ADD CONSTRAINT "HomeHeroSlideBook_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "IranKetabImportEvent" ADD CONSTRAINT "IranKetabImportEvent_session_id_IranKetabImportSession_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."IranKetabImportSession"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_admin_id_User_id_fk" FOREIGN KEY ("admin_id") REFERENCES "public"."User"("id") ON DELETE restrict ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "IranKetabImportSession" ADD CONSTRAINT "IranKetabImportSession_catalog_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PersonalBookNote" ADD CONSTRAINT "PersonalBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublicBookThought" ADD CONSTRAINT "PublicBookThought_source_personal_note_id_PersonalBookNote_id_fk" FOREIGN KEY ("source_personal_note_id") REFERENCES "public"."PersonalBookNote"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNote" ADD CONSTRAINT "PublishedBookNote_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_note_id_PublishedBookNote_id_fk" FOREIGN KEY ("note_id") REFERENCES "public"."PublishedBookNote"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "PublishedBookNoteLike" ADD CONSTRAINT "PublishedBookNoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_quote_id_Quote_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."Quote"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "QuoteLike" ADD CONSTRAINT "QuoteLike_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "ReadingEvent" ADD CONSTRAINT "ReadingEvent_book_id_Book_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."Book"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "ReferenceItem" ADD CONSTRAINT "ReferenceItem_created_by_id_User_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."User"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Wishlist" ADD CONSTRAINT "Wishlist_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookEditionContributor_edition_idx" ON "BookEditionContributor" USING btree ("book_edition_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookEditionContributor_reference_idx" ON "BookEditionContributor" USING btree ("reference_item_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookEditionPublisher_edition_idx" ON "BookEditionPublisher" USING btree ("book_edition_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookEditionPublisher_reference_idx" ON "BookEditionPublisher" USING btree ("reference_item_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookExternalLink_catalog_idx" ON "BookExternalLink" USING btree ("catalog_book_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookExternalLink_provider_idx" ON "BookExternalLink" USING btree ("provider");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "BookExternalLink_active_idx" ON "BookExternalLink" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "CatalogBookContributor_catalog_idx" ON "CatalogBookContributor" USING btree ("catalog_book_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "CatalogBookContributor_reference_idx" ON "CatalogBookContributor" USING btree ("reference_item_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_session_idx" ON "IranKetabImportEvent" USING btree ("session_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_created_idx" ON "IranKetabImportEvent" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportEvent_type_idx" ON "IranKetabImportEvent" USING btree ("type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportSession_admin_idx" ON "IranKetabImportSession" USING btree ("admin_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportSession_status_idx" ON "IranKetabImportSession" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportSession_created_idx" ON "IranKetabImportSession" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabImportSession_canonical_idx" ON "IranKetabImportSession" USING btree ("canonical_source_url");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IranKetabPreviewOperation_reclaim_idx" ON "IranKetabPreviewOperation" USING btree ("status","lease_expires_at","expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PersonalBookNote_book_user_idx" ON "PersonalBookNote" USING btree ("book_id","user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PersonalBookNote_created_at_idx" ON "PersonalBookNote" USING btree ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "PublicBookThought_source_note_unique" ON "PublicBookThought" USING btree ("source_personal_note_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublicBookThought_book_created_idx" ON "PublicBookThought" USING btree ("catalog_book_id","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublicBookThought_user_idx" ON "PublicBookThought" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublishedBookNote_user_id_idx" ON "PublishedBookNote" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublishedBookNote_book_id_idx" ON "PublishedBookNote" USING btree ("book_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublishedBookNote_created_at_idx" ON "PublishedBookNote" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "PublishedBookNote_updated_at_idx" ON "PublishedBookNote" USING btree ("updated_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ReadingEvent_user_book_created_idx" ON "ReadingEvent" USING btree ("user_id","book_id","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "VerificationCode_email_purpose_idx" ON "VerificationCode" USING btree ("email","purpose");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "VerificationCode_expires_at_idx" ON "VerificationCode" USING btree ("expires_at");--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_edition_id_BookEdition_id_fk" FOREIGN KEY ("edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_catalog_book_id_CatalogBook_id_fk" FOREIGN KEY ("catalog_book_id") REFERENCES "public"."CatalogBook"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Quote" ADD CONSTRAINT "Quote_book_edition_id_BookEdition_id_fk" FOREIGN KEY ("book_edition_id") REFERENCES "public"."BookEdition"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "Quote_image_key_unique" ON "Quote" USING btree ("image_key");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Quote_book_id_idx" ON "Quote" USING btree ("book_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Quote_user_id_idx" ON "Quote" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Quote_created_at_idx" ON "Quote" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Quote_updated_at_idx" ON "Quote" USING btree ("updated_at");--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "Book" ADD CONSTRAINT "Book_slug_unique" UNIQUE("slug"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_google_id_unique" UNIQUE("google_id"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_username_unique" UNIQUE("username"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
