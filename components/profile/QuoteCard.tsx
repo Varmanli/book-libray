@@ -782,27 +782,41 @@ function DefaultQuoteBackground() {
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      {/* Deep paper base */}
-      <div className="absolute inset-0 bg-background/65" />
+      {/* Sophisticated ivory/charcoal gradient background base */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--card)/0.95),hsl(var(--background)/0.98))]" />
 
-      {/* Soft literary glows */}
-      <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/[0.11] blur-3xl" />
-      <div className="absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-primary/[0.045] blur-3xl" />
+      {/* Very soft warm literary glows */}
+      <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-primary/[0.08] dark:bg-primary/[0.05] blur-3xl" />
+      <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-primary/[0.04] dark:bg-primary/[0.02] blur-3xl" />
 
-      {/* Elegant ruled-paper lines */}
-      <div className="absolute inset-0 opacity-[0.15] [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_31px,hsl(var(--border)/0.85)_32px)]" />
+      {/* Intricate manuscript layout guidelines SVG (low visual weight) */}
+      <svg className="absolute inset-0 w-full h-full text-primary opacity-[0.06] dark:opacity-[0.04]" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.4">
+        {/* Outer margin guides */}
+        <rect x="5" y="5" width="90" height="90" rx="2" strokeDasharray="1 2" />
+        <rect x="8" y="8" width="84" height="84" rx="1" />
+        
+        {/* Center crosshair guides */}
+        <line x1="50" y1="8" x2="50" y2="92" strokeDasharray="0.75 1.5" />
+        <line x1="8" y1="50" x2="92" y2="50" strokeDasharray="0.75 1.5" />
 
-      {/* Subtle notebook margin */}
-      <div className="absolute bottom-0 right-9 top-0 w-px bg-primary/[0.14]" />
+        {/* Symmetrical diagonal guides */}
+        <line x1="20" y1="20" x2="80" y2="80" strokeDasharray="0.5 2" />
+        <line x1="80" y1="20" x2="20" y2="80" strokeDasharray="0.5 2" />
 
-      {/* Fine paper grain */}
-      <div className="absolute inset-0 opacity-[0.11] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:17px_17px]" />
+        {/* Concentric layout circles */}
+        <circle cx="50" cy="50" r="30" />
+        <circle cx="50" cy="50" r="18" strokeDasharray="1 1" />
+        <circle cx="50" cy="50" r="8" />
 
-      {/* Top highlight */}
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+        {/* Corner crop marks / grid lines */}
+        <path d="M5 15 L15 5 M85 15 L95 5 M5 85 L15 95 M85 85 L95 95" />
+      </svg>
 
-      {/* Soft vignette keeps focus on the writing */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,hsl(var(--background)/0.18)_100%)]" />
+      {/* Fine manuscript grain texture */}
+      <div className="absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:16px_16px]" />
+
+      {/* Subtle top light highlight */}
+      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
     </div>
   );
 }
