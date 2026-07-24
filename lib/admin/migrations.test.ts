@@ -295,7 +295,7 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds"]);
 });
 
 test("production preflight refuses empty or incomplete historical ledgers", () => {

@@ -429,7 +429,7 @@ export async function commitIranKetabImport(params: {
           };
           put("originalName", profile?.originalName);
           put("description", profile?.description);
-          put("shortDescription", profile?.shortDescription);
+          // put("shortDescription", profile?.shortDescription); // intentionally omitted
           put("birthYear", profile?.birthYear);
           put("deathYear", profile?.deathYear);
           put("countryName", profile?.countryName);
@@ -452,9 +452,18 @@ export async function commitIranKetabImport(params: {
           });
           resolvedEntityIds.set(entityKey(entity), row.id);
         } else if (entity.action === "CREATE_NEW") {
+          // Exclude shortDescription from input to ensure it is never set for new references
+          const { shortDescription: _omit, ...profileWithoutShort } = entity.profile ?? {};
           const resolved = await resolveReferenceItem(tx, {
             type: entity.entityType,
-            input: { name: entity.proposedName, ...entity.profile, metadata: { ...(entity.profile?.metadata ?? {}), ...(entity.profile?.profileId ? { iranketabProfileId: entity.profile.profileId } : {}) }, imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl, bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl, imageFilename: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.filename },
+            input: {
+              name: entity.proposedName,
+              ...profileWithoutShort,
+              metadata: { ...(entity.profile?.metadata ?? {}), ...(entity.profile?.profileId ? { iranketabProfileId: entity.profile.profileId } : {}) },
+              imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl,
+              bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl,
+              imageFilename: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.filename,
+            },
             cache: referenceCache,
             createdById: params.adminId,
             defaultStatus: "APPROVED",
