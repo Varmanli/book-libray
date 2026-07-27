@@ -144,11 +144,15 @@ export default function UserMenu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-          compact ? "h-10 w-10" : "h-10 w-10",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors",
+          compact
+            ? "flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 shadow-none"
+            : "h-10 w-10 rounded-full"
         )}
       >
-        <Avatar className="h-full w-full border border-border/80 shadow-sm shadow-black/10">
+        <Avatar className={cn(
+          compact ? "h-8 w-8 border border-border/40" : "h-full w-full border border-border/80 shadow-sm shadow-black/10"
+        )}>
           {user.image ? (
             <AvatarImage
               src={user.image}
@@ -156,7 +160,7 @@ export default function UserMenu({
               className="object-cover"
             />
           ) : null}
-          <AvatarFallback className="bg-secondary text-sm font-black text-foreground">
+          <AvatarFallback className={cn("font-black text-foreground", compact ? "text-[10px]" : "text-sm bg-secondary")}>
             {getInitial(user)}
           </AvatarFallback>
         </Avatar>

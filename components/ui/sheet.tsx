@@ -48,9 +48,11 @@ function SheetContent({
   className,
   children,
   side = "right",
+  hideClose = false,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  hideClose?: boolean;
 }) {
   return (
     <SheetPortal>
@@ -73,11 +75,13 @@ function SheetContent({
       >
         {children}
 
-        {/* کلوز بزرگ و سمت چپ */}
-        <SheetPrimitive.Close className="absolute top-4 left-4 rounded-full p-2 bg-secondary text-foreground shadow-lg hover:bg-secondary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-transform hover:scale-110">
-          <XIcon className="h-6 w-6" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
+        {!hideClose && (
+          /* کلوز بزرگ و سمت چپ */
+          <SheetPrimitive.Close className="absolute top-4 left-4 rounded-full p-2 bg-secondary text-foreground shadow-lg hover:bg-secondary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-transform hover:scale-110">
+            <XIcon className="h-6 w-6" />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        )}
       </SheetPrimitive.Content>
     </SheetPortal>
   );

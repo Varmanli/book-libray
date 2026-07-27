@@ -3,44 +3,13 @@ import { FiGithub, FiInstagram, FiSend, FiTwitter } from "react-icons/fi";
 
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LayoutUser } from "@/components/layout/types";
-import {
-  FOOTER_LEGAL_LINKS,
-  getFooterPrimaryNav,
-  getFooterUserLinks,
-} from "@/lib/layout/navigation";
 
 const SOCIAL = [
-  { label: "Instagram", icon: FiInstagram },
-  { label: "Telegram", icon: FiSend },
-  { label: "X", icon: FiTwitter },
-  { label: "GitHub", icon: FiGithub },
+  { label: "Instagram", icon: FiInstagram, href: "#" },
+  { label: "Telegram", icon: FiSend, href: "#" },
+  { label: "X", icon: FiTwitter, href: "#" },
+  { label: "GitHub", icon: FiGithub, href: "#" },
 ];
-
-function Column({
-  title,
-  links,
-}: {
-  title: string;
-  links: Array<{ label: string; href: string }>;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-black text-foreground">{title}</h3>
-      <ul className="mt-4 space-y-2.5">
-        {links.map((link) => (
-          <li key={link.label}>
-            <Link
-              href={link.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 export default function SiteFooter({
   user,
@@ -49,52 +18,70 @@ export default function SiteFooter({
   user?: LayoutUser | null;
   branding: { logoUrl: string; siteName: string };
 }) {
-  const primaryLinks = getFooterPrimaryNav(user?.username);
-  const userLinks = getFooterUserLinks(user?.username);
+  const footerLinks = [
+    { label: "صفحه اصلی", href: "/" },
+    { label: "کتاب‌ها", href: "/books" },
+    { label: "بلاگ", href: "/blog" },
+    { label: "درباره ما", href: "/about" },
+    { label: "قوانین", href: "/terms" },
+    { label: "حریم خصوصی", href: "/privacy" },
+    { label: "تماس", href: "/contact" },
+  ];
 
   return (
-    <footer className="mt-16 border-t border-border/80 bg-card/65">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
-        <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr_0.75fr_0.8fr]">
-          <div className="max-w-md">
-            <Link
-              href="/"
-              className="group inline-flex items-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
+    <footer className="mt-12 border-t border-border/40 bg-card/45 py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          {/* Right side: Logo & Slogan */}
+          <div className="flex flex-col items-center gap-2.5 md:items-start">
+            <Link href="/" className="group inline-flex items-center">
               <BrandLogo
-                {...branding}
-                size="footer"
-                fallbackClassName="transition-colors group-hover:border-primary/25 group-hover:bg-primary/18"
+                logoUrl={branding.logoUrl}
+                siteName={branding.siteName}
+                size="mobile"
               />
             </Link>
-
-            <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              یک کتابخانه اجتماعی برای دنبال‌کردن مطالعه، کشف کتاب‌ها و ثبت
-              تکه‌ها و یادداشت‌ها.
+            <p className="text-xs text-muted-foreground max-w-sm text-center md:text-right">
+              یک کتابخانه اجتماعی مینی‌مال برای پیگیری مطالعه، ثبت یادداشت‌ها و اشتراک گذاری کتاب‌ها.
             </p>
-
-            <div className="mt-6 flex flex-wrap items-center gap-2">
-              {SOCIAL.map((item) => (
-                <span
-                  key={item.label}
-                  aria-label={item.label}
-                  title={`${item.label} — به‌زودی`}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/80 bg-background/70 text-muted-foreground"
-                >
-                  <item.icon className="h-4 w-4" />
-                </span>
-              ))}
-            </div>
           </div>
 
-          <Column title="ناوبری" links={primaryLinks} />
-          <Column title="حساب کاربری" links={userLinks} />
-          <Column title="راهنما" links={FOOTER_LEGAL_LINKS} />
+          {/* Center: Navigation Links */}
+          <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold">
+            {footerLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="text-muted-foreground transition-colors hover:text-primary"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Left side: Social Links */}
+          <div className="flex items-center justify-center gap-3">
+            {SOCIAL.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                aria-label={item.label}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/50 bg-background/50 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+              >
+                <item.icon className="h-4 w-4" />
+              </a>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 border-t border-border/80 pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 {branding.siteName} — همه حقوق محفوظ است.</p>
-          <p>طراحی‌شده برای مطالعه آرام، منظم و مداوم</p>
+        {/* Bottom divider & copyrights */}
+        <div className="mt-6 border-t border-border/30 pt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between text-[11px] text-muted-foreground">
+          <p className="text-center md:text-right">
+            © ۲۰۲۶ {branding.siteName || "قفسه"} — تمامی حقوق محفوظ است.
+          </p>
+          <p className="text-center md:text-left">
+            طراحی‌شده برای مطالعه آرام، منظم و مداوم
+          </p>
         </div>
       </div>
     </footer>

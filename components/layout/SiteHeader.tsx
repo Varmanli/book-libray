@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogIn, Search } from "lucide-react";
 
 import { BrandLogo } from "@/components/BrandLogo";
 import MobileNav from "@/components/layout/MobileNav";
@@ -10,6 +11,12 @@ import type { LayoutUser } from "@/components/layout/types";
 import UserMenu from "@/components/layout/UserMenu";
 import SearchComponent from "@/components/SearchComponent";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { getPrimaryNav } from "@/lib/layout/navigation";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +52,37 @@ function Brand({
   );
 }
 
+function MobileSearchDialog({ searchResultsHref }: { searchResultsHref: string }) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="جست‌وجو"
+          className="h-[42px] w-[42px] rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 transition-colors shadow-none"
+        >
+          <Search className="h-[18px] w-[18px]" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-[calc(100%-2rem)] rounded-[1.4rem] border-border/80 bg-card/95 p-4 pt-10 backdrop-blur-xl">
+        <DialogTitle className="sr-only">جست‌وجوی سراسری</DialogTitle>
+        <SearchComponent
+          resultsHref={searchResultsHref}
+          onSearch={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SiteHeader({
   user,
   isAdmin = false,
@@ -68,38 +106,44 @@ export default function SiteHeader({
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Desktop */}
-        <div className="hidden h-[4.35rem] items-center gap-4 lg:flex">
-          <div className="flex min-w-[11rem] items-center">
+        <div className="hidden h-14 items-center gap-4 lg:flex">
+          <div className="flex min-w-[10rem] items-center">
             <Brand {...branding} />
           </div>
 
           <nav
             aria-label="ناوبری اصلی"
-            className="flex min-w-0 items-center gap-1"
+            className="flex min-w-0 items-center gap-1.5"
           >
-            {primaryNav.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  "rounded-xl px-3.5 py-2 text-sm font-medium transition-all",
-                  isActivePath(pathname, item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {primaryNav.map((item) => {
+              const active = isActivePath(pathname, item.href);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={cn(
+                    "relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                    active
+                      ? "bg-primary/8 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {item.label}
+                  {active && (
+                    <span className="absolute bottom-0 inset-x-3 h-0.5 rounded-full bg-primary" />
+                  )}
+                </Link>
+              );
+            })}
           </nav>
 
-          <div className="flex flex-1 justify-center px-3">
+          <div className="flex flex-1 justify-center px-4">
             <SearchComponent
               resultsHref="/books"
-              className="w-full max-w-[28rem]"
+              className="w-full max-w-[22rem]"
             />
           </div>
 
@@ -113,9 +157,9 @@ export default function SiteHeader({
         </div>
 
         {/* Mobile */}
-        <div className="flex h-16 items-center justify-between lg:hidden">
-          {/* Right side */}
-          <div className="flex min-w-0 items-center gap-1">
+        <div className="relative flex h-14 items-center justify-between lg:hidden">
+          {/* Right side: Menu */}
+          <div className="flex items-center">
             <MobileNav
               user={user}
               isAdmin={isAdmin}
@@ -123,21 +167,29 @@ export default function SiteHeader({
               open={mobileOpen}
               onOpenChange={setMobileOpen}
             />
+          </div>
 
+          {/* Absolute Center: Logo */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
             <Brand {...branding} compact />
           </div>
 
-          {/* Left side */}
-          <div className="flex shrink-0 items-center">
+          {/* Left side: Search & User Avatar */}
+          <div className="flex items-center gap-2 shrink-0">
+            <MobileSearchDialog searchResultsHref="/books" />
+
             {isAuthenticated && user ? (
               <UserMenu user={user} isAdmin={isAdmin} compact />
             ) : (
               <Button
                 asChild
                 size="sm"
-                className="h-9 rounded-xl px-3.5 text-sm font-bold"
+                variant="ghost"
+                className="h-[42px] w-[42px] rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 transition-colors shadow-none p-0"
               >
-                <Link href="/auth/login">ورود</Link>
+                <Link href="/auth/login" aria-label="ورود">
+                  <LogIn className="h-[18px] w-[18px]" />
+                </Link>
               </Button>
             )}
           </div>

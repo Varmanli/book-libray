@@ -73,6 +73,36 @@ export default function BookQuotesSection({
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [limit, setLimit] = useState(3);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (!isMobile) {
+      setLimit(items.length);
+      return;
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setLimit((prev) => Math.min(prev + 3, items.length));
+        }
+      },
+      {
+        rootMargin: "200px",
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [items.length, limit]);
+
   useEffect(() => {
     setItems(quotes);
   }, [quotes]);
@@ -301,7 +331,7 @@ export default function BookQuotesSection({
     });
   }
 
-  function renderQuoteCard(quote: PublicQuote) {
+  function renderQuoteCard(quote: PublicQuote, index?: number) {
     const canManage =
       viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
 
@@ -313,6 +343,7 @@ export default function BookQuotesSection({
         showAuthor
         showBook={showBook}
         background={quote.background}
+        priority={index === 0}
         manage={
           canManage
             ? {
@@ -387,9 +418,21 @@ export default function BookQuotesSection({
               <Carousel
                 className="py-1"
                 ariaLabel="تکه‌های کتاب"
-                slideClassName="basis-full md:basis-1/2 xl:basis-1/3"
+                slideClassName="w-[min(84vw,320px)] flex-none snap-start md:w-auto md:basis-1/2 xl:basis-1/3 px-1"
                 containerClassName="gap-4 lg:gap-5"
-                slides={items.map(renderQuoteCard)}
+                slides={(() => {
+                  const carouselSlides = items.slice(0, limit).map((quote, index) => renderQuoteCard(quote, index));
+                  if (limit < items.length) {
+                    carouselSlides.push(
+                      <div
+                        ref={sentinelRef}
+                        key="sentinel"
+                        className="w-1 h-full shrink-0 flex items-center justify-center"
+                      />
+                    );
+                  }
+                  return carouselSlides;
+                })()}
               />
             </div>
           ) : (

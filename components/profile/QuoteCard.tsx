@@ -3,6 +3,7 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import {
   BookOpen,
   Check,
@@ -46,6 +47,7 @@ interface QuoteCardProps {
   manage?: CardManage;
   background?: QuoteBackgroundVariant;
   className?: string;
+  priority?: boolean;
 }
 
 export default function QuoteCard({
@@ -56,6 +58,7 @@ export default function QuoteCard({
   manage,
   background = "default",
   className,
+  priority = false,
 }: QuoteCardProps) {
   const [liked, setLiked] = useState(quote.likedByViewer);
   const [likeCount, setLikeCount] = useState(quote.likeCount);
@@ -189,10 +192,10 @@ export default function QuoteCard({
           "group relative flex h-full min-h-[390px] flex-col overflow-hidden",
           "rounded-[1.75rem] border border-border/65 bg-card/80",
           "p-3.5 sm:min-h-[420px] sm:p-4",
-          "shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)]",
-          "transition-[border-color,background-color,box-shadow] duration-300",
+          "shadow-md md:shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)]",
+          "transition-colors duration-150 md:transition-[border-color,background-color,box-shadow] md:duration-300",
           "hover:border-primary/20 hover:bg-card/90",
-          "hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
+          "hover:shadow-md md:hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
           className,
         )}
       >
@@ -218,6 +221,7 @@ export default function QuoteCard({
             cover={quote.bookCover}
             title={quote.bookTitle}
             author={quote.bookAuthor}
+            priority={priority}
           />
         ) : null}
 
@@ -232,6 +236,7 @@ export default function QuoteCard({
           canOpen={isLongQuote || hasImage}
           onOpen={openFullQuote}
           onKeyDown={handleQuoteKeyDown}
+          priority={priority}
         />
 
         {/* Actions */}
@@ -293,11 +298,14 @@ function AuthorHeader({
       {/* Avatar — right side in RTL */}
       <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xs font-black text-foreground shadow-sm sm:h-12 sm:w-12">
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={image}
             alt={displayName}
+            width={48}
+            height={48}
             className="h-full w-full object-cover"
+            loading="lazy"
+            unoptimized
           />
         ) : (
           <span>{initial}</span>
@@ -328,12 +336,14 @@ function BookHeader({
   title,
   author,
   rating,
+  priority = false,
 }: {
   href: string;
   cover: string | null;
   title: string;
   author: string | null;
   rating?: number | null;
+  priority?: boolean;
 }) {
   return (
     <Link
@@ -370,7 +380,8 @@ function BookHeader({
           src={cover || PLACEHOLDER}
           alt={title}
           fill
-          sizes="76px"
+          sizes="(max-width: 768px) 72px, 76px"
+          priority={priority}
           className="object-cover transition-transform duration-300 group-hover/book:scale-[1.025]"
         />
       </span>
@@ -416,6 +427,7 @@ function QuoteContent({
   canOpen,
   onOpen,
   onKeyDown,
+  priority = false,
 }: {
   quoteText: string;
   imageKey: string | null;
@@ -426,6 +438,7 @@ function QuoteContent({
   canOpen: boolean;
   onOpen: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  priority?: boolean;
 }) {
   const hasArtwork = background !== "default";
 
@@ -486,8 +499,10 @@ function QuoteContent({
             <BookCoverImage
               src={imageKey}
               alt={`تصویر تکه‌ای از کتاب «${bookTitle}»`}
-              width={700}
-              height={900}
+              width={350}
+              height={450}
+              priority={priority}
+              sizes="(max-width: 768px) 280px, 350px"
               className="h-auto max-h-48 w-auto max-w-full object-contain"
             />
           </div>
@@ -785,12 +800,12 @@ function DefaultQuoteBackground() {
       {/* Sophisticated ivory/charcoal gradient background base */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--card)/0.95),hsl(var(--background)/0.98))]" />
 
-      {/* Very soft warm literary glows */}
-      <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-primary/[0.08] dark:bg-primary/[0.05] blur-3xl" />
-      <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-primary/[0.04] dark:bg-primary/[0.02] blur-3xl" />
+      {/* Very soft warm literary glows - hidden on mobile for performance */}
+      <div className="hidden md:block absolute -right-20 -top-20 h-72 w-72 rounded-full bg-primary/[0.08] dark:bg-primary/[0.05] blur-3xl" />
+      <div className="hidden md:block absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-primary/[0.04] dark:bg-primary/[0.02] blur-3xl" />
 
-      {/* Intricate manuscript layout guidelines SVG (low visual weight) */}
-      <svg className="absolute inset-0 w-full h-full text-primary opacity-[0.06] dark:opacity-[0.04]" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.4">
+      {/* Intricate manuscript layout guidelines SVG (low visual weight) - hidden on mobile to reduce DOM size and paint cost */}
+      <svg className="hidden md:block absolute inset-0 w-full h-full text-primary opacity-[0.06] dark:opacity-[0.04]" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.4">
         {/* Outer margin guides */}
         <rect x="5" y="5" width="90" height="90" rx="2" strokeDasharray="1 2" />
         <rect x="8" y="8" width="84" height="84" rx="1" />
@@ -812,8 +827,8 @@ function DefaultQuoteBackground() {
         <path d="M5 15 L15 5 M85 15 L95 5 M5 85 L15 95 M85 85 L95 95" />
       </svg>
 
-      {/* Fine manuscript grain texture */}
-      <div className="absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:16px_16px]" />
+      {/* Fine manuscript grain texture - hidden on mobile for performance */}
+      <div className="hidden md:block absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:16px_16px]" />
 
       {/* Subtle top light highlight */}
       <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
@@ -870,11 +885,14 @@ export function AuthorChip({
     >
       <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xs font-black text-foreground shadow-sm">
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={image}
             alt={displayName}
+            width={36}
+            height={36}
             className="h-full w-full object-cover"
+            loading="lazy"
+            unoptimized
           />
         ) : (
           <span>{initial}</span>

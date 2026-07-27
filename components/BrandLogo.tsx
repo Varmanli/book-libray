@@ -5,7 +5,7 @@ type BrandLogoSize = "header" | "footer" | "mobile" | "auth" | "admin";
 const sizeClasses: Record<BrandLogoSize, string> = {
   header: "h-10 w-36 rounded-2xl",
   footer: "h-10 w-36 rounded-2xl",
-  mobile: "h-8 w-28 rounded-xl",
+  mobile: "h-[26px] w-[91px] rounded-xl",
   auth: "h-14 w-56 rounded-2xl",
   admin: "h-8 w-28 rounded-xl",
 };

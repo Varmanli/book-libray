@@ -32,6 +32,9 @@ export function Carousel({
     align,
     containScroll: "trimSnaps",
     dragFree: false,
+    breakpoints: {
+      "(max-width: 768px)": { active: false },
+    },
   });
 
   return (
@@ -41,13 +44,13 @@ export function Carousel({
         role="region"
         aria-roledescription="carousel"
         aria-label={ariaLabel}
-        className="overflow-hidden"
+        className="overflow-x-auto md:overflow-hidden snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [-webkit-overflow-scrolling:touch]"
       >
         <div className={cn("flex gap-3", containerClassName)}>
           {slides.map((slide, index) => (
             <div
               key={index}
-              className={cn("min-w-0 shrink-0 grow-0", slideClassName)}
+              className={cn("min-w-0 shrink-0 grow-0 snap-start", slideClassName)}
             >
               {slide}
             </div>

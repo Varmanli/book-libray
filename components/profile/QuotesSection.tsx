@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BookOpenText, Quote } from "lucide-react";
 
@@ -21,6 +22,35 @@ export default function QuotesSection({
   initialHasMore: boolean;
 }) {
   const hasQuotes = quotes.length > 0;
+  const [limit, setLimit] = useState(3);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (!isMobile) {
+      setLimit(quotes.length);
+      return;
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setLimit((prev) => Math.min(prev + 3, quotes.length));
+        }
+      },
+      {
+        rootMargin: "200px",
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [quotes.length, limit]);
 
   return (
     <section className="relative" dir="rtl">
@@ -94,20 +124,36 @@ export default function QuotesSection({
             className="px-1 sm:px-2"
             ariaLabel="تکه‌های کتاب کاربر"
             slideClassName="
-              basis-full
+              w-[min(84vw,320px)]
+              flex-none
+              snap-start
               px-1
+              md:w-auto
               sm:basis-1/2
               lg:basis-1/3
             "
             containerClassName="gap-3 sm:gap-4"
-            slides={quotes.map((quote) => (
-              <QuoteCard
-                key={quote.id}
-                quote={quote}
-                canLike={canLike}
-                background={quote.background}
-              />
-            ))}
+            slides={(() => {
+              const carouselSlides = quotes.slice(0, limit).map((quote, index) => (
+                <QuoteCard
+                  key={quote.id}
+                  quote={quote}
+                  canLike={canLike}
+                  background={quote.background}
+                  priority={index === 0}
+                />
+              ));
+              if (limit < quotes.length) {
+                carouselSlides.push(
+                  <div
+                    ref={sentinelRef}
+                    key="sentinel"
+                    className="w-1 h-full shrink-0 flex items-center justify-center"
+                  />
+                );
+              }
+              return carouselSlides;
+            })()}
           />
         </div>
       )}

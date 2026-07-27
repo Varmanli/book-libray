@@ -3,7 +3,7 @@ import { CalendarDays, Lock, MapPin, Settings } from "lucide-react";
 import type { ElementType } from "react";
 
 import ReaderRankBadge from "@/components/profile/ReaderRankBadge";
-import ProfileBio from "@/components/profile/ProfileBio";
+import { Button } from "@/components/ui/button";
 
 export interface ProfileSocialLink {
   href: string;
@@ -39,9 +39,9 @@ export default function ProfileHeader({
   const displayName = name || username;
 
   return (
-    <section className="overflow-hidden rounded-[1.6rem] border border-border/80 bg-card/80 shadow-[0_20px_55px_-46px_rgba(0,0,0,0.4)] sm:rounded-[2rem]">
+    <section className="overflow-hidden rounded-xl border border-border/50 bg-card/40 shadow-xs">
       {/* Banner */}
-      <div className="relative h-24 overflow-hidden sm:h-36 lg:h-44">
+      <div className="relative h-20 overflow-hidden sm:h-24 lg:h-28">
         {bannerImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -54,8 +54,6 @@ export default function ProfileHeader({
         )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-black/10 dark:from-black/60 dark:via-black/15 dark:to-black/25" />
-
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.1),transparent_32%)] dark:bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_32%)]" />
 
         <div className="absolute right-3 top-3 origin-top-right scale-90 sm:right-4 sm:top-4 sm:scale-100">
           <ReaderRankBadge finished={finished} />
@@ -70,12 +68,12 @@ export default function ProfileHeader({
       </div>
 
       {/* Content */}
-      <div className="px-4 pb-5 sm:px-7 sm:pb-7">
-        {/* Identity */}
-        <div className="flex items-end gap-3.5 sm:gap-4">
-          {/* Avatar */}
-          <div className="relative z-10 -mt-8 shrink-0 sm:-mt-12">
-            <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-full border border-border/70 bg-secondary text-xl font-bold text-foreground ring-[3px] ring-background shadow-sm sm:h-28 sm:w-28 sm:text-3xl sm:ring-4">
+      <div className="px-4 pb-4 sm:px-5 sm:pb-4">
+        {/* Identity Block */}
+        <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-right sm:justify-between sm:gap-4">
+          <div className="flex flex-col items-center sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+            {/* Avatar with simple overlap */}
+            <div className="relative z-10 -mt-8 h-16 w-16 shrink-0 overflow-hidden rounded-full border border-border/80 bg-secondary ring-4 ring-card sm:-mt-10 sm:h-20 sm:w-20">
               {image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -84,70 +82,52 @@ export default function ProfileHeader({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-muted-foreground">
+                <div className="flex h-full w-full items-center justify-center text-xl font-bold text-muted-foreground">
                   {displayName.trim().charAt(0)}
-                </span>
+                </div>
               )}
             </div>
 
-            {/* Owner settings */}
-            {isOwner ? (
-              <Link
-                href="/settings/profile"
-                aria-label="تنظیمات پروفایل"
-                title="تنظیمات پروفایل"
-                className="absolute -bottom-1 -left-1 inline-flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-card bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-8 sm:w-8"
-              >
-                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Link>
-            ) : null}
-          </div>
-
-          {/* Name + username */}
-          <div className="min-w-0 pb-1 sm:pb-1.5">
-            <div className="flex min-w-0 flex-col items-start gap-1">
-              <h1 className="max-w-full truncate text-base font-black leading-tight tracking-tight text-foreground sm:text-[1.8rem]">
+            {/* Name, Username */}
+            <div className="min-w-0 flex-1 mt-1 text-center sm:text-right">
+              <h1 className="truncate text-base font-black text-foreground sm:text-lg">
                 {displayName}
               </h1>
-
-              <span
-                dir="ltr"
-                className="inline-flex max-w-full items-center text-[11px] font-medium text-muted-foreground sm:text-xs"
-              >
+              <p dir="ltr" className="truncate text-[10px] text-muted-foreground mt-0.5">
                 @{username}
-              </span>
+              </p>
             </div>
           </div>
+
+          {/* Settings Button */}
+          {isOwner ? (
+            <div className="mt-3.5 flex w-full items-center justify-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
+              <Button asChild size="sm" variant="outline" className="h-8.5 rounded-lg px-3.5 text-xs font-medium gap-1.5 flex-1 sm:flex-initial">
+                <Link href="/settings/profile">
+                  <Settings className="h-3.5 w-3.5" />
+                  تنظیمات
+                </Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
 
-        {/* Bio */}
-        {bio ? (
-          <ProfileBio bio={bio} />
-        ) : (
-          <p className="mt-5 text-[11px] text-muted-foreground sm:mt-4 sm:text-sm">
-            هنوز توضیحی برای این پروفایل ثبت نشده است.
-          </p>
-        )}
-
-        {/* Meta */}
-        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-border/60 pt-4 sm:mt-5 sm:gap-5 sm:border-0 sm:pt-0">
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
-            <CalendarDays className="h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]" />
+        {/* Meta / Footer info */}
+        <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-4 border-t border-border/30 pt-3 text-xs">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
             عضو از {joined}
           </span>
 
           {location ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
-              <MapPin className="h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]" />
-
-              <span className="max-w-[7rem] truncate sm:max-w-none">
-                {location}
-              </span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="max-w-[12rem] truncate">{location}</span>
             </span>
           ) : null}
 
           {socialLinks.length > 0 ? (
-            <div className="ms-auto flex shrink-0 items-center gap-2.5 sm:gap-3">
+            <div className="ms-auto flex items-center gap-2.5">
               {socialLinks.map((link) => (
                 <a
                   key={link.label}
@@ -156,9 +136,9 @@ export default function ProfileHeader({
                   rel="noopener noreferrer nofollow"
                   aria-label={link.label}
                   title={link.label}
-                  className="inline-flex items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-black/10 text-muted-foreground transition-colors hover:border-primary/20 hover:text-primary"
                 >
-                  <link.icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
+                  <link.icon className="h-4 w-4" />
                 </a>
               ))}
             </div>
