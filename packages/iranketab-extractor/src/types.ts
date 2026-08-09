@@ -25,7 +25,6 @@ export type RelatedProfileCandidate = {
   originalName: string | null;
   country: GhafasehCountry | null;
   description?: string | null;
-  shortDescription?: string | null;
   imageUrl?: string | null;
   bannerImageUrl?: string | null;
   birthYear?: number | null;

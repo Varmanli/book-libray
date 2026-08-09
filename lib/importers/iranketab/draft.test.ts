@@ -10,5 +10,31 @@ const empty: AnalysisData = { catalogs: [], editions: [], references: [], extern
 async function setup(data = empty) { const extraction = await extractIranKetabBook({ url: "https://www.iranketab.ir/book/1045-white-nights", html: await readFile("packages/iranketab-extractor/fixtures/white-nights/raw-page.html", "utf8") }); return { extraction, draft: initializeIranKetabDraft(extraction, analyzeIranKetabExtraction(extraction, data)) }; }
 
 test("new extraction initializes an explicit versioned create draft", async () => { const { draft } = await setup(); assert.equal(draft.draftVersion, 1); assert.equal(draft.catalog.action, "CREATE_NEW"); assert.ok(draft.editions.some(item => item.action === "CREATE_NEW")); assert.ok(draft.source.approvedCoverCandidateUrls.length > 0); });
+test("long IranKetab profile short descriptions are excluded from catalog authors and entities", async () => {
+  const { extraction } = await setup();
+  const author = extraction.book.authors[0]!;
+  const extractionWithLongProfile = {
+    ...extraction,
+    diagnostics: {
+      ...extraction.diagnostics,
+      relatedProfiles: [...extraction.diagnostics.relatedProfiles, {
+        type: "AUTHOR" as const,
+        name: author.name,
+        slug: "author",
+        sourceUrl: "https://www.iranketab.ir/profile/author",
+        profileId: "author",
+        originalName: null,
+        country: null,
+        description: "A valid full description.",
+        shortDescription: "x".repeat(1_001),
+      }],
+    },
+  };
+  const draft = initializeIranKetabDraft(extractionWithLongProfile, analyzeIranKetabExtraction(extractionWithLongProfile, empty));
+  const entity = draft.entities.find(item => item.entityType === "AUTHOR" && item.extractedName === author.name)!;
+  assert.equal(Object.hasOwn(draft.catalog.authors[0]!.profile ?? {}, "shortDescription"), false);
+  assert.equal(Object.hasOwn(entity.profile ?? {}, "shortDescription"), false);
+  assert.equal(validateIranKetabDraft(draft, new Set(draft.source.approvedCoverCandidateUrls)).issues.length, 0);
+});
 test("exact catalog and edition matches initialize reuse decisions", async () => { const { extraction } = await setup(); const edition = extraction.editions[0]!; const { draft } = await setup({ ...empty, catalogs: [{ id: "book", title: extraction.book.title, subtitle: null, originalTitle: extraction.book.originalTitle, author: extraction.book.authors.map(x => x.name).join("، "), language: extraction.book.language, country: null, firstPublishedYear: null, sourceName: "iranketab", sourceUrl: extraction.source.canonicalUrl, editionCount: 1 }], editions: [{ id: "edition", catalogBookId: "book", catalogTitle: extraction.book.title, titleOverride: null, translator: null, publisher: null, isbn10: edition.isbn10, isbn13: edition.isbn13, publishedYear: edition.publishedYear, pageCount: edition.pageCount, sourceName: "iranketab", sourceUrl: edition.sourceUrl, sourceEditionCode: edition.sourceEditionCode }] }); assert.equal(draft.catalog.action, "REUSE_EXISTING"); assert.equal(draft.editions[0]?.action, "REUSE_EXISTING"); });
 test("draft validation allows duplicate ISBN and rejects arbitrary cover URL", async () => { const { draft } = await setup(); const creates = draft.editions.filter((item): item is Extract<typeof item, { action: "CREATE_NEW" }> => item.action === "CREATE_NEW"); if (creates.length > 1) { const changed = iranKetabDraftReducer(draft, { type: "SET_EDITION", index: creates[1].extractedEditionIndex, edition: { ...creates[1], fields: { ...creates[1].fields, isbn13: creates[0].fields.isbn13 } } }); assert.equal(validateIranKetabDraft(changed, new Set(changed.source.approvedCoverCandidateUrls)).issues.some(x => x.includes("شابک")), false); } const first = draft.editions.find((item): item is Extract<typeof item, { action: "CREATE_NEW" }> => item.action === "CREATE_NEW"); if (first) { const changed = iranKetabDraftReducer(draft, { type: "SET_EDITION", index: first.extractedEditionIndex, edition: { ...first, coverAction: { action: "IMPORT_SOURCE", candidateUrl: "https://example.com/cover.jpg" } } }); assert.ok(validateIranKetabDraft(changed, new Set(changed.source.approvedCoverCandidateUrls)).issues.some(x => x.includes("کاور"))); } });

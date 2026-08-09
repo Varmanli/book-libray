@@ -12,7 +12,6 @@ export type ParsedIranKetabReferenceProfile = {
   profileId: string | null;
   sourceName: "iranketab";
   description: string | null;
-  shortDescription: string | null;
   imageUrl: string | null;
   bannerImageUrl: string | null;
   birthYear: number | null;
@@ -68,7 +67,7 @@ export function parseIranKetabReferenceProfile(input: {
   if (!description) diagnostics.push("profile description missing");
   return {
     type: input.type, name: normalizePersianText(name.replace(/^کتاب های\s+/i, "").replace(/\s*\|.*$/, "")), originalName: originalName ? normalizeWhitespace(originalName) : null, profileId,
-    slug, sourceUrl: canonical, sourceName: "iranketab", description, shortDescription: description,
+    slug, sourceUrl: canonical, sourceName: "iranketab", description,
     imageUrl, bannerImageUrl: null, birthYear: birthYear && birthYear > 0 ? birthYear : null,
     deathYear: deathYear && deathYear > 0 ? deathYear : null,
     countryName: labeled($, /(?:ملیت|کشور)\s*[:：-]?\s*(.+)$/), countrySlug: null, country: null,
@@ -126,7 +125,7 @@ export async function enrichIranKetabReferenceProfiles(input: {
       }
       throw lastError ?? new Error("PROFILE_FETCH_FAILED");
     } catch (error) {
-      return { type: profile.type, name: profile.name, originalName: null, profileId: null, slug: "", sourceUrl: profile.sourceUrl, sourceName: "iranketab" as const, description: null, shortDescription: null, imageUrl: null, bannerImageUrl: null, birthYear: null, deathYear: null, countryName: null, countrySlug: null, country: null, website: null, seoTitle: null, seoDescription: null, metadata: {}, diagnostics: [`profile fetch failed: ${error instanceof Error ? error.message : "unknown"}`] };
+      return { type: profile.type, name: profile.name, originalName: null, profileId: null, slug: "", sourceUrl: profile.sourceUrl, sourceName: "iranketab" as const, description: null, imageUrl: null, bannerImageUrl: null, birthYear: null, deathYear: null, countryName: null, countrySlug: null, country: null, website: null, seoTitle: null, seoDescription: null, metadata: {}, diagnostics: [`profile fetch failed: ${error instanceof Error ? error.message : "unknown"}`] };
     }
   };
   const results: ParsedIranKetabReferenceProfile[] = [];

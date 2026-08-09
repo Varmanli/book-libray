@@ -75,7 +75,10 @@ export async function commitIranKetabImport(params: {
   prepared: IranKetabImportDraftWithPreparedCovers;
   mediaStorage?: IranKetabCommitMediaStorage;
 }) {
-  const { draft, fingerprint, preparedCovers } = params.prepared;
+  const { draft: rawDraft, fingerprint, preparedCovers } = params.prepared;
+  const parsedDraft = iranKetabImportDraftSchema.safeParse(rawDraft);
+  if (!parsedDraft.success) throw new IranKetabCommitError("INVALID_DRAFT", formatIranKetabSchemaIssues(parsedDraft.error).join(" "));
+  const draft = parsedDraft.data;
   let lastCheckpoint = checkpoint(
     "commit_started",
     "commitIranKetabImport",
@@ -106,15 +109,13 @@ export async function commitIranKetabImport(params: {
   const extractionLimitIssues = extractionCollectionLimitIssues(params.extraction);
   if (extractionLimitIssues.length) throw new IranKetabCommitError("INVALID_DRAFT", extractionLimitIssues.join(" "));
   if (preparedCovers.length > IRANKETAB_COLLECTION_LIMITS.editions) throw new IranKetabCommitError("INVALID_DRAFT", `تعداد «کاورهای آماده‌شده» ${preparedCovers.length.toLocaleString("fa-IR")} مورد است؛ حداکثر مجاز ${IRANKETAB_COLLECTION_LIMITS.editions.toLocaleString("fa-IR")} مورد است.`);
-  const parsedDraft = iranKetabImportDraftSchema.safeParse(draft);
-  if (!parsedDraft.success) throw new IranKetabCommitError("INVALID_DRAFT", formatIranKetabSchemaIssues(parsedDraft.error).join(" "));
   const parsedContributorCounts = { authors: draft.catalog.authors.length, translators: draft.editions.reduce((n, e) => n + (e.action === "EXCLUDE" ? 0 : e.translators.length), 0), publishers: draft.editions.filter((e) => e.action !== "EXCLUDE" && Boolean(e.publisher)).length };
   const extractedContributorCounts = { authors: params.extraction.book.authors.length, translators: params.extraction.editions.reduce((n, e) => n + e.translators.length, 0), publishers: params.extraction.editions.filter((e) => Boolean(e.publisher.name)).length };
   console.info("[iranketab.commit] contributor boundary", { extraction: extractedContributorCounts, draft: parsedContributorCounts, entities: draft.entities.length });
   if (extractedContributorCounts.authors > 0 && parsedContributorCounts.authors === 0)
     throw new IranKetabCommitError("INVALID_DRAFT", "اطلاعات نویسندگان در پیش‌نویس ثبت نهایی از بین رفته است.");
   if (
-    draftFingerprint(draft) !== fingerprint ||
+    draftFingerprint(rawDraft) !== fingerprint ||
     draft.source.canonicalUrl !== params.extraction.source.canonicalUrl ||
     draft.source.selectedEditionCode !== params.extraction.source.editionCode
   )
@@ -429,7 +430,6 @@ export async function commitIranKetabImport(params: {
           };
           put("originalName", profile?.originalName);
           put("description", profile?.description);
-          // put("shortDescription", profile?.shortDescription); // intentionally omitted
           put("birthYear", profile?.birthYear);
           put("deathYear", profile?.deathYear);
           put("countryName", profile?.countryName);
@@ -452,13 +452,11 @@ export async function commitIranKetabImport(params: {
           });
           resolvedEntityIds.set(entityKey(entity), row.id);
         } else if (entity.action === "CREATE_NEW") {
-          // Exclude shortDescription from input to ensure it is never set for new references
-          const { shortDescription: _omit, ...profileWithoutShort } = entity.profile ?? {};
           const resolved = await resolveReferenceItem(tx, {
             type: entity.entityType,
             input: {
               name: entity.proposedName,
-              ...profileWithoutShort,
+              ...entity.profile,
               metadata: { ...(entity.profile?.metadata ?? {}), ...(entity.profile?.profileId ? { iranketabProfileId: entity.profile.profileId } : {}) },
               imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl,
               bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl,
