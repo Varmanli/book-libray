@@ -45,6 +45,7 @@ type FilterKey =
   | "ALL"
   | "READING"
   | "PAUSED"
+  | "STOPPED"
   | "FINISHED"
   | "UNREAD"
   | "FAVORITES";
@@ -54,7 +55,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "ALL", label: "همه" },
   { key: "READING", label: "در حال خواندن" },
   { key: "FINISHED", label: "خوانده‌شده" },
-  { key: "PAUSED", label: "متوقف‌شده" },
+  { key: "STOPPED", label: "متوقف‌شده" },
   { key: "UNREAD", label: "نخوانده" },
   { key: "FAVORITES", label: "علاقه‌مندی‌ها" },
 ];
@@ -113,7 +114,9 @@ export default function UserLibraryPage({
       const matchesFilter =
         filter === "ALL" ||
         (filter === "FAVORITES" && book.isFavorite) ||
-        book.status === filter;
+        book.status === filter ||
+        // PAUSED is retained for records written before STOPPED was introduced.
+        (filter === "STOPPED" && book.status === "PAUSED");
 
       if (!matchesFilter) return false;
       if (!normalized) return true;
@@ -148,6 +151,7 @@ export default function UserLibraryPage({
       READING: books.filter((book) => book.status === "READING").length,
       FINISHED: books.filter((book) => book.status === "FINISHED").length,
       PAUSED: books.filter((book) => book.status === "PAUSED").length,
+      STOPPED: books.filter((book) => ["PAUSED", "STOPPED"].includes(book.status)).length,
       UNREAD: books.filter((book) => book.status === "UNREAD").length,
       FAVORITES: books.filter((book) => book.isFavorite).length,
     }),
@@ -160,6 +164,7 @@ export default function UserLibraryPage({
       UNREAD: "READING",
       READING: "FINISHED",
       PAUSED: "READING",
+      STOPPED: "READING",
       FINISHED: "UNREAD",
     } as const;
     const status = nextStatusMap[book.status] || "UNREAD";
@@ -219,7 +224,7 @@ export default function UserLibraryPage({
 
   const activeFilter =
     FILTERS.find((item) => item.key === filter)?.label || "همه";
-  const isMoreActive = ["PAUSED", "UNREAD", "FAVORITES"].includes(filter);
+  const isMoreActive = ["PAUSED", "STOPPED", "UNREAD", "FAVORITES"].includes(filter);
   const activeMoreLabel = FILTERS.find((item) => item.key === filter)?.label;
 
   const canReset =

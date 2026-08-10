@@ -3,7 +3,10 @@ import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { sanitizeMoodTags } from "@/lib/book/moods";
+
+const bookStatusSchema = z.enum(["UNREAD", "READING", "PAUSED", "STOPPED", "FINISHED"]);
 
 // Helper برای گرفتن ID از مسیر
 function getIdFromUrl(req: NextRequest) {
@@ -62,6 +65,10 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
     const body = await req.json();
+
+    if ("status" in body && !bookStatusSchema.safeParse(body.status).success) {
+      return NextResponse.json({ error: "وضعیت مطالعه نامعتبر است" }, { status: 422 });
+    }
 
     // ✅ فیلتر کردن undefined ها
     const updateData: Record<string, any> = {};

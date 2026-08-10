@@ -12,7 +12,7 @@ export type BookType = {
   publisher?: string | null;
   createdAt: string;
   userId: string;
-  status: "UNREAD" | "READING" | "FINISHED";
+  status: "UNREAD" | "READING" | "PAUSED" | "STOPPED" | "FINISHED";
   progress?: number | null;
   rating?: number | null;
   review?: string | null;

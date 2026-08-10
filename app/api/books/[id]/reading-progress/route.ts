@@ -9,7 +9,7 @@ import { Book, ReadingEvent } from "@/db/schema";
 const progressUpdateSchema = z.object({
   currentPage: z.number().int().min(0).optional(),
   pagesRead: z.number().int().positive().optional(),
-  status: z.enum(["READING", "PAUSED", "FINISHED"]).optional(),
+  status: z.enum(["READING", "PAUSED", "STOPPED", "FINISHED"]).optional(),
 }).refine((value) => value.currentPage !== undefined || value.pagesRead !== undefined || value.status !== undefined, {
   message: "یک تغییر برای ثبت لازم است",
 }).refine((value) => !(value.currentPage !== undefined && value.pagesRead !== undefined), {

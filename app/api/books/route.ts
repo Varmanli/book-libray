@@ -3,6 +3,9 @@ import { db } from "@/db";
 import { Book } from "@/db/schema";
 import jwt from "jsonwebtoken";
 import { eq, desc } from "drizzle-orm";
+import { z } from "zod";
+
+const bookStatusSchema = z.enum(["UNREAD", "READING", "PAUSED", "STOPPED", "FINISHED"]);
 
 // 🔹 اسکیمای داده برای ایجاد کتاب
 interface BookBody {
@@ -16,7 +19,7 @@ interface BookBody {
   pageCount?: number;
   format?: "PHYSICAL" | "ELECTRONIC";
   publisher?: string;
-  status?: "UNREAD" | "READING" | "PAUSED" | "FINISHED";
+  status?: "UNREAD" | "READING" | "PAUSED" | "STOPPED" | "FINISHED";
   progress?: number;
 }
 
@@ -47,6 +50,9 @@ export async function POST(req: NextRequest) {
         { error: "اطلاعات ضروری کتاب ناقص است" },
         { status: 400 }
       );
+    }
+    if (body.status && !bookStatusSchema.safeParse(body.status).success) {
+      return NextResponse.json({ error: "وضعیت مطالعه نامعتبر است" }, { status: 422 });
     }
 
     // ایجاد کتاب با Drizzle

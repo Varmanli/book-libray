@@ -59,7 +59,7 @@ export type BookReferenceImages = {
   [K in keyof BookReferenceLinks]?: string | null;
 };
 
-export type BookStatus = "UNREAD" | "READING" | "PAUSED" | "FINISHED";
+export type BookStatus = "UNREAD" | "READING" | "PAUSED" | "STOPPED" | "FINISHED";
 
 export interface BookEditionSummary {
   id: string;

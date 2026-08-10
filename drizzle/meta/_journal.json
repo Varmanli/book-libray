@@ -295,6 +295,13 @@
       "when": 1784930529000,
       "tag": "0041_quote_backgrounds",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1786521600000,
+      "tag": "0042_add_stopped_book_status",
+      "breakpoints": true
     }
   ]
 }

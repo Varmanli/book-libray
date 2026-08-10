@@ -21,6 +21,7 @@ export const BookStatus = pgEnum("BookStatus", [
   "UNREAD",
   "READING",
   "PAUSED",
+  "STOPPED",
   "FINISHED",
 ]);
 

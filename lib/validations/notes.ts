@@ -43,7 +43,7 @@ export const createNoteSchema = z.object({
 export const updateNoteSchema = z.object({ content: noteContentSchema });
 
 export const addToLibraryFromBookSchema = z.object({
-  status: z.enum(["UNREAD", "READING", "FINISHED"]).default("UNREAD"),
+  status: z.enum(["UNREAD", "READING", "PAUSED", "STOPPED", "FINISHED"]).default("UNREAD"),
   editionId: z.string().min(1).optional(),
 });
 

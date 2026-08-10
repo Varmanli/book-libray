@@ -146,7 +146,7 @@ async function verifyRequiredSchema(client) {
   const missingColumns = requiredColumns.filter((value) => !columnSet.has(value));
   const labels = new Map();
   for (const row of enumRows.rows) labels.set(row.typname, [...(labels.get(row.typname) ?? []), row.enumlabel]);
-  const expectedEnums = { BookStatus: ["UNREAD", "READING", "FINISHED", "PAUSED"], ReadingEventType: ["START", "PROGRESS", "FINISH"], PublicBookThoughtType: ["THOUGHT", "QUOTE", "REFLECTION"] };
+  const expectedEnums = { BookStatus: ["UNREAD", "READING", "FINISHED", "PAUSED", "STOPPED"], ReadingEventType: ["START", "PROGRESS", "FINISH"], PublicBookThoughtType: ["THOUGHT", "QUOTE", "REFLECTION"] };
   const enumFailures = Object.entries(expectedEnums).filter(([name, values]) => !values.every((value) => labels.get(name)?.includes(value))).map(([name]) => name);
   const indexSet = new Set(indexes.rows.map((row) => row.indexname));
   const requiredIndexes = ["PersonalBookNote_book_user_idx", "PersonalBookNote_created_at_idx", "ReadingEvent_user_book_created_idx", "PublicBookThought_source_note_unique", "PublicBookThought_book_created_idx", "PublicBookThought_user_idx"];

@@ -30,7 +30,7 @@ import type { BookStatus, ViewerLibraryEntry } from "@/lib/book/detail-service";
 const STATUSES: { key: BookStatus; label: string; hint: string }[] = [
   { key: "UNREAD", label: "می‌خواهم بخوانم", hint: "برای بعد نگه‌دار" },
   { key: "READING", label: "درحال خواندن", hint: "در جریان مطالعه" },
-  { key: "PAUSED", label: "متوقف‌شده", hint: "برای ادامه در زمان دیگر" },
+  { key: "STOPPED", label: "متوقف‌شده", hint: "برای ادامه در زمان دیگر" },
   { key: "FINISHED", label: "خوانده‌شده", hint: "کتاب را تمام کرده‌ای" },
 ];
 
@@ -38,6 +38,7 @@ const STATUS_LABEL: Record<BookStatus, string> = {
   UNREAD: "می‌خواهم بخوانم",
   READING: "درحال خواندن",
   PAUSED: "متوقف‌شده",
+  STOPPED: "متوقف‌شده",
   FINISHED: "خوانده‌شده",
 };
 

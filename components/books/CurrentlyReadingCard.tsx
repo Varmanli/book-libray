@@ -378,7 +378,7 @@ export function ReadingManagementModal({
               type="button"
               variant="outline"
               disabled={pending}
-              onClick={() => progress({ status: "PAUSED" }, "مطالعه متوقف شد")}
+              onClick={() => progress({ status: "STOPPED" }, "مطالعه متوقف شد")}
               className="h-11 gap-1.5 rounded-xl"
             >
               <Pause className="h-4 w-4" />
