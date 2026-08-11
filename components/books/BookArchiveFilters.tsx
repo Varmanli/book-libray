@@ -423,8 +423,21 @@ export default function BookArchiveFilters({
     <div className="space-y-6" dir="rtl">
       <section className="rounded-[2rem] border border-border/70 bg-card/55 p-3 shadow-[0_24px_90px_-72px_rgba(0,0,0,0.85)] backdrop-blur sm:p-4">
         <div className="flex flex-col gap-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+          <div className="group relative w-full">
+            <Search
+              aria-hidden="true"
+              className="
+      pointer-events-none
+      absolute right-3.5 top-1/2 z-10
+      size-[17px]
+      -translate-y-1/2
+      text-muted-foreground/45
+
+      transition-colors duration-200
+
+      group-focus-within:text-primary
+    "
+            />
 
             <input
               type="search"
@@ -438,16 +451,53 @@ export default function BookArchiveFilters({
               value={searchQuery}
               onChange={(event) => {
                 const value = event.target.value;
+
                 hasPendingSearchRef.current = true;
                 setSearchQuery(value);
+
                 setDraft((current) => ({
                   ...current,
                   q: value,
                   page: 1,
                 }));
               }}
-              placeholder={searchPlaceholder}
-              className="h-14 w-full rounded-[1.45rem] border border-border/70 bg-background/70 pr-12 pl-4 text-right text-sm font-semibold text-foreground outline-none transition placeholder:text-right [unicode-bidi:plaintext] focus:border-primary/35 focus:bg-background focus:ring-4 focus:ring-primary/10 sm:text-base"
+              placeholder="نام کتاب، نویسنده یا ناشر را جست‌وجو کن..."
+              aria-label="جست‌وجوی کتاب"
+              className="
+    h-12 w-full
+    rounded-2xl
+    border border-border/60
+    bg-background/60
+    pr-11 pl-4
+
+    text-right text-sm font-medium
+    text-foreground
+    outline-none
+
+    shadow-sm shadow-black/[0.025]
+    backdrop-blur-sm
+
+    transition-all duration-200
+
+    placeholder:text-right
+    placeholder:text-sm
+    placeholder:font-normal
+    placeholder:text-muted-foreground
+    placeholder:opacity-70
+
+    hover:border-border/90
+    hover:bg-background/80
+
+    focus:border-primary/40
+    focus:bg-background
+    focus:ring-2
+    focus:ring-primary/10
+
+    [unicode-bidi:plaintext]
+
+    sm:h-[50px]
+    sm:rounded-[1.15rem]
+  "
             />
           </div>
 

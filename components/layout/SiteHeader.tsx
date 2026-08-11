@@ -20,10 +20,13 @@ import {
 import { getPrimaryNav } from "@/lib/layout/navigation";
 import { cn } from "@/lib/utils";
 
-export interface HeaderUser extends LayoutUser {}
+export type HeaderUser = LayoutUser;
 
 function isActivePath(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+  if (href === "/") {
+    return pathname === "/";
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -40,19 +43,31 @@ function Brand({
     <Link
       href="/"
       aria-label={`صفحه اصلی ${siteName}`}
-      className="group flex shrink-0 items-center"
+      className="
+        group flex min-w-0 shrink-0 items-center
+        rounded-xl outline-none
+        focus-visible:ring-2 focus-visible:ring-primary/40
+        focus-visible:ring-offset-2 focus-visible:ring-offset-background
+      "
     >
       <BrandLogo
         logoUrl={logoUrl}
         siteName={siteName}
         size={compact ? "mobile" : "header"}
-        nameClassName="transition-colors group-hover:text-primary"
+        nameClassName="
+          transition-colors duration-200
+          group-hover:text-primary
+        "
       />
     </Link>
   );
 }
 
-function MobileSearchDialog({ searchResultsHref }: { searchResultsHref: string }) {
+function MobileSearchDialog({
+  searchResultsHref,
+}: {
+  searchResultsHref: string;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -64,20 +79,84 @@ function MobileSearchDialog({ searchResultsHref }: { searchResultsHref: string }
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          variant="ghost"
+          type="button"
           size="icon"
+          variant="ghost"
           aria-label="جست‌وجو"
-          className="h-[42px] w-[42px] rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 transition-colors shadow-none"
+          className="
+            size-10 rounded-xl
+            border border-border/50
+            bg-card/45
+            text-muted-foreground
+            shadow-none
+            transition-all duration-200
+
+            hover:border-border
+            hover:bg-card/80
+            hover:text-foreground
+
+            active:scale-95
+          "
         >
-          <Search className="h-[18px] w-[18px]" />
+          <Search className="size-[18px]" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[calc(100%-2rem)] rounded-[1.4rem] border-border/80 bg-card/95 p-4 pt-10 backdrop-blur-xl">
-        <DialogTitle className="sr-only">جست‌وجوی سراسری</DialogTitle>
-        <SearchComponent
-          resultsHref={searchResultsHref}
-          onSearch={() => setOpen(false)}
-        />
+
+      <DialogContent
+        dir="rtl"
+        className="
+          w-[calc(100%-1.5rem)]
+          max-w-lg
+          overflow-hidden
+          rounded-3xl
+          border-border/60
+          bg-background/95
+          p-0
+          shadow-2xl
+          backdrop-blur-xl
+
+          sm:w-full
+        "
+      >
+        <div
+          className="
+            border-b border-border/50
+            bg-muted/20
+            px-4 pb-4 pt-5
+            sm:px-5 sm:pb-5
+          "
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className="
+                flex size-10 shrink-0
+                items-center justify-center
+                rounded-xl
+                bg-primary/10 text-primary
+              "
+            >
+              <Search className="size-[18px]" />
+            </span>
+
+            <div className="min-w-0">
+              <DialogTitle className="text-sm font-black text-foreground">
+                جست‌وجوی سراسری
+              </DialogTitle>
+
+              <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
+                کتاب، نویسنده یا محتوای موردنظرت را پیدا کن
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5">
+          <SearchComponent
+            resultsHref={searchResultsHref}
+            onSearch={() => setOpen(false)}
+            className="w-full"
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -96,6 +175,7 @@ export default function SiteHeader({
   };
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
   const pathname = usePathname();
 
   const isAuthenticated = Boolean(user);
@@ -105,49 +185,115 @@ export default function SiteHeader({
     [user?.username],
   );
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Desktop */}
-        <div className="hidden h-14 items-center gap-4 lg:flex">
-          <div className="flex min-w-[10rem] items-center">
+    <header
+      className="
+        sticky top-0 z-50 w-full
+        border-b border-border/50
+        bg-background/90
+        backdrop-blur-xl
+
+        supports-[backdrop-filter]:bg-background/75
+      "
+    >
+      <div className="mx-auto w-full max-w-7xl px-3 sm:px-6">
+        {/* ==================== Desktop ==================== */}
+        <div className="hidden h-[72px] items-center gap-4 lg:flex">
+          {/* Brand + Navigation */}
+          <div className="flex min-w-0 shrink-0 items-center gap-4 xl:gap-6">
             <Brand {...branding} />
+
+            <nav
+              aria-label="ناوبری اصلی"
+              className="
+                flex min-w-0 items-center
+                rounded-2xl
+                border border-border/40
+                bg-muted/20
+                p-1
+              "
+            >
+              {primaryNav.map((item) => {
+                const active = isActivePath(pathname, item.href);
+
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      `
+                        relative flex h-9 items-center
+                        whitespace-nowrap rounded-xl
+                        px-3
+                        text-xs font-bold
+                        outline-none
+                        transition-all duration-200
+
+                        focus-visible:ring-2
+                        focus-visible:ring-primary/30
+                      `,
+                      active
+                        ? `
+                          bg-background
+                          text-primary
+                          shadow-sm
+                          ring-1 ring-border/40
+                        `
+                        : `
+                          text-muted-foreground
+                          hover:bg-background/60
+                          hover:text-foreground
+                        `,
+                    )}
+                  >
+                    {item.label}
+
+                    {active ? (
+                      <span
+                        className="
+                          absolute inset-x-3 -bottom-1
+                          h-0.5 rounded-full
+                          bg-primary
+                        "
+                      />
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
 
-          <nav
-            aria-label="ناوبری اصلی"
-            className="flex min-w-0 items-center gap-1.5"
+          {/* Search */}
+          <div
+            className="
+              flex min-w-[180px] flex-1
+              justify-center
+              px-1
+              xl:px-5
+            "
           >
-            {primaryNav.map((item) => {
-              const active = isActivePath(pathname, item.href);
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    "relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                    active
-                      ? "bg-primary/8 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {item.label}
-                  {active && (
-                    <span className="absolute bottom-0 inset-x-3 h-0.5 rounded-full bg-primary" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="flex flex-1 justify-center px-4">
             <SearchComponent
               resultsHref="/books"
-              className="w-full max-w-[22rem]"
+              className="
+                w-full max-w-[26rem]
+                transition-all
+                focus-within:max-w-[30rem]
+              "
             />
           </div>
 
-          <div className="flex min-w-[10rem] items-center justify-end">
+          {/* Account */}
+          <div
+            className="
+              flex shrink-0 items-center
+              justify-end
+            "
+          >
             {isAuthenticated && user ? (
               <UserMenu user={user} isAdmin={isAdmin} />
             ) : (
@@ -156,10 +302,16 @@ export default function SiteHeader({
           </div>
         </div>
 
-        {/* Mobile */}
-        <div className="relative flex h-14 items-center justify-between lg:hidden">
-          {/* Right side: Menu */}
-          <div className="flex items-center">
+        {/* ==================== Mobile ==================== */}
+        <div
+          className="
+            relative flex h-[60px]
+            items-center justify-between
+            lg:hidden
+          "
+        >
+          {/* Right: Navigation */}
+          <div className="z-10 flex shrink-0 items-center">
             <MobileNav
               user={user}
               isAdmin={isAdmin}
@@ -169,26 +321,50 @@ export default function SiteHeader({
             />
           </div>
 
-          {/* Absolute Center: Logo */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+          {/* Center: Brand */}
+          <div
+            className="
+              pointer-events-auto
+              absolute left-1/2 top-1/2
+              flex max-w-[42%]
+              -translate-x-1/2 -translate-y-1/2
+              items-center justify-center
+            "
+          >
             <Brand {...branding} compact />
           </div>
 
-          {/* Left side: Search & User Avatar */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Left: Search + Account */}
+          <div className="z-10 flex shrink-0 items-center gap-1.5">
             <MobileSearchDialog searchResultsHref="/books" />
 
             {isAuthenticated && user ? (
-              <UserMenu user={user} isAdmin={isAdmin} compact />
+              <div className="shrink-0">
+                <UserMenu user={user} isAdmin={isAdmin} compact />
+              </div>
             ) : (
               <Button
                 asChild
-                size="sm"
+                size="icon"
                 variant="ghost"
-                className="h-[42px] w-[42px] rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 transition-colors shadow-none p-0"
+                className="
+                  size-10 rounded-xl
+                  border border-border/50
+                  bg-card/45
+                  p-0
+                  text-muted-foreground
+                  shadow-none
+                  transition-all duration-200
+
+                  hover:border-border
+                  hover:bg-card/80
+                  hover:text-foreground
+
+                  active:scale-95
+                "
               >
                 <Link href="/auth/login" aria-label="ورود">
-                  <LogIn className="h-[18px] w-[18px]" />
+                  <LogIn className="size-[18px]" />
                 </Link>
               </Button>
             )}
@@ -205,12 +381,36 @@ function GuestActions() {
       <Button
         asChild
         variant="ghost"
-        className="h-10 rounded-xl px-4 text-sm font-bold text-foreground hover:bg-primary/5 hover:text-primary"
+        className="
+          h-10 rounded-xl
+          px-3.5
+          text-sm font-bold
+          text-muted-foreground
+          transition-colors
+
+          hover:bg-muted
+          hover:text-foreground
+        "
       >
         <Link href="/auth/login">ورود</Link>
       </Button>
 
-      <Button asChild className="h-10 rounded-xl px-4 text-sm font-bold">
+      <Button
+        asChild
+        className="
+          h-10 rounded-xl
+          px-4
+          text-sm font-bold
+          shadow-sm
+          transition-all duration-200
+
+          hover:-translate-y-0.5
+          hover:shadow-md
+
+          active:translate-y-0
+          active:scale-[0.98]
+        "
+      >
         <Link href="/auth/signup">ثبت‌نام</Link>
       </Button>
     </div>

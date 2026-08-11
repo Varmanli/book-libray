@@ -84,6 +84,7 @@ export async function createImportSession(input: {
   adminId: string;
   sourceUrl: string;
   canonicalSourceUrl: string;
+  metadata?: Record<string, unknown>;
 }) {
   const [session] = await db
     .insert(IranKetabImportSession)
@@ -92,10 +93,12 @@ export async function createImportSession(input: {
       sourceUrl: input.sourceUrl,
       canonicalSourceUrl: input.canonicalSourceUrl,
       status: "CREATED",
+      metadata: input.metadata ? safeAuditJson(input.metadata) : null,
     })
     .returning();
   await appendImportEvent(session.id, "SESSION_CREATED", {
     sourceName: "iranketab",
+    ...(input.metadata ?? {}),
   });
   await transitionImportSession(
     session.id,

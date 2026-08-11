@@ -23,13 +23,14 @@ interface AdminUser {
   image: string | null;
 }
 
-function Brand({ branding }: { branding: { logoUrl: string; siteName: string } }) {
+function Brand({
+  branding,
+}: {
+  branding: { logoUrl: string; siteName: string };
+}) {
   return (
     <Link href="/admin" className="flex items-center gap-2.5">
       <BrandLogo {...branding} size="admin" />
-      <span className="text-base font-extrabold tracking-tight text-foreground">
-        <span className="text-muted-foreground">— مدیریت</span>
-      </span>
     </Link>
   );
 }
@@ -39,14 +40,18 @@ function UserChip({ user }: { user: AdminUser }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
       <Avatar className="h-9 w-9 ring-1 ring-inset ring-border">
-        {user.image && <AvatarImage src={user.image} alt={name} className="object-cover" />}
+        {user.image && (
+          <AvatarImage src={user.image} alt={name} className="object-cover" />
+        )}
         <AvatarFallback className="bg-muted text-sm font-bold text-foreground">
           {name.charAt(0)}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">مدیر سامانه</p>
+        <p className="truncate text-[11px] text-muted-foreground">
+          مدیر سامانه
+        </p>
       </div>
     </div>
   );
@@ -100,7 +105,6 @@ export default function AdminShell({
           </div>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle className="h-9 w-9" />
             <Button
               asChild
               variant="ghost"

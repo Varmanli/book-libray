@@ -133,7 +133,6 @@ export default function HomeQuickActions({
       <div className="relative">
         <HomeSectionHeader
           icon={BookOpenText}
-          eyebrow="معرفی قفسه"
           title="سه راه ساده برای شروع کتاب‌خوانی در قفسه"
         />
 

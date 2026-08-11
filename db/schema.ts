@@ -148,6 +148,47 @@ export const IranKetabPreviewOperationStatus = pgEnum(
   "IranKetabPreviewOperationStatus",
   ["PROCESSING", "COMPLETED", "FAILED"],
 );
+export const IranKetabDiscoverySourceType = pgEnum(
+  "IranKetabDiscoverySourceType",
+  [
+    "AWARD",
+    "CURATED_LIST",
+    "EDITORIAL_COLLECTION",
+    "AUTHOR",
+    "PUBLISHER",
+    "TAG",
+    "SEARCH",
+  ],
+);
+export const IranKetabDiscoveryCrawlStatus = pgEnum(
+  "IranKetabDiscoveryCrawlStatus",
+  ["IDLE", "RUNNING", "SUCCEEDED", "FAILED", "PAUSED"],
+);
+export const IranKetabDiscoveryImportConfidence = pgEnum(
+  "IranKetabDiscoveryImportConfidence",
+  ["HIGH", "MEDIUM", "LOW"],
+);
+export const IranKetabDiscoveryItemStatus = pgEnum(
+  "IranKetabDiscoveryItemStatus",
+  [
+    "DISCOVERED",
+    "SCORED",
+    "QUEUED",
+    "IMPORTING",
+    "IMPORTED",
+    "NEEDS_REVIEW",
+    "SKIPPED",
+    "FAILED",
+  ],
+);
+export const IranKetabDiscoveryRunStatus = pgEnum(
+  "IranKetabDiscoveryRunStatus",
+  ["RUNNING", "SUCCESS", "FAILED"],
+);
+export const IranKetabDiscoveryImportJobStatus = pgEnum(
+  "IranKetabDiscoveryImportJobStatus",
+  ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"],
+);
 export const CatalogBookContributorRole = pgEnum("CatalogBookContributorRole", [
   "AUTHOR",
   "TRANSLATOR",
@@ -792,6 +833,305 @@ export const IranKetabPreviewOperation = pgTable(
   }),
 );
 
+/** Configured, curated IranKetab surfaces. Discovery fetches these pages; it never uses them as book import URLs. */
+export const IranKetabDiscoverySource = pgTable(
+  "IranKetabDiscoverySource",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    name: text("name").notNull(),
+    sourceType: IranKetabDiscoverySourceType("source_type").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    sourceKey: text("source_key").notNull(),
+    importance: integer("importance").default(50).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    crawlStatus: IranKetabDiscoveryCrawlStatus("crawl_status")
+      .default("IDLE")
+      .notNull(),
+    crawlLeaseExpiresAt: timestamp("crawl_lease_expires_at", { mode: "date" }),
+    crawlIntervalMinutes: integer("crawl_interval_minutes")
+      .default(1440)
+      .notNull(),
+    autoQueue: boolean("auto_queue").default(false).notNull(),
+    minimumQueueScore: integer("minimum_queue_score").default(85).notNull(),
+    parserVersion: integer("parser_version").default(1).notNull(),
+    lastCrawledAt: timestamp("last_crawled_at", { mode: "date" }),
+    nextCrawlAt: timestamp("next_crawl_at", { mode: "date" }),
+    lastSuccessAt: timestamp("last_success_at", { mode: "date" }),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    discoveredBookCount: integer("discovered_book_count").default(0).notNull(),
+    newBookCount: integer("new_book_count").default(0).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdById: varchar("created_by_id").references(() => User.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    sourceUrlUnique: unique("IranKetabDiscoverySource_source_url_unique").on(
+      t.sourceUrl,
+    ),
+    sourceKeyUnique: unique("IranKetabDiscoverySource_source_key_unique").on(
+      t.sourceKey,
+    ),
+    crawlReadyIdx: index("IranKetabDiscoverySource_crawl_ready_idx").on(
+      t.enabled,
+      t.crawlStatus,
+      t.nextCrawlAt,
+    ),
+    crawlLeaseIdx: index("IranKetabDiscoverySource_crawl_lease_idx").on(
+      t.crawlStatus,
+      t.crawlLeaseExpiresAt,
+    ),
+    importanceRange: check(
+      "IranKetabDiscoverySource_importance_range_check",
+      sql`${t.importance} between 0 and 100`,
+    ),
+    crawlIntervalPositive: check(
+      "IranKetabDiscoverySource_crawl_interval_positive_check",
+      sql`${t.crawlIntervalMinutes} > 0`,
+    ),
+    minimumQueueScoreRange: check(
+      "IranKetabDiscoverySource_minimum_queue_score_range_check",
+      sql`${t.minimumQueueScore} between 0 and 100`,
+    ),
+    discoveredBookCountNonnegative: check(
+      "IranKetabDiscoverySource_discovered_book_count_nonnegative_check",
+      sql`${t.discoveredBookCount} >= 0`,
+    ),
+    newBookCountNonnegative: check(
+      "IranKetabDiscoverySource_new_book_count_nonnegative_check",
+      sql`${t.newBookCount} >= 0`,
+    ),
+  }),
+);
+
+/** One canonical IranKetab book candidate, independent of how many sources found it. */
+export const IranKetabDiscoveryItem = pgTable(
+  "IranKetabDiscoveryItem",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    iranKetabBookId: varchar("iranketab_book_id", { length: 32 }).notNull(),
+    canonicalUrl: text("canonical_url").notNull(),
+    titleHint: text("title_hint"),
+    authorHint: text("author_hint"),
+    preferredEditionCode: text("preferred_edition_code"),
+    priorityScore: integer("priority_score").default(0).notNull(),
+    scoreBreakdown: jsonb("score_breakdown").$type<
+      Record<string, unknown> | null
+    >(),
+    importConfidence: IranKetabDiscoveryImportConfidence("import_confidence")
+      .default("LOW")
+      .notNull(),
+    status: IranKetabDiscoveryItemStatus("status")
+      .default("DISCOVERED")
+      .notNull(),
+    existingCatalogBookId: varchar("existing_catalog_book_id").references(
+      () => CatalogBook.id,
+      { onDelete: "set null" },
+    ),
+    importSessionId: varchar("import_session_id").references(
+      () => IranKetabImportSession.id,
+      { onDelete: "set null" },
+    ),
+    failureCode: text("failure_code"),
+    failureReason: text("failure_reason"),
+    retryCount: integer("retry_count").default(0).notNull(),
+    nextRetryAt: timestamp("next_retry_at", { mode: "date" }),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    iranKetabBookIdUnique: unique(
+      "IranKetabDiscoveryItem_iranketab_book_id_unique",
+    ).on(t.iranKetabBookId),
+    canonicalUrlUnique: unique(
+      "IranKetabDiscoveryItem_canonical_url_unique",
+    ).on(t.canonicalUrl),
+    queueIdx: index("IranKetabDiscoveryItem_queue_idx").on(
+      t.status,
+      t.priorityScore,
+      t.nextRetryAt,
+    ),
+    statusIdx: index("IranKetabDiscoveryItem_status_idx").on(t.status),
+    leaseIdx: index("IranKetabDiscoveryItem_lease_idx").on(
+      t.status,
+      t.leaseExpiresAt,
+    ),
+    priorityScoreRange: check(
+      "IranKetabDiscoveryItem_priority_score_range_check",
+      sql`${t.priorityScore} between 0 and 100`,
+    ),
+    retryCountNonnegative: check(
+      "IranKetabDiscoveryItem_retry_count_nonnegative_check",
+      sql`${t.retryCount} >= 0`,
+    ),
+  }),
+);
+
+/** Source-specific provenance for a canonical discovery item. */
+export const IranKetabDiscoveryMembership = pgTable(
+  "IranKetabDiscoveryMembership",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    discoveryItemId: varchar("discovery_item_id")
+      .notNull()
+      .references(() => IranKetabDiscoveryItem.id, { onDelete: "cascade" }),
+    discoverySourceId: varchar("discovery_source_id")
+      .notNull()
+      .references(() => IranKetabDiscoverySource.id, { onDelete: "cascade" }),
+    firstSeenAt: timestamp("first_seen_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { mode: "date" })
+      .defaultNow()
+      .notNull(),
+    sourcePosition: integer("source_position"),
+    sourceTitleHint: text("source_title_hint"),
+    preferredEditionCode: text("preferred_edition_code"),
+    sourceScoreContribution: integer("source_score_contribution")
+      .default(0)
+      .notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    itemSourceUnique: unique(
+      "IranKetabDiscoveryMembership_item_source_unique",
+    ).on(t.discoveryItemId, t.discoverySourceId),
+    sourceIdx: index("IranKetabDiscoveryMembership_source_idx").on(
+      t.discoverySourceId,
+      t.lastSeenAt,
+    ),
+    itemIdx: index("IranKetabDiscoveryMembership_item_idx").on(
+      t.discoveryItemId,
+    ),
+    sourcePositionNonnegative: check(
+      "IranKetabDiscoveryMembership_source_position_nonnegative_check",
+      sql`${t.sourcePosition} is null or ${t.sourcePosition} >= 0`,
+    ),
+  }),
+);
+
+/** Immutable operational history for each source crawl. */
+export const IranKetabDiscoveryRun = pgTable(
+  "IranKetabDiscoveryRun",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    discoverySourceId: varchar("discovery_source_id")
+      .notNull()
+      .references(() => IranKetabDiscoverySource.id, { onDelete: "cascade" }),
+    status: IranKetabDiscoveryRunStatus("status").notNull(),
+    startedAt: timestamp("started_at", { mode: "date" }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    pagesFetched: integer("pages_fetched").default(0).notNull(),
+    booksFound: integer("books_found").default(0).notNull(),
+    itemsInserted: integer("items_inserted").default(0).notNull(),
+    itemsUpdated: integer("items_updated").default(0).notNull(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    diagnostics: jsonb("diagnostics").$type<Record<string, unknown> | null>(),
+  },
+  (t) => ({
+    sourceStartedIdx: index("IranKetabDiscoveryRun_source_started_idx").on(
+      t.discoverySourceId,
+      t.startedAt,
+    ),
+    statusIdx: index("IranKetabDiscoveryRun_status_idx").on(t.status),
+    pagesFetchedNonnegative: check(
+      "IranKetabDiscoveryRun_pages_fetched_nonnegative_check",
+      sql`${t.pagesFetched} >= 0`,
+    ),
+    booksFoundNonnegative: check(
+      "IranKetabDiscoveryRun_books_found_nonnegative_check",
+      sql`${t.booksFound} >= 0`,
+    ),
+    itemsInsertedNonnegative: check(
+      "IranKetabDiscoveryRun_items_inserted_nonnegative_check",
+      sql`${t.itemsInserted} >= 0`,
+    ),
+    itemsUpdatedNonnegative: check(
+      "IranKetabDiscoveryRun_items_updated_nonnegative_check",
+      sql`${t.itemsUpdated} >= 0`,
+    ),
+  }),
+);
+
+/** Durable, lease-based handoff from reviewed discovery candidates to the importer. */
+export const IranKetabDiscoveryImportJob = pgTable(
+  "IranKetabDiscoveryImportJob",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    discoveryItemId: varchar("discovery_item_id")
+      .notNull()
+      .references(() => IranKetabDiscoveryItem.id, { onDelete: "cascade" }),
+    status: IranKetabDiscoveryImportJobStatus("status")
+      .default("PENDING")
+      .notNull(),
+    priority: integer("priority").default(0).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(3).notNull(),
+    availableAt: timestamp("available_at", { mode: "date" }).defaultNow().notNull(),
+    lockedAt: timestamp("locked_at", { mode: "date" }),
+    lockedBy: varchar("locked_by"),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    activeItemUnique: uniqueIndex("IranKetabDiscoveryImportJob_active_item_unique")
+      .on(t.discoveryItemId)
+      .where(sql`${t.status} in ('PENDING', 'PROCESSING')`),
+    claimIdx: index("IranKetabDiscoveryImportJob_claim_idx").on(
+      t.status,
+      t.availableAt,
+      t.priority,
+      t.createdAt,
+    ),
+    itemIdx: index("IranKetabDiscoveryImportJob_item_idx").on(
+      t.discoveryItemId,
+      t.createdAt,
+    ),
+    lockIdx: index("IranKetabDiscoveryImportJob_lock_idx").on(
+      t.status,
+      t.lockedAt,
+    ),
+    priorityRange: check(
+      "IranKetabDiscoveryImportJob_priority_range_check",
+      sql`${t.priority} between 0 and 100`,
+    ),
+    attemptsNonnegative: check(
+      "IranKetabDiscoveryImportJob_attempts_nonnegative_check",
+      sql`${t.attempts} >= 0`,
+    ),
+    maxAttemptsPositive: check(
+      "IranKetabDiscoveryImportJob_max_attempts_positive_check",
+      sql`${t.maxAttempts} > 0`,
+    ),
+  }),
+);
+
 // ---------------- QuoteLike (پسند نقل‌قول؛ هر کاربر یک‌بار) ----------------
 // مدل افزایشی و کم‌هزینه: شمار پسندها از روی تعداد ردیف‌ها محاسبه می‌شود و
 // قید یکتایی (quote_id, user_id) از پسند تکراری جلوگیری می‌کند.
@@ -1225,3 +1565,65 @@ export const BlogPostRelations = relations(BlogPost, ({ one }) => ({
 export const BlogCategoryRelations = relations(BlogCategory, ({ many }) => ({
   posts: many(BlogPost),
 }));
+
+export const IranKetabDiscoverySourceRelations = relations(
+  IranKetabDiscoverySource,
+  ({ one, many }) => ({
+    createdBy: one(User, {
+      fields: [IranKetabDiscoverySource.createdById],
+      references: [User.id],
+    }),
+    memberships: many(IranKetabDiscoveryMembership),
+    runs: many(IranKetabDiscoveryRun),
+  }),
+);
+
+export const IranKetabDiscoveryItemRelations = relations(
+  IranKetabDiscoveryItem,
+  ({ one, many }) => ({
+    existingCatalogBook: one(CatalogBook, {
+      fields: [IranKetabDiscoveryItem.existingCatalogBookId],
+      references: [CatalogBook.id],
+    }),
+    importSession: one(IranKetabImportSession, {
+      fields: [IranKetabDiscoveryItem.importSessionId],
+      references: [IranKetabImportSession.id],
+    }),
+    memberships: many(IranKetabDiscoveryMembership),
+    importJobs: many(IranKetabDiscoveryImportJob),
+  }),
+);
+
+export const IranKetabDiscoveryImportJobRelations = relations(
+  IranKetabDiscoveryImportJob,
+  ({ one }) => ({
+    discoveryItem: one(IranKetabDiscoveryItem, {
+      fields: [IranKetabDiscoveryImportJob.discoveryItemId],
+      references: [IranKetabDiscoveryItem.id],
+    }),
+  }),
+);
+
+export const IranKetabDiscoveryMembershipRelations = relations(
+  IranKetabDiscoveryMembership,
+  ({ one }) => ({
+    discoveryItem: one(IranKetabDiscoveryItem, {
+      fields: [IranKetabDiscoveryMembership.discoveryItemId],
+      references: [IranKetabDiscoveryItem.id],
+    }),
+    discoverySource: one(IranKetabDiscoverySource, {
+      fields: [IranKetabDiscoveryMembership.discoverySourceId],
+      references: [IranKetabDiscoverySource.id],
+    }),
+  }),
+);
+
+export const IranKetabDiscoveryRunRelations = relations(
+  IranKetabDiscoveryRun,
+  ({ one }) => ({
+    discoverySource: one(IranKetabDiscoverySource, {
+      fields: [IranKetabDiscoveryRun.discoverySourceId],
+      references: [IranKetabDiscoverySource.id],
+    }),
+  }),
+);

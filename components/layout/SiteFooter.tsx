@@ -42,7 +42,8 @@ export default function SiteFooter({
               />
             </Link>
             <p className="text-xs text-muted-foreground max-w-sm text-center md:text-right">
-              یک کتابخانه اجتماعی مینی‌مال برای پیگیری مطالعه، ثبت یادداشت‌ها و اشتراک گذاری کتاب‌ها.
+              یک کتابخانه اجتماعی مینی‌مال برای پیگیری مطالعه، ثبت یادداشت‌ها و
+              اشتراک گذاری کتاب‌ها.
             </p>
           </div>
 

@@ -114,7 +114,9 @@ export default function BooksTable({
   return (
     <Card className={`bg-gray-800 border-gray-700 ${className}`}>
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-foreground">{title}</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">
+          {title}
+        </CardTitle>
         <div className="flex flex-col md:flex-row gap-4 mt-4">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -201,15 +203,15 @@ export default function BooksTable({
                         item.status === "FINISHED"
                           ? "bg-green-700 text-green-100"
                           : item.status === "READING"
-                          ? "bg-blue-700 text-blue-100"
-                          : "bg-gray-600 text-foreground"
+                            ? "bg-blue-700 text-blue-100"
+                            : "bg-gray-600 text-foreground"
                       }`}
                     >
                       {item.status === "FINISHED"
                         ? "تمام شده"
                         : item.status === "READING"
-                        ? "در حال خواندن"
-                        : "خوانده نشده"}
+                          ? "در حال خواندن"
+                          : "خوانده نشده"}
                     </span>
                   </td>
                   <td className="border p-3 hidden md:table-cell">

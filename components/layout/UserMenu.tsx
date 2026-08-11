@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
+  ChevronDown,
+  Loader2,
   LogOut,
   Settings,
   ShieldCheck,
@@ -33,7 +35,10 @@ function getInitial(user: LayoutUser) {
 }
 
 function isActivePath(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+  if (href === "/") {
+    return pathname === "/";
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -48,9 +53,15 @@ export default function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+
   const pathname = usePathname();
   const router = useRouter();
+
+  const displayName = getDisplayName(user);
+
+  const secondaryIdentity = user.username ? `@${user.username}` : user.email;
 
   const primaryItems = useMemo<MenuItem[]>(
     () => [
@@ -79,39 +90,61 @@ export default function UserMenu({
   );
 
   const adminItems = useMemo<MenuItem[]>(
-    () => (isAdmin ? [{ label: "مدیریت", href: "/admin", icon: ShieldCheck }] : []),
+    () =>
+      isAdmin
+        ? [
+            {
+              label: "پنل مدیریت",
+              href: "/admin",
+              icon: ShieldCheck,
+            },
+          ]
+        : [],
     [isAdmin],
   );
 
   useEffect(() => {
-    if (!open) return;
+    setOpen(false);
+  }, [pathname]);
 
-    const onPointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (rootRef.current && !rootRef.current.contains(target)) {
         setOpen(false);
       }
     };
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
       }
     };
 
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
 
   async function handleLogout() {
-    if (loggingOut) return;
+    if (loggingOut) {
+      return;
+    }
 
     try {
       setLoggingOut(true);
+
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
@@ -121,38 +154,82 @@ export default function UserMenu({
         throw new Error("logout failed");
       }
 
-      toast.success("خارج شدید");
       setOpen(false);
+
+      toast.success("با موفقیت خارج شدید");
+
       router.push("/auth/login");
       router.refresh();
     } catch {
-      toast.error("خروج ناموفق بود");
+      toast.error("خروج از حساب انجام نشد");
     } finally {
       setLoggingOut(false);
     }
   }
 
-  const displayName = getDisplayName(user);
-  const handle = user.username ? `@${user.username}` : user.email;
-
   return (
-    <div className="relative" ref={ref}>
+    <div ref={rootRef} className="relative" dir="rtl">
+      {/* Trigger */}
       <button
         type="button"
         aria-label="منوی حساب کاربری"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen((current) => !current)}
         className={cn(
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors",
+          `
+            group
+            outline-none
+            transition-all duration-200
+
+            focus-visible:ring-2
+            focus-visible:ring-primary/30
+            focus-visible:ring-offset-2
+            focus-visible:ring-offset-background
+
+            active:scale-[0.97]
+          `,
           compact
-            ? "flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-border/40 bg-card/40 text-muted-foreground hover:bg-card/60 hover:text-foreground active:bg-card/80 shadow-none"
-            : "h-10 w-10 rounded-full"
+            ? `
+              flex size-10
+              items-center justify-center
+              rounded-xl
+              border border-border/50
+              bg-card/45
+
+              hover:border-border
+              hover:bg-card/80
+            `
+            : `
+              flex h-10
+              items-center gap-2
+              rounded-xl
+              border border-transparent
+              px-1.5
+
+              hover:border-border/50
+              hover:bg-muted/45
+
+              xl:pr-1.5 xl:pl-2.5
+            `,
+          open &&
+            `
+              border-border/60
+              bg-muted/55
+            `,
         )}
       >
-        <Avatar className={cn(
-          compact ? "h-8 w-8 border border-border/40" : "h-full w-full border border-border/80 shadow-sm shadow-black/10"
-        )}>
+        <Avatar
+          className={cn(
+            `
+              shrink-0
+              border border-border/60
+              bg-secondary
+              shadow-sm
+            `,
+            compact ? "size-8" : "size-8",
+          )}
+        >
           {user.image ? (
             <AvatarImage
               src={user.image}
@@ -160,20 +237,87 @@ export default function UserMenu({
               className="object-cover"
             />
           ) : null}
-          <AvatarFallback className={cn("font-black text-foreground", compact ? "text-[10px]" : "text-sm bg-secondary")}>
+
+          <AvatarFallback
+            className="
+              bg-secondary
+              text-[11px] font-black
+              text-foreground
+            "
+          >
             {getInitial(user)}
           </AvatarFallback>
         </Avatar>
+
+        {!compact ? (
+          <>
+            <div className="hidden min-w-0 text-right xl:block">
+              <p
+                className="
+                  max-w-28 truncate
+                  text-xs font-bold
+                  text-foreground
+                "
+              >
+                {displayName}
+              </p>
+            </div>
+
+            <ChevronDown
+              className={cn(
+                `
+                  hidden size-3.5
+                  shrink-0
+                  text-muted-foreground
+                  transition-transform duration-200
+                  xl:block
+                `,
+                open && "rotate-180",
+              )}
+            />
+          </>
+        ) : null}
       </button>
 
+      {/* Menu */}
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-[1.7rem] border border-border/80 bg-card/95 p-2 shadow-[0_28px_80px_-44px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+          aria-label="حساب کاربری"
+          className="
+            absolute left-0 top-full z-50
+            mt-2.5
+            w-[min(19rem,calc(100vw-1.5rem))]
+            overflow-hidden
+            rounded-2xl
+            border border-border/60
+            bg-popover/95
+            p-1.5
+            shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]
+            backdrop-blur-xl
+
+            sm:w-72
+            sm:rounded-3xl
+            sm:p-2
+          "
         >
-          <div className="rounded-[1.25rem] border border-border/70 bg-background/65 px-3.5 py-3">
+          {/* User identity */}
+          <div
+            className="
+              rounded-2xl
+              border border-border/40
+              bg-background/45
+              p-3
+            "
+          >
             <div className="flex items-center gap-3">
-              <Avatar className="h-11 w-11 border border-border/70">
+              <Avatar
+                className="
+                  size-11 shrink-0
+                  border border-border/60
+                  shadow-sm
+                "
+              >
                 {user.image ? (
                   <AvatarImage
                     src={user.image}
@@ -181,26 +325,64 @@ export default function UserMenu({
                     className="object-cover"
                   />
                 ) : null}
-                <AvatarFallback className="bg-secondary text-sm font-black text-foreground">
+
+                <AvatarFallback
+                  className="
+                    bg-secondary
+                    text-sm font-black
+                    text-foreground
+                  "
+                >
                   {getInitial(user)}
                 </AvatarFallback>
               </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-foreground">
-                  {displayName}
-                </p>
-                {handle ? (
-                  <p dir="ltr" className="truncate text-xs text-muted-foreground">
-                    {handle}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p
+                    className="
+                      min-w-0 truncate
+                      text-sm font-black
+                      text-foreground
+                    "
+                  >
+                    {displayName}
+                  </p>
+
+                  {isAdmin ? (
+                    <span
+                      title="مدیر"
+                      className="
+                        flex size-5 shrink-0
+                        items-center justify-center
+                        rounded-md
+                        bg-primary/10
+                        text-primary
+                      "
+                    >
+                      <ShieldCheck className="size-3" />
+                    </span>
+                  ) : null}
+                </div>
+
+                {secondaryIdentity ? (
+                  <p
+                    dir="ltr"
+                    className="
+                      mt-0.5 truncate
+                      text-left text-[11px]
+                      text-muted-foreground
+                    "
+                  >
+                    {secondaryIdentity}
                   </p>
                 ) : null}
               </div>
             </div>
           </div>
 
-          <div className="my-2 h-px bg-border" />
-
-          <div className="space-y-1">
+          {/* Primary navigation */}
+          <div className="mt-1.5 space-y-0.5">
             {primaryItems.map((item) => (
               <MenuLink
                 key={item.label}
@@ -211,33 +393,71 @@ export default function UserMenu({
             ))}
           </div>
 
+          {/* Admin */}
           {adminItems.length > 0 ? (
             <>
-              <div className="my-2 h-px bg-border" />
-              <div className="space-y-1">
+              <Divider />
+
+              <div className="space-y-0.5">
                 {adminItems.map((item) => (
                   <MenuLink
                     key={item.label}
                     item={item}
                     active={isActivePath(pathname, item.href)}
                     onSelect={() => setOpen(false)}
+                    emphasized
                   />
                 ))}
               </div>
             </>
           ) : null}
 
-          <div className="my-2 h-px bg-border" />
+          <Divider />
 
+          {/* Logout */}
           <button
             type="button"
             role="menuitem"
             onClick={handleLogout}
             disabled={loggingOut}
-            className="flex w-full items-center gap-3 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+            className="
+              group
+              flex h-10 w-full
+              items-center gap-3
+              rounded-xl
+              px-3
+              text-xs font-bold
+              text-rose-500
+              outline-none
+              transition-all duration-150
+
+              hover:bg-rose-500/10
+
+              focus-visible:ring-2
+              focus-visible:ring-rose-500/20
+
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+            "
           >
-            <LogOut className="h-4 w-4" />
-            <span>{loggingOut ? "در حال خروج..." : "خروج"}</span>
+            <span
+              className="
+                flex size-7 shrink-0
+                items-center justify-center
+                rounded-lg
+                bg-rose-500/10
+                transition-colors
+                group-hover:bg-rose-500/15
+              "
+            >
+              {loggingOut ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <LogOut className="size-3.5" />
+              )}
+            </span>
+
+            <span>{loggingOut ? "در حال خروج..." : "خروج از حساب"}</span>
           </button>
         </div>
       ) : null}
@@ -249,10 +469,12 @@ function MenuLink({
   item,
   active,
   onSelect,
+  emphasized = false,
 }: {
   item: MenuItem;
   active: boolean;
   onSelect: () => void;
+  emphasized?: boolean;
 }) {
   const Icon = item.icon;
 
@@ -260,21 +482,76 @@ function MenuLink({
     <Link
       href={item.href}
       role="menuitem"
+      aria-current={active ? "page" : undefined}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-3 rounded-[1.1rem] px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+        `
+          group
+          flex h-10 w-full
+          items-center gap-3
+          rounded-xl
+          px-3
+          text-xs font-bold
+          outline-none
+          transition-all duration-150
+
+          focus-visible:ring-2
+          focus-visible:ring-primary/20
+        `,
         active
-          ? "bg-primary/12 text-primary"
-          : "text-foreground hover:bg-primary/5 hover:text-primary",
+          ? `
+            bg-primary/[0.08]
+            text-primary
+          `
+          : `
+            text-foreground/85
+            hover:bg-muted/50
+            hover:text-foreground
+          `,
+        emphasized &&
+          !active &&
+          `
+            text-primary
+            hover:bg-primary/[0.06]
+          `,
       )}
     >
-      <Icon
+      <span
         className={cn(
-          "h-4 w-4",
-          active ? "text-primary" : "text-muted-foreground",
+          `
+            flex size-7 shrink-0
+            items-center justify-center
+            rounded-lg
+            transition-colors
+          `,
+          active || emphasized
+            ? `
+              bg-primary/10
+              text-primary
+            `
+            : `
+              bg-muted/60
+              text-muted-foreground
+              group-hover:text-foreground
+            `,
         )}
-      />
-      <span>{item.label}</span>
+      >
+        <Icon className="size-3.5" />
+      </span>
+
+      <span className="min-w-0 flex-1 truncate text-right">{item.label}</span>
+
+      {active ? (
+        <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+      ) : null}
     </Link>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="my-1.5 px-2">
+      <div className="h-px bg-border/50" />
+    </div>
   );
 }
