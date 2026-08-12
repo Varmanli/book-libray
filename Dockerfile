@@ -127,7 +127,7 @@ ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs \
-    && apk add --no-cache curl postgresql-client \
+    && apk add --no-cache curl postgresql-client su-exec \
     && mkdir -p /app/backups \
     && chown nextjs:nodejs /app/backups
 
@@ -193,8 +193,6 @@ RUN chmod 0755 ./docker-entrypoint.sh \
     && test -f ./drizzle/0037_public_book_thoughts.sql \
     && test -f ./migration-manifest.json \
     && echo "Runtime application assets verified"
-
-USER nextjs
 
 EXPOSE 3000
 

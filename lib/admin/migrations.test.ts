@@ -75,6 +75,11 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /set -eu/);
   assert.match(entrypoint, /DATABASE_URL is required/);
   assert.match(entrypoint, /JWT_SECRET is required/);
+  assert.match(dockerfile, /postgresql-client su-exec/);
+  assert.doesNotMatch(dockerfile, /\nUSER nextjs\n/);
+  assert.match(entrypoint, /mkdir -p "\$DATABASE_BACKUP_DIR"/);
+  assert.match(entrypoint, /chown nextjs:nodejs "\$DATABASE_BACKUP_DIR"/);
+  assert.match(entrypoint, /exec su-exec nextjs "\$@"/);
   assert.match(entrypoint, /run-production-migrations\.mjs preflight/);
   assert.match(entrypoint, /backup-production-db\.mjs/);
   assert.match(entrypoint, /npm run db:migrate/);
@@ -92,13 +97,13 @@ test("production image backs up, migrates, verifies, then starts Next.js", () =>
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs preflight ledger-repair/);
   assert.match(entrypoint, /migration-baseline-attempt-guard\.mjs record ledger-repair/);
   assert.match(entrypoint, /audit-production-migration-baseline\.mjs/);
-  assert.match(entrypoint, /exec "\$@"/);
+  assert.match(entrypoint, /exec su-exec nextjs "\$@"/);
   const normalPreflight = entrypoint.lastIndexOf("preflight");
   const normalBackup = entrypoint.lastIndexOf("backup-production-db");
   assert.ok(normalPreflight < normalBackup);
   assert.ok(normalBackup < entrypoint.indexOf("npm run db:migrate"));
   assert.ok(entrypoint.indexOf("npm run db:migrate") < entrypoint.indexOf("postflight"));
-  assert.ok(entrypoint.indexOf("postflight") < entrypoint.indexOf('exec "$@"'));
+  assert.ok(entrypoint.indexOf("postflight") < entrypoint.indexOf('exec su-exec nextjs "$@"'));
   assert.match(dockerfile, /http:\/\/127\.0\.0\.1:3000\//);
   assert.match(dockerfile, /\/app\/scripts\/run-production-migrations\.mjs/);
   assert.match(dockerfile, /\/app\/drizzle/);

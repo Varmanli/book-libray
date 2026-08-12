@@ -6,6 +6,13 @@ set -eu
 : "${DATABASE_BACKUP_DIR:=/app/backups}"
 export DATABASE_BACKUP_DIR
 
+# Coolify/Docker volumes are mounted after image construction and are commonly
+# root-owned. The backup step below must be able to create a dump there. Start
+# as root solely to repair the declared backup directory, then run Next as the
+# unprivileged application user.
+mkdir -p "$DATABASE_BACKUP_DIR"
+chown nextjs:nodejs "$DATABASE_BACKUP_DIR"
+
 if [ "${RUN_MIGRATION_BASELINE:-false}" = "true" ]; then
   echo "Checking persistent baseline failure marker..."
   node ./scripts/migration-baseline-attempt-guard.mjs preflight
@@ -71,4 +78,4 @@ echo "Running migration postflight verification..."
 node ./scripts/run-production-migrations.mjs postflight
 
 echo "Starting Next.js server..."
-exec "$@"
+exec su-exec nextjs "$@"
