@@ -7,11 +7,12 @@ import {
   IranKetabDiscoveryMembership,
   IranKetabDiscoverySource,
 } from "@/db/schema";
+import { getImportSession } from "@/lib/importers/iranketab/session";
 
 export const IRANKETAB_DISCOVERY_ITEM_PAGE_SIZE = 25;
 
 export class IranKetabDiscoveryCandidateError extends Error {
-  constructor(public readonly code: "DISCOVERY_ITEM_NOT_FOUND") {
+  constructor(public readonly code: "DISCOVERY_ITEM_NOT_FOUND" | "DISCOVERY_PREVIEW_REQUIRED" | "DISCOVERY_INVALID_TRANSITION" | "DISCOVERY_IMPORT_NOT_APPROVED") {
     super(code);
   }
 }
@@ -157,26 +158,96 @@ export async function reviewIranKetabDiscoveryCandidate(
   id: string,
   action: IranKetabDiscoveryCandidateAction,
 ) {
+  if (action === "APPROVE_FOR_IMPORT") return approveDiscoveryCandidate(id);
+  const [current] = await db
+    .select({ status: IranKetabDiscoveryItem.status })
+    .from(IranKetabDiscoveryItem)
+    .where(eq(IranKetabDiscoveryItem.id, id))
+    .limit(1);
+  if (!current) throw new IranKetabDiscoveryCandidateError("DISCOVERY_ITEM_NOT_FOUND");
+  const allowed = action === "IGNORE"
+    ? ["DISCOVERED", "SCORED", "NEEDS_REVIEW", "APPROVED", "FAILED"]
+    : ["SCORED", "NEEDS_REVIEW", "APPROVED"];
+  if (!allowed.includes(current.status))
+    throw new IranKetabDiscoveryCandidateError("DISCOVERY_INVALID_TRANSITION");
   const now = new Date();
   const patch =
     action === "IGNORE"
       ? { status: "SKIPPED" as const, nextRetryAt: null, leaseExpiresAt: null }
       : action === "NEEDS_REVIEW"
         ? { status: "NEEDS_REVIEW" as const, leaseExpiresAt: null }
-        : {
-            status: "QUEUED" as const,
-            failureCode: null,
-            failureReason: null,
-            nextRetryAt: null,
-            leaseExpiresAt: null,
-          };
+        : { status: "NEEDS_REVIEW" as const, leaseExpiresAt: null };
   const [updated] = await db
     .update(IranKetabDiscoveryItem)
     .set({ ...patch, updatedAt: now })
     .where(eq(IranKetabDiscoveryItem.id, id))
     .returning({ id: IranKetabDiscoveryItem.id });
-  if (!updated) throw new IranKetabDiscoveryCandidateError("DISCOVERY_ITEM_NOT_FOUND");
+  if (!updated) throw new IranKetabDiscoveryCandidateError("DISCOVERY_INVALID_TRANSITION");
   return getIranKetabDiscoveryCandidate(id);
+}
+
+/** Approval is deliberately separate from queueing: it authorizes commit of an existing preview. */
+export async function approveDiscoveryCandidate(id: string) {
+  const [item] = await db
+    .select({ id: IranKetabDiscoveryItem.id, status: IranKetabDiscoveryItem.status, importSessionId: IranKetabDiscoveryItem.importSessionId })
+    .from(IranKetabDiscoveryItem)
+    .where(eq(IranKetabDiscoveryItem.id, id))
+    .limit(1);
+  if (!item) throw new IranKetabDiscoveryCandidateError("DISCOVERY_ITEM_NOT_FOUND");
+  if (item.status !== "NEEDS_REVIEW") throw new IranKetabDiscoveryCandidateError("DISCOVERY_INVALID_TRANSITION");
+  if (!item.importSessionId) throw new IranKetabDiscoveryCandidateError("DISCOVERY_PREVIEW_REQUIRED");
+  const session = await getImportSession(item.importSessionId);
+  if (!session || session.session.status !== "PREVIEW_READY")
+    throw new IranKetabDiscoveryCandidateError("DISCOVERY_PREVIEW_REQUIRED");
+  const [updated] = await db
+    .update(IranKetabDiscoveryItem)
+    .set({ status: "APPROVED", failureCode: null, failureReason: null, updatedAt: new Date() })
+    .where(and(eq(IranKetabDiscoveryItem.id, id), eq(IranKetabDiscoveryItem.status, "NEEDS_REVIEW")))
+    .returning({ id: IranKetabDiscoveryItem.id });
+  if (!updated) throw new IranKetabDiscoveryCandidateError("DISCOVERY_INVALID_TRANSITION");
+  return getIranKetabDiscoveryCandidate(id);
+}
+
+/** Called by the existing importer commit endpoint, never by the queue worker. */
+export async function beginApprovedDiscoveryCommit(sessionId: string) {
+  const [item] = await db
+    .select({ id: IranKetabDiscoveryItem.id, status: IranKetabDiscoveryItem.status })
+    .from(IranKetabDiscoveryItem)
+    .where(eq(IranKetabDiscoveryItem.importSessionId, sessionId))
+    .limit(1);
+  if (!item) return null;
+  const [updated] = await db
+    .update(IranKetabDiscoveryItem)
+    .set({ status: "IMPORTING", updatedAt: new Date() })
+    .where(and(eq(IranKetabDiscoveryItem.id, item.id), eq(IranKetabDiscoveryItem.status, "APPROVED")))
+    .returning({ id: IranKetabDiscoveryItem.id });
+  if (!updated) throw new IranKetabDiscoveryCandidateError("DISCOVERY_IMPORT_NOT_APPROVED");
+  return item.id;
+}
+
+/** Worker-only approval; its caller must have already verified AUTO_IMPORT on the originating source. */
+export async function approveDiscoveryCandidateForAutoImport(sessionId: string) {
+  const [updated] = await db.update(IranKetabDiscoveryItem)
+    .set({ status: "APPROVED", failureCode: null, failureReason: null, updatedAt: new Date() })
+    .where(and(eq(IranKetabDiscoveryItem.importSessionId, sessionId), eq(IranKetabDiscoveryItem.status, "NEEDS_REVIEW")))
+    .returning({ id: IranKetabDiscoveryItem.id });
+  if (!updated) throw new IranKetabDiscoveryCandidateError("DISCOVERY_IMPORT_NOT_APPROVED");
+  return updated;
+}
+
+export async function completeDiscoveryCommit(sessionId: string, catalogBookId: string) {
+  await db.update(IranKetabDiscoveryItem)
+    .set({ status: "IMPORTED", existingCatalogBookId: catalogBookId, failureCode: null, failureReason: null, updatedAt: new Date() })
+    .where(and(eq(IranKetabDiscoveryItem.importSessionId, sessionId), eq(IranKetabDiscoveryItem.status, "IMPORTING")));
+}
+
+export async function failDiscoveryCommit(sessionId: string, code: string, message: string) {
+  await db.update(IranKetabDiscoveryItem)
+    .set({ status: "FAILED", failureCode: code, failureReason: message, updatedAt: new Date() })
+    .where(and(
+      eq(IranKetabDiscoveryItem.importSessionId, sessionId),
+      inArray(IranKetabDiscoveryItem.status, ["NEEDS_REVIEW", "APPROVED", "IMPORTING"]),
+    ));
 }
 
 function candidateConditions(input: {

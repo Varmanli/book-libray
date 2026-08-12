@@ -1,0 +1,1 @@
+ALTER TYPE "IranKetabDiscoveryItemStatus" ADD VALUE IF NOT EXISTS 'APPROVED';

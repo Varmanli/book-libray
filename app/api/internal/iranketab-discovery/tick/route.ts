@@ -1,0 +1,29 @@
+import { apiSuccess } from "@/lib/api/response";
+import { processDiscoveryImportQueueBatch } from "@/lib/discovery/iranketab/import-queue";
+import { runScheduledDiscovery } from "@/lib/discovery/iranketab/scheduler";
+import { assertIranKetabDiscoveryWorkerRequest } from "@/lib/discovery/iranketab/worker-auth";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+/**
+ * Invoke from a platform cron or a dedicated worker every minute. It is
+ * deliberately bounded and fail-closed; normal admin endpoints stay separate.
+ */
+export async function POST(request: Request) {
+  const gate = await assertIranKetabDiscoveryWorkerRequest(request);
+  if ("error" in gate) return gate.error;
+
+  const discovery = await runScheduledDiscovery();
+  const imports = await processDiscoveryImportQueueBatch(
+    `cron:${gate.actorId}`,
+    workerBatchSize(),
+    gate.actorId,
+  );
+  return apiSuccess({ discovery, imports });
+}
+
+function workerBatchSize() {
+  const configured = Number(process.env.IRANKETAB_DISCOVERY_WORKER_BATCH_SIZE ?? 10);
+  return Math.max(1, Math.min(25, Number.isFinite(configured) ? Math.trunc(configured) : 10));
+}

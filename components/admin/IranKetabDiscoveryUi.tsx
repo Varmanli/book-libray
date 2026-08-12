@@ -28,6 +28,7 @@ export const itemStatusLabels: Record<string, string> = {
   IMPORTING: "در حال ورود",
   IMPORTED: "واردشده",
   NEEDS_REVIEW: "نیازمند بررسی",
+  APPROVED: "تأییدشده برای ورود",
   SKIPPED: "نادیده‌گرفته‌شده",
   FAILED: "ناموفق",
 };
@@ -47,12 +48,14 @@ export const importJobStatusLabels: Record<string, string> = {
 };
 
 const statusTone: Record<string, string> = {
+  READY: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   RUNNING: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
   SUCCEEDED: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   IMPORTED: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   QUEUED: "border-primary/30 bg-primary/10 text-primary",
   IMPORTING: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
   NEEDS_REVIEW: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  APPROVED: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   FAILED: "border-destructive/30 bg-destructive/10 text-destructive",
   SKIPPED: "border-border bg-muted/50 text-muted-foreground",
   PAUSED: "border-border bg-muted/50 text-muted-foreground",

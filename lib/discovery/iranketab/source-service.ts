@@ -11,6 +11,9 @@ import type {
   IranKetabDiscoverySourceInput,
   UpdateIranKetabDiscoverySourceInput,
 } from "@/lib/validations/iranketab-discovery";
+import { canonicalIranKetabDiscoverySourceUrl, prepareIranKetabDiscoverySourceCreateValues } from "./source-policy";
+
+export { prepareIranKetabDiscoverySourceCreateValues } from "./source-policy";
 
 export const IRANKETAB_DISCOVERY_SOURCE_PAGE_SIZE = 25;
 
@@ -36,6 +39,7 @@ const sourceSelection = {
   crawlStatus: IranKetabDiscoverySource.crawlStatus,
   crawlIntervalMinutes: IranKetabDiscoverySource.crawlIntervalMinutes,
   autoQueue: IranKetabDiscoverySource.autoQueue,
+  importMode: IranKetabDiscoverySource.importMode,
   minimumQueueScore: IranKetabDiscoverySource.minimumQueueScore,
   parserVersion: IranKetabDiscoverySource.parserVersion,
   lastCrawledAt: IranKetabDiscoverySource.lastCrawledAt,
@@ -163,7 +167,7 @@ export async function createIranKetabDiscoverySource(
   input: IranKetabDiscoverySourceInput,
   adminId: string,
 ) {
-  const values = normalizeCreateSourceInput(input);
+  const values = prepareIranKetabDiscoverySourceCreateValues(input);
   await assertSourceIdentityAvailable(values.sourceUrl, values.sourceKey);
 
   const [source] = await db
@@ -238,7 +242,7 @@ function normalizeSourceInput(
     ...(input.name !== undefined ? { name: input.name.trim() } : {}),
     ...(input.sourceType !== undefined ? { sourceType: input.sourceType } : {}),
     ...(input.sourceUrl !== undefined
-      ? { sourceUrl: canonicalSourceUrl(input.sourceUrl) }
+      ? { sourceUrl: canonicalIranKetabDiscoverySourceUrl(input.sourceUrl) }
       : {}),
     ...(input.sourceKey !== undefined
       ? { sourceKey: input.sourceKey.trim().toLowerCase() }
@@ -249,6 +253,7 @@ function normalizeSourceInput(
       ? { crawlIntervalMinutes: input.crawlIntervalMinutes }
       : {}),
     ...(input.autoQueue !== undefined ? { autoQueue: input.autoQueue } : {}),
+    ...(input.importMode !== undefined ? { importMode: input.importMode } : {}),
     ...(input.minimumQueueScore !== undefined
       ? { minimumQueueScore: input.minimumQueueScore }
       : {}),
@@ -260,30 +265,6 @@ function normalizeSourceInput(
       : {}),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   };
-}
-
-function normalizeCreateSourceInput(input: IranKetabDiscoverySourceInput) {
-  return {
-    name: input.name.trim(),
-    sourceType: input.sourceType,
-    sourceUrl: canonicalSourceUrl(input.sourceUrl),
-    sourceKey: input.sourceKey.trim().toLowerCase(),
-    importance: input.importance,
-    enabled: input.enabled,
-    crawlIntervalMinutes: input.crawlIntervalMinutes,
-    autoQueue: input.autoQueue,
-    minimumQueueScore: input.minimumQueueScore,
-    parserVersion: input.parserVersion,
-    nextCrawlAt: input.nextCrawlAt ?? new Date(),
-    metadata: input.metadata ?? null,
-  };
-}
-
-function canonicalSourceUrl(value: string) {
-  const url = new URL(value.trim());
-  url.hostname = url.hostname.toLowerCase();
-  url.hash = "";
-  return url.toString();
 }
 
 async function assertSourceIdentityAvailable(

@@ -74,7 +74,8 @@ export function validateIranKetabCollectionUrl(
     throw new IranKetabCollectionFetchError("UNSUPPORTED_HOST", "فقط صفحات مجموعه ایران‌کتاب قابل پذیرش هستند.");
   if (!isSupportedCollectionPath(url.pathname, sourceType))
     throw new IranKetabCollectionFetchError("UNSUPPORTED_PATH", "مسیر منبع برای نوع انتخاب‌شده پشتیبانی نمی‌شود.");
-  url.hostname = host;
+  // Treat IranKetab's apex and www host as one page identity for redirects and pagination.
+  url.hostname = "www.iranketab.ir";
   url.hash = "";
   return url;
 }
@@ -159,10 +160,10 @@ function isSupportedCollectionPath(pathname: string, sourceType: IranKetabDiscov
   } catch {
     return false;
   }
-  if (sourceType === "AUTHOR") return /^\/profile\/[^/]+$/u.test(path);
-  if (sourceType === "PUBLISHER") return /^\/publisher\/[^/]+$/u.test(path);
+  if (sourceType === "AUTHOR") return /^\/profile\/[^/]+(?:\/page\/\d+)?$/u.test(path);
+  if (sourceType === "PUBLISHER") return /^\/publisher\/[^/]+(?:\/page\/\d+)?$/u.test(path);
   if (sourceType === "SEARCH") return path === "/search";
-  return /^\/(?:tag|category|collection|list)\/[^/]+$/u.test(path);
+  return /^\/(?:tag|category|collection|list)\/[^/]+(?:\/page\/\d+)?$/u.test(path);
 }
 
 function isUnsafeIpAddress(address: string) {

@@ -11,6 +11,20 @@ import {
 } from "./scheduler-policy";
 
 const DISCOVERY_SOURCE_LEASE_MS = 30 * 60_000;
+const DEFAULT_SCHEDULER_SOURCE_BATCH_SIZE = 10;
+
+export class IranKetabDiscoveryScheduleError extends Error {
+  constructor(
+    public readonly code:
+      | "DISCOVERY_SOURCE_NOT_FOUND"
+      | "DISCOVERY_SOURCE_DISABLED"
+      | "DISCOVERY_SOURCE_BUSY",
+    message: string,
+  ) {
+    super(message);
+    this.name = "IranKetabDiscoveryScheduleError";
+  }
+}
 
 export { calculateNextCrawlAt, isAutoQueueEligible, selectDueDiscoverySources } from "./scheduler-policy";
 
@@ -44,7 +58,7 @@ export async function runScheduledDiscovery() {
       ),
     )
     .orderBy(IranKetabDiscoverySource.nextCrawlAt)
-    .limit(100);
+    .limit(schedulerSourceBatchSize());
 
   const dueSources = selectDueDiscoverySources(candidates, now);
   const results = [];
@@ -99,6 +113,74 @@ export async function runScheduledDiscovery() {
   return { ranAt: now, dueCount: dueSources.length, results };
 }
 
+function schedulerSourceBatchSize() {
+  const configured = Number(process.env.IRANKETAB_DISCOVERY_SCHEDULER_SOURCE_BATCH_SIZE ?? DEFAULT_SCHEDULER_SOURCE_BATCH_SIZE);
+  return Math.max(1, Math.min(25, Number.isFinite(configured) ? Math.trunc(configured) : DEFAULT_SCHEDULER_SOURCE_BATCH_SIZE));
+}
+
+/**
+ * Runs one enabled source on demand. Unlike the scheduler this intentionally
+ * ignores nextCrawlAt, but it uses the same lease so concurrent schedulers and
+ * admins cannot run a source twice.
+ */
+export async function runManualDiscoverySource(sourceId: string) {
+  const now = new Date();
+  const [source] = await db
+    .select({
+      id: IranKetabDiscoverySource.id,
+      enabled: IranKetabDiscoverySource.enabled,
+      crawlStatus: IranKetabDiscoverySource.crawlStatus,
+      crawlLeaseExpiresAt: IranKetabDiscoverySource.crawlLeaseExpiresAt,
+      crawlIntervalMinutes: IranKetabDiscoverySource.crawlIntervalMinutes,
+      autoQueue: IranKetabDiscoverySource.autoQueue,
+      minimumQueueScore: IranKetabDiscoverySource.minimumQueueScore,
+    })
+    .from(IranKetabDiscoverySource)
+    .where(eq(IranKetabDiscoverySource.id, sourceId))
+    .limit(1);
+  if (!source) throw new IranKetabDiscoveryScheduleError("DISCOVERY_SOURCE_NOT_FOUND", "منبع کشف یافت نشد.");
+  if (!source.enabled) throw new IranKetabDiscoveryScheduleError("DISCOVERY_SOURCE_DISABLED", "منبع کشف غیرفعال است.");
+
+  const [claimed] = await db
+    .update(IranKetabDiscoverySource)
+    .set({
+      crawlStatus: "RUNNING",
+      crawlLeaseExpiresAt: new Date(now.getTime() + DISCOVERY_SOURCE_LEASE_MS),
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(IranKetabDiscoverySource.id, source.id),
+        eq(IranKetabDiscoverySource.enabled, true),
+        or(
+          ne(IranKetabDiscoverySource.crawlStatus, "RUNNING"),
+          isNull(IranKetabDiscoverySource.crawlLeaseExpiresAt),
+          lte(IranKetabDiscoverySource.crawlLeaseExpiresAt, now),
+        ),
+      ),
+    )
+    .returning({ id: IranKetabDiscoverySource.id });
+  if (!claimed) throw new IranKetabDiscoveryScheduleError("DISCOVERY_SOURCE_BUSY", "این منبع هم‌اکنون در حال اجرا است.");
+
+  try {
+    const run = await runDiscoverySource(source.id);
+    const queueResults = source.autoQueue
+      ? await enqueueEligibleSourceItems(source.id, source.minimumQueueScore)
+      : [];
+    await scheduleSource(source.id, source.crawlIntervalMinutes, now);
+    return { sourceId: source.id, status: "SUCCEEDED" as const, run, queueResults };
+  } catch (error) {
+    const errorCode = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "DISCOVERY_RUN_FAILED";
+    const errorMessage = error instanceof Error ? error.message : "اجرای کشف منبع ناموفق بود.";
+    await db
+      .update(IranKetabDiscoverySource)
+      .set({ crawlStatus: "FAILED", crawlLeaseExpiresAt: null, lastErrorCode: errorCode, lastErrorMessage: errorMessage, updatedAt: new Date() })
+      .where(and(eq(IranKetabDiscoverySource.id, source.id), eq(IranKetabDiscoverySource.crawlStatus, "RUNNING")));
+    await scheduleSource(source.id, source.crawlIntervalMinutes, now);
+    return { sourceId: source.id, status: "FAILED" as const, errorCode, errorMessage };
+  }
+}
+
 async function scheduleSource(sourceId: string, crawlIntervalMinutes: number, now: Date) {
   await db
     .update(IranKetabDiscoverySource)
@@ -119,5 +201,5 @@ async function enqueueEligibleSourceItems(sourceId: string, minimumQueueScore: n
     .update(IranKetabDiscoveryItem)
     .set({ status: "QUEUED", updatedAt: new Date() })
     .where(inArray(IranKetabDiscoveryItem.id, eligible.map((item) => item.id)));
-  return enqueueManyDiscoveryItems(eligible.map((item) => item.id));
+  return enqueueManyDiscoveryItems(eligible.map((item) => item.id), sourceId);
 }

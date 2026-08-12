@@ -23,6 +23,7 @@ export type DiscoveryItemForScoring = {
     | "IMPORTING"
     | "IMPORTED"
     | "NEEDS_REVIEW"
+    | "APPROVED"
     | "SKIPPED"
     | "FAILED";
   memberships: Array<{

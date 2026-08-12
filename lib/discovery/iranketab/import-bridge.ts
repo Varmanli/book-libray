@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
-import { db } from "@/db";
+import { databaseDiagnosticTarget, db } from "@/db";
 import { IranKetabDiscoveryItem } from "@/db/schema";
 import { loadIranKetabAnalysisData } from "@/lib/importers/iranketab/match-repository";
 import { createIranKetabPreviewPost } from "@/lib/importers/iranketab/preview-handler";
@@ -41,26 +41,50 @@ type PreviewFailure = {
 export async function startDiscoveryImport(discoveryItemId: string, actorId: string) {
   const itemId = discoveryItemId;
   const adminId = actorId;
+  bridgeLog("candidate_lookup_started", { discoveryItemId: itemId, actorId: adminId, databaseTarget: databaseDiagnosticTarget() });
   const [item] = await db
     .select()
     .from(IranKetabDiscoveryItem)
     .where(eq(IranKetabDiscoveryItem.id, itemId))
     .limit(1);
-  if (!item)
+  if (!item) {
+    bridgeLog("candidate_lookup_missing", { discoveryItemId: itemId, actorId: adminId });
     throw new IranKetabDiscoveryImportBridgeError(
       "DISCOVERY_ITEM_NOT_FOUND",
       "نامزد کشف یافت نشد.",
     );
+  }
+
+  bridgeLog("candidate_lookup_succeeded", {
+    discoveryItemId: item.id,
+    status: item.status,
+    importSessionId: item.importSessionId,
+  });
 
   if (item.importSessionId && item.status === "IMPORTING") {
     const existing = await getImportSession(item.importSessionId);
+    if (existing?.session.status === "PREVIEW_READY") {
+      await markDiscoveryItemPreviewReady(item.id, existing.session.id);
+      return { session: existing.session, reused: true };
+    }
+    if (existing?.session.status === "FAILED") {
+      const message = existing.session.errorMessage ?? "آماده‌سازی ورود ناموفق بود.";
+      await markDiscoveryItemFailed(item.id, existing.session.errorCode ?? "IMPORT_PREPARATION_FAILED", message, existing.session.id);
+      throw new IranKetabDiscoveryImportBridgeError("IMPORT_PREPARATION_FAILED", message);
+    }
     if (existing) return { session: existing.session, reused: true };
   }
-  if (item.status !== "QUEUED")
+  if (item.status !== "QUEUED") {
+    bridgeLog("candidate_rejected", {
+      discoveryItemId: item.id,
+      status: item.status,
+      reason: "DISCOVERY_ITEM_NOT_QUEUED",
+    });
     throw new IranKetabDiscoveryImportBridgeError(
       "DISCOVERY_ITEM_NOT_QUEUED",
       "فقط نامزدهای تأییدشده برای ورود قابل آماده‌سازی هستند.",
     );
+  }
 
   let canonicalUrl: string;
   try {
@@ -131,6 +155,7 @@ export async function startDiscoveryImport(discoveryItemId: string, actorId: str
         },
         "EXTRACTION_COMPLETED",
       );
+      await markDiscoveryItemPreviewReady(item.id, sessionId);
     },
     sessionFailed: async ({ sessionId, error }) => {
       const code = error instanceof Error ? error.message : "PREVIEW_FAILED";
@@ -175,6 +200,10 @@ export async function startDiscoveryImport(discoveryItemId: string, actorId: str
 /** @deprecated Use startDiscoveryImport for the explicit bridge lifecycle. */
 export const queueDiscoveryItemForImport = startDiscoveryImport;
 
+function bridgeLog(event: string, details: Record<string, unknown>) {
+  console.info("[iranketab-discovery-import-bridge]", JSON.stringify({ event, ...details }));
+}
+
 async function markDiscoveryItemFailed(
   itemId: string,
   failureCode: string,
@@ -202,5 +231,25 @@ async function markDiscoveryItemFailed(
             eq(IranKetabDiscoveryItem.id, itemId),
             eq(IranKetabDiscoveryItem.status, "QUEUED"),
           ),
+    );
+}
+
+/** PREVIEW_READY awaits explicit manual review/commit in the existing importer. */
+async function markDiscoveryItemPreviewReady(itemId: string, importSessionId: string) {
+  await db
+    .update(IranKetabDiscoveryItem)
+    .set({
+      status: "NEEDS_REVIEW",
+      failureCode: null,
+      failureReason: null,
+      leaseExpiresAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(IranKetabDiscoveryItem.id, itemId),
+        eq(IranKetabDiscoveryItem.importSessionId, importSessionId),
+        eq(IranKetabDiscoveryItem.status, "IMPORTING"),
+      ),
     );
 }

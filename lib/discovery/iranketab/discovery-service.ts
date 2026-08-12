@@ -139,12 +139,13 @@ const drizzleDiscoveryRepository: IranKetabDiscoveryRunRepository = {
         .set({
           status: "SUCCESS",
           completedAt: now,
-          pagesFetched: 1,
+          pagesFetched: input.pagesFetched,
           booksFound: input.booksFound,
           itemsInserted: input.itemsInserted,
           itemsUpdated: input.itemsUpdated,
           errorCode: null,
           errorMessage: null,
+          diagnostics: input.diagnostics,
         })
         .where(eq(IranKetabDiscoveryRun.id, input.runId));
       await tx
@@ -172,12 +173,13 @@ const drizzleDiscoveryRepository: IranKetabDiscoveryRunRepository = {
         .set({
           status: "FAILED",
           completedAt: now,
-          pagesFetched: input.booksFound > 0 ? 1 : 0,
+          pagesFetched: input.pagesFetched,
           booksFound: input.booksFound,
           itemsInserted: input.itemsInserted,
           itemsUpdated: input.itemsUpdated,
           errorCode: input.errorCode,
           errorMessage: input.errorMessage,
+          diagnostics: input.diagnostics,
         })
         .where(eq(IranKetabDiscoveryRun.id, input.runId));
       await tx

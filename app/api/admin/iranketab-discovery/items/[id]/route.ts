@@ -35,11 +35,13 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     const item = await reviewIranKetabDiscoveryCandidate(id, parsed.data.action);
     return apiSuccess({ item, message: actionMessage(parsed.data.action) });
   } catch (error) {
-    if (
-      error instanceof IranKetabDiscoveryCandidateError &&
-      error.code === "DISCOVERY_ITEM_NOT_FOUND"
-    )
-      return apiError("نامزد کشف یافت نشد", 404, error.code);
+    if (error instanceof IranKetabDiscoveryCandidateError) {
+      if (error.code === "DISCOVERY_ITEM_NOT_FOUND") return apiError("نامزد کشف یافت نشد", 404, error.code);
+      const message = error.code === "DISCOVERY_PREVIEW_REQUIRED"
+        ? "پیش‌نمایش آماده برای تأیید وجود ندارد"
+        : "این تغییر وضعیت در مرحله فعلی مجاز نیست";
+      return apiError(message, 409, error.code);
+    }
     throw error;
   }
 }

@@ -19,5 +19,15 @@ const pool = new Pool({
 // اتصال Drizzle به دیتابیس با schema
 export const db = drizzle(pool, { schema });
 
+/** Safe to log: identifies the database target without exposing credentials. */
+export function databaseDiagnosticTarget() {
+  try {
+    const url = new URL(process.env.DATABASE_URL!);
+    return `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
+  } catch {
+    return "unavailable";
+  }
+}
+
 // اگه جایی لازم داشتی raw query بزنی
 export { pool };

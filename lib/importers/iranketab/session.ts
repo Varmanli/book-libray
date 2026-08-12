@@ -202,6 +202,30 @@ export async function saveImportDraft(
   });
   return updated;
 }
+
+/** Persist a validated, prepared draft without changing the current lifecycle state. */
+export async function persistPreparedImportDraft(
+  id: string,
+  adminId: string,
+  input: { draft: unknown; extraction: unknown; preparedCovers: unknown[]; fingerprint: string },
+) {
+  const parsedDraft = iranKetabImportDraftSchema.safeParse(input.draft);
+  if (!parsedDraft.success) throw new Error(formatIranKetabSchemaIssues(parsedDraft.error).join(" "));
+  assertExtractionCollectionLimits(input.extraction as Parameters<typeof assertExtractionCollectionLimits>[0]);
+  const [updated] = await db.update(IranKetabImportSession)
+    .set({
+      draft: safeAuditJson(parsedDraft.data),
+      extraction: safeAuditJson(input.extraction),
+      preparedCovers: input.preparedCovers.map((item) => safeAuditJson(item) ?? {}),
+      extractionFingerprint: input.fingerprint,
+      draftVersion: parsedDraft.data.draftVersion,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(IranKetabImportSession.id, id), eq(IranKetabImportSession.adminId, adminId)))
+    .returning();
+  if (!updated) throw new Error("SESSION_NOT_FOUND");
+  return updated;
+}
 export async function getRecoverableSession(adminId: string) {
   const terminal: ImportStatus[] = ["SUCCESS", "CANCELLED"];
   const [row] = await db

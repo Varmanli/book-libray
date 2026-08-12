@@ -19,8 +19,13 @@ test("scheduler selects only enabled due sources and skips sources already runni
   const recovered = selectDueDiscoverySources([
     { id: "stale-running", enabled: true, crawlStatus: "RUNNING", crawlLeaseExpiresAt: new Date("2026-08-11T09:59:00.000Z"), nextCrawlAt: new Date("2026-08-11T09:00:00.000Z"), crawlIntervalMinutes: 60, autoQueue: false, minimumQueueScore: 85 },
   ], now);
+  const immediatelyRunnable = selectDueDiscoverySources([
+    { id: "new-source", enabled: true, crawlStatus: "IDLE", nextCrawlAt: now, crawlIntervalMinutes: 60, autoQueue: false, minimumQueueScore: 85 },
+    { id: "running-without-lease", enabled: true, crawlStatus: "RUNNING", crawlLeaseExpiresAt: null, nextCrawlAt: now, crawlIntervalMinutes: 60, autoQueue: false, minimumQueueScore: 85 },
+  ], now);
   assert.deepEqual(due.map((source) => source.id), ["due"]);
   assert.deepEqual(recovered.map((source) => source.id), ["stale-running"]);
+  assert.deepEqual(immediatelyRunnable.map((source) => source.id), ["new-source", "running-without-lease"]);
 });
 
 test("scheduler advances the next crawl by the configured source interval", () => {

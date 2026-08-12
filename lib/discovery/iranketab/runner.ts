@@ -3,6 +3,21 @@ import type {
 } from "./collection-parser";
 import { parseIranKetabCollectionPage } from "./collection-parser";
 import type { IranKetabDiscoverySourceType } from "./collection-fetch";
+import { detectIranKetabNextPageUrl } from "./pagination";
+
+export const DEFAULT_DISCOVERY_MAX_PAGES = 100;
+export const DEFAULT_DISCOVERY_MAX_BOOKS = 10_000;
+
+export type IranKetabDiscoveryRunDiagnostics = {
+  pagesFetched: number;
+  discoveredPages: string[];
+  paginationDetected: boolean;
+  paginationUsed: boolean;
+  firstPageUrl: string | null;
+  detectedNextPageUrl: string | null;
+  lastPageUrl: string | null;
+  stoppedReason: "NO_NEXT_PAGE" | "DUPLICATE_PAGE" | "MAX_PAGES" | "MAX_DISCOVERED_BOOKS";
+};
 
 export type IranKetabDiscoverySourceForRun = {
   id: string;
@@ -26,6 +41,8 @@ export type IranKetabDiscoveryRunRepository = {
     booksFound: number;
     itemsInserted: number;
     itemsUpdated: number;
+    pagesFetched: number;
+    diagnostics: IranKetabDiscoveryRunDiagnostics;
   }): Promise<void>;
   failRun(input: {
     sourceId: string;
@@ -33,6 +50,8 @@ export type IranKetabDiscoveryRunRepository = {
     booksFound: number;
     itemsInserted: number;
     itemsUpdated: number;
+    pagesFetched: number;
+    diagnostics: IranKetabDiscoveryRunDiagnostics;
     errorCode: string;
     errorMessage: string;
   }): Promise<void>;
@@ -46,6 +65,8 @@ export type RunIranKetabDiscoverySourceDependencies = {
   ) => Promise<{ canonicalUrl: string; html: string }>;
   parseCollection?: typeof parseIranKetabCollectionPage;
   scoreItem?: (discoveryItemId: string) => Promise<unknown>;
+  maxPages?: number;
+  maxDiscoveredBooks?: number;
 };
 
 export class IranKetabDiscoveryRunError extends Error {
@@ -80,15 +101,67 @@ export async function runIranKetabDiscoverySource(
   let itemsInserted = 0;
   let itemsUpdated = 0;
   let runFinalized = false;
+  const maxPages = boundedLimit(dependencies.maxPages, DEFAULT_DISCOVERY_MAX_PAGES);
+  const maxDiscoveredBooks = boundedLimit(dependencies.maxDiscoveredBooks, DEFAULT_DISCOVERY_MAX_BOOKS);
+  const diagnostics: IranKetabDiscoveryRunDiagnostics = {
+    pagesFetched: 0,
+    discoveredPages: [],
+    paginationDetected: false,
+    paginationUsed: false,
+    firstPageUrl: null,
+    detectedNextPageUrl: null,
+    lastPageUrl: null,
+    stoppedReason: "NO_NEXT_PAGE",
+  };
 
   try {
-    const fetched = await dependencies.fetchCollection(source.sourceUrl, source.sourceType);
     const parse = dependencies.parseCollection ?? parseIranKetabCollectionPage;
-    const candidates = parse({ html: fetched.html, pageUrl: fetched.canonicalUrl });
-    booksFound = candidates.length;
+    const candidates = new Map<string, IranKetabDiscoveryCandidate>();
+    const visitedPages = new Set<string>();
+    let nextPageUrl: string | null = source.sourceUrl;
+
+    while (nextPageUrl && diagnostics.pagesFetched < maxPages && candidates.size < maxDiscoveredBooks) {
+      const fetched = await dependencies.fetchCollection(nextPageUrl, source.sourceType);
+      if (visitedPages.has(fetched.canonicalUrl)) {
+        diagnostics.stoppedReason = "DUPLICATE_PAGE";
+        break;
+      }
+      visitedPages.add(fetched.canonicalUrl);
+      diagnostics.pagesFetched += 1;
+      diagnostics.discoveredPages.push(fetched.canonicalUrl);
+      if (!diagnostics.firstPageUrl) diagnostics.firstPageUrl = fetched.canonicalUrl;
+      diagnostics.lastPageUrl = fetched.canonicalUrl;
+
+      for (const candidate of parse({ html: fetched.html, pageUrl: fetched.canonicalUrl })) {
+        if (candidates.size >= maxDiscoveredBooks) {
+          diagnostics.stoppedReason = "MAX_DISCOVERED_BOOKS";
+          break;
+        }
+        if (!candidates.has(candidate.iranKetabBookId)) candidates.set(candidate.iranKetabBookId, candidate);
+      }
+      if (diagnostics.stoppedReason === "MAX_DISCOVERED_BOOKS") break;
+
+      const detectedNextPage = detectIranKetabNextPageUrl(fetched.html, fetched.canonicalUrl);
+      if (!detectedNextPage) {
+        diagnostics.stoppedReason = "NO_NEXT_PAGE";
+        break;
+      }
+      diagnostics.paginationDetected = true;
+      diagnostics.detectedNextPageUrl = detectedNextPage;
+      if (visitedPages.has(detectedNextPage)) {
+        diagnostics.stoppedReason = "DUPLICATE_PAGE";
+        break;
+      }
+      nextPageUrl = detectedNextPage;
+      diagnostics.paginationUsed = true;
+      if (diagnostics.pagesFetched >= maxPages) diagnostics.stoppedReason = "MAX_PAGES";
+    }
+
+    if (diagnostics.pagesFetched >= maxPages && nextPageUrl && diagnostics.stoppedReason !== "DUPLICATE_PAGE") diagnostics.stoppedReason = "MAX_PAGES";
+    booksFound = candidates.size;
     const failures: unknown[] = [];
 
-    for (const candidate of candidates) {
+    for (const candidate of candidates.values()) {
       try {
         const result = await dependencies.repository.upsertCandidate({
           sourceId: source.id,
@@ -115,6 +188,8 @@ export async function runIranKetabDiscoverySource(
         booksFound,
         itemsInserted,
         itemsUpdated,
+        pagesFetched: diagnostics.pagesFetched,
+        diagnostics,
         errorCode: error.code,
         errorMessage: error.message,
       });
@@ -128,6 +203,8 @@ export async function runIranKetabDiscoverySource(
       booksFound,
       itemsInserted,
       itemsUpdated,
+      pagesFetched: diagnostics.pagesFetched,
+      diagnostics,
     });
     runFinalized = true;
     return { runId: run.id, booksFound, itemsInserted, itemsUpdated };
@@ -139,6 +216,8 @@ export async function runIranKetabDiscoverySource(
         booksFound,
         itemsInserted,
         itemsUpdated,
+        pagesFetched: diagnostics.pagesFetched,
+        diagnostics,
         errorCode: errorCode(error),
         errorMessage: errorMessage(error),
       });
@@ -151,6 +230,10 @@ export async function runIranKetabDiscoverySource(
       { cause: error },
     );
   }
+}
+
+function boundedLimit(value: number | undefined, fallback: number) {
+  return Math.max(1, Math.trunc(value ?? fallback));
 }
 
 function errorCode(error: unknown) {

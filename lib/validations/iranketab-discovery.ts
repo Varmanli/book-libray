@@ -19,6 +19,7 @@ export const iranKetabDiscoveryCrawlStatusSchema = z.enum([
 ]);
 
 const metadataSchema = z.record(z.string(), z.unknown());
+export const iranKetabDiscoveryImportModeSchema = z.enum(["MANUAL_REVIEW", "AUTO_IMPORT"]);
 
 export const iranKetabDiscoverySourceInputSchema = z.object({
   name: z.string().trim().min(1, "نام منبع الزامی است").max(300),
@@ -42,6 +43,7 @@ export const iranKetabDiscoverySourceInputSchema = z.object({
   enabled: z.boolean().default(true),
   crawlIntervalMinutes: z.number().int().min(5).max(43_200).default(1440),
   autoQueue: z.boolean().default(false),
+  importMode: iranKetabDiscoveryImportModeSchema.default("MANUAL_REVIEW"),
   minimumQueueScore: z.number().int().min(0).max(100).default(85),
   parserVersion: z.number().int().positive().max(10_000).default(1),
   nextCrawlAt: z.coerce.date().nullable().optional(),
@@ -56,6 +58,11 @@ export const updateIranKetabDiscoverySourceSchema =
 
 export const setIranKetabDiscoverySourceEnabledSchema = z.object({
   enabled: z.boolean(),
+});
+
+/** Omitting sourceId runs the normal due-source scheduler pass. */
+export const runIranKetabDiscoverySchema = z.object({
+  sourceId: z.string().trim().min(1).max(255).optional(),
 });
 
 export const listIranKetabDiscoverySourcesQuerySchema = z.object({
@@ -77,6 +84,7 @@ export const iranKetabDiscoveryItemStatusSchema = z.enum([
   "IMPORTING",
   "IMPORTED",
   "NEEDS_REVIEW",
+  "APPROVED",
   "SKIPPED",
   "FAILED",
 ]);
@@ -114,6 +122,7 @@ export const iranKetabDiscoveryImportJobStatusSchema = z.enum([
 
 export const enqueueIranKetabDiscoveryItemsSchema = z.object({
   discoveryItemIds: z.array(z.string().trim().min(1).max(255)).min(1).max(100),
+  discoverySourceId: z.string().trim().min(1).max(255).optional(),
 });
 
 export const listIranKetabDiscoveryImportJobsQuerySchema = z.object({

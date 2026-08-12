@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -35,29 +35,25 @@ export async function getDiscoveryOverview() {
 }
 
 export async function getSourcePerformance() {
-  const sources = await db
-    .select({ id: IranKetabDiscoverySource.id, name: IranKetabDiscoverySource.name, lastCrawledAt: IranKetabDiscoverySource.lastCrawledAt, discoveredBookCount: IranKetabDiscoverySource.discoveredBookCount, crawlStatus: IranKetabDiscoverySource.crawlStatus })
-    .from(IranKetabDiscoverySource)
-    .orderBy(desc(IranKetabDiscoverySource.lastCrawledAt), IranKetabDiscoverySource.name);
-  return Promise.all(sources.map(async (source) => {
-    const [runStats, queued] = await Promise.all([
-      db.select({ total: sql<number>`count(*)::int`, succeeded: sql<number>`count(*) filter (where ${IranKetabDiscoveryRun.status} = 'SUCCESS')::int`, failures: sql<number>`count(*) filter (where ${IranKetabDiscoveryRun.status} = 'FAILED')::int` })
-        .from(IranKetabDiscoveryRun)
-        .where(eq(IranKetabDiscoveryRun.discoverySourceId, source.id)),
-      db.select({ total: sql<number>`count(distinct ${IranKetabDiscoveryImportJob.discoveryItemId})::int` })
-        .from(IranKetabDiscoveryMembership)
-        .innerJoin(IranKetabDiscoveryImportJob, eq(IranKetabDiscoveryImportJob.discoveryItemId, IranKetabDiscoveryMembership.discoveryItemId))
-        .where(and(eq(IranKetabDiscoveryMembership.discoverySourceId, source.id), inArray(IranKetabDiscoveryImportJob.status, ["PENDING", "PROCESSING", "COMPLETED"]))),
-    ]);
-    const runs = runStats[0] ?? { total: 0, succeeded: 0, failures: 0 };
-    return {
-      ...source,
-      booksQueued: queued[0]?.total ?? 0,
-      failures: runs.failures,
-      totalRuns: runs.total,
-      successRate: calculateSuccessRate(runs.succeeded, runs.total),
-    };
-  }));
+  const [sources, runRows, queueRows] = await Promise.all([
+    db.select({ id: IranKetabDiscoverySource.id, name: IranKetabDiscoverySource.name, lastCrawledAt: IranKetabDiscoverySource.lastCrawledAt, discoveredBookCount: IranKetabDiscoverySource.discoveredBookCount, crawlStatus: IranKetabDiscoverySource.crawlStatus })
+      .from(IranKetabDiscoverySource)
+      .orderBy(desc(IranKetabDiscoverySource.lastCrawledAt), IranKetabDiscoverySource.name),
+    db.select({ sourceId: IranKetabDiscoveryRun.discoverySourceId, total: sql<number>`count(*)::int`, succeeded: sql<number>`count(*) filter (where ${IranKetabDiscoveryRun.status} = 'SUCCESS')::int`, failures: sql<number>`count(*) filter (where ${IranKetabDiscoveryRun.status} = 'FAILED')::int` })
+      .from(IranKetabDiscoveryRun)
+      .groupBy(IranKetabDiscoveryRun.discoverySourceId),
+    db.select({ sourceId: IranKetabDiscoveryMembership.discoverySourceId, total: sql<number>`count(distinct ${IranKetabDiscoveryImportJob.discoveryItemId})::int` })
+      .from(IranKetabDiscoveryMembership)
+      .innerJoin(IranKetabDiscoveryImportJob, eq(IranKetabDiscoveryImportJob.discoveryItemId, IranKetabDiscoveryMembership.discoveryItemId))
+      .where(inArray(IranKetabDiscoveryImportJob.status, ["PENDING", "PROCESSING", "COMPLETED"]))
+      .groupBy(IranKetabDiscoveryMembership.discoverySourceId),
+  ]);
+  const runsBySource = new Map(runRows.map((row) => [row.sourceId, row]));
+  const queuedBySource = new Map(queueRows.map((row) => [row.sourceId, row.total]));
+  return sources.map((source) => {
+    const runs = runsBySource.get(source.id) ?? { total: 0, succeeded: 0, failures: 0 };
+    return { ...source, booksQueued: queuedBySource.get(source.id) ?? 0, failures: runs.failures, totalRuns: runs.total, successRate: calculateSuccessRate(runs.succeeded, runs.total) };
+  });
 }
 
 export async function getRecentActivity() {

@@ -12,6 +12,17 @@ test("approved candidate starts the shared importer preview and records its link
   assert.match(bridge, /createIranKetabPreviewPost/);
   assert.match(bridge, /importSessionId: session\.id/);
   assert.match(bridge, /status: "IMPORTING"/);
+  assert.match(bridge, /candidate_lookup_started/);
+  assert.match(bridge, /candidate_lookup_succeeded/);
+  assert.match(bridge, /databaseTarget: databaseDiagnosticTarget\(\)/);
+});
+
+test("bridge lookup uses only the candidate ID and logs missing or rejected candidates clearly", async () => {
+  const bridge = await readFile(bridgePath, "utf8");
+  assert.match(bridge, /where\(eq\(IranKetabDiscoveryItem\.id, itemId\)\)/);
+  assert.match(bridge, /candidate_lookup_missing/);
+  assert.match(bridge, /candidate_rejected/);
+  assert.match(bridge, /reason: "DISCOVERY_ITEM_NOT_QUEUED"/);
 });
 
 test("bridge reuses an active linked import instead of creating a duplicate session", async () => {
@@ -27,4 +38,13 @@ test("preview failures persist failure state and retry information on the discov
   assert.match(bridge, /markDiscoveryItemFailed\(item\.id, code, message, createdSessionId\)/);
   assert.match(bridge, /status: "FAILED"/);
   assert.match(bridge, /retryCount: sql`\$\{IranKetabDiscoveryItem\.retryCount\} \+ 1`/);
+  assert.match(bridge, /failureCode,/);
+  assert.match(bridge, /failureReason,/);
+});
+
+test("a successful preview leaves IMPORTING and awaits explicit importer review", async () => {
+  const bridge = await readFile(bridgePath, "utf8");
+  assert.match(bridge, /await markDiscoveryItemPreviewReady\(item\.id, sessionId\)/);
+  assert.match(bridge, /status: "NEEDS_REVIEW"/);
+  assert.match(bridge, /PREVIEW_READY awaits explicit manual review\/commit/);
 });

@@ -295,7 +295,7 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease", "0047_iranketab_discovery_review_approval", "0048_iranketab_discovery_auto_import_policy"]);
 });
 
 test("STOPPED book status migration is journaled and preserves existing data", () => {
@@ -303,6 +303,20 @@ test("STOPPED book status migration is journaled and preserves existing data", (
   assert.ok(journal.entries.some((entry) => entry.tag === "0042_add_stopped_book_status"));
   assert.match(migration, /ALTER TYPE "public"\."BookStatus" ADD VALUE IF NOT EXISTS 'STOPPED' BEFORE 'FINISHED'/);
   assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM|UPDATE\s+)\b/i);
+});
+
+test("IranKetab discovery review and auto-import migrations are ordered, additive, and indexed", () => {
+  const [review, autoImport] = [
+    readFileSync("drizzle/0047_iranketab_discovery_review_approval.sql", "utf8"),
+    readFileSync("drizzle/0048_iranketab_discovery_auto_import_policy.sql", "utf8"),
+  ];
+  const tags = journal.entries.map((entry) => entry.tag);
+  assert.ok(tags.indexOf("0047_iranketab_discovery_review_approval") < tags.indexOf("0048_iranketab_discovery_auto_import_policy"));
+  assert.match(review, /ADD VALUE IF NOT EXISTS 'APPROVED'/);
+  assert.match(autoImport, /ADD COLUMN "import_mode"/);
+  assert.match(autoImport, /ADD COLUMN "discovery_source_id" varchar REFERENCES "IranKetabDiscoverySource"\("id"\) ON DELETE SET NULL/);
+  assert.match(autoImport, /IranKetabDiscoveryImportJob_source_idx/);
+  for (const migration of [review, autoImport]) assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM)\b/i);
 });
 
 test("production preflight refuses empty or incomplete historical ledgers", () => {

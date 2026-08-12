@@ -14,7 +14,12 @@ export async function PATCH(req: Request, { params }: Context) {
     const job = parsed.data.action === "RETRY" ? await retryImportJob((await params).id) : await cancelImportJob((await params).id);
     return apiSuccess({ job, message: parsed.data.action === "RETRY" ? "کار ورود دوباره در صف قرار گرفت" : "کار ورود لغو شد" });
   } catch (error) {
-    if (error instanceof IranKetabDiscoveryImportQueueError) return apiError("انجام این عملیات برای کار ورود ممکن نیست", 409, error.code);
+    if (error instanceof IranKetabDiscoveryImportQueueError) {
+      const message = error.code === "DISCOVERY_ITEM_NOT_FOUND"
+        ? "نامزد کشف مرتبط با این کار ورود دیگر وجود ندارد"
+        : "انجام این عملیات برای کار ورود ممکن نیست";
+      return apiError(message, error.code === "DISCOVERY_ITEM_NOT_FOUND" ? 404 : 409, error.code);
+    }
     throw error;
   }
 }

@@ -168,6 +168,10 @@ export const IranKetabDiscoveryImportConfidence = pgEnum(
   "IranKetabDiscoveryImportConfidence",
   ["HIGH", "MEDIUM", "LOW"],
 );
+export const IranKetabDiscoveryImportMode = pgEnum(
+  "IranKetabDiscoveryImportMode",
+  ["MANUAL_REVIEW", "AUTO_IMPORT"],
+);
 export const IranKetabDiscoveryItemStatus = pgEnum(
   "IranKetabDiscoveryItemStatus",
   [
@@ -177,6 +181,7 @@ export const IranKetabDiscoveryItemStatus = pgEnum(
     "IMPORTING",
     "IMPORTED",
     "NEEDS_REVIEW",
+    "APPROVED",
     "SKIPPED",
     "FAILED",
   ],
@@ -855,6 +860,7 @@ export const IranKetabDiscoverySource = pgTable(
       .default(1440)
       .notNull(),
     autoQueue: boolean("auto_queue").default(false).notNull(),
+    importMode: IranKetabDiscoveryImportMode("import_mode").default("MANUAL_REVIEW").notNull(),
     minimumQueueScore: integer("minimum_queue_score").default(85).notNull(),
     parserVersion: integer("parser_version").default(1).notNull(),
     lastCrawledAt: timestamp("last_crawled_at", { mode: "date" }),
@@ -1083,6 +1089,7 @@ export const IranKetabDiscoveryImportJob = pgTable(
     discoveryItemId: varchar("discovery_item_id")
       .notNull()
       .references(() => IranKetabDiscoveryItem.id, { onDelete: "cascade" }),
+    discoverySourceId: varchar("discovery_source_id").references(() => IranKetabDiscoverySource.id, { onDelete: "set null" }),
     status: IranKetabDiscoveryImportJobStatus("status")
       .default("PENDING")
       .notNull(),
@@ -1112,6 +1119,10 @@ export const IranKetabDiscoveryImportJob = pgTable(
     itemIdx: index("IranKetabDiscoveryImportJob_item_idx").on(
       t.discoveryItemId,
       t.createdAt,
+    ),
+    sourceIdx: index("IranKetabDiscoveryImportJob_source_idx").on(
+      t.discoverySourceId,
+      t.status,
     ),
     lockIdx: index("IranKetabDiscoveryImportJob_lock_idx").on(
       t.status,
@@ -1600,6 +1611,10 @@ export const IranKetabDiscoveryImportJobRelations = relations(
     discoveryItem: one(IranKetabDiscoveryItem, {
       fields: [IranKetabDiscoveryImportJob.discoveryItemId],
       references: [IranKetabDiscoveryItem.id],
+    }),
+    discoverySource: one(IranKetabDiscoverySource, {
+      fields: [IranKetabDiscoveryImportJob.discoverySourceId],
+      references: [IranKetabDiscoverySource.id],
     }),
   }),
 );
