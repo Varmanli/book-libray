@@ -22,6 +22,7 @@ import HomeBlogPreview from "@/components/home/HomeBlogPreview";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const userPromise = getCurrentUser();
   const [
     user,
     featuredBooks,
@@ -30,9 +31,9 @@ export default async function HomePage() {
     dbHeroSlides,
     popularAuthors,
   ] = await Promise.all([
-    getCurrentUser(),
+    userPromise,
     getFeaturedBooks(12),
-    getRecentHomeQuotes(10),
+    userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id)),
     getLatestHomeBlogPosts(3),
     getHeroSlides(),
     getPopularAuthors(10),

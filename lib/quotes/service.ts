@@ -8,6 +8,7 @@ import {
   ensureCatalogBookSlug,
 } from "@/lib/book/public-slug";
 import { normalizeQuoteBackground, type QuoteBackground } from "@/lib/quotes/backgrounds";
+import { normalizeQuoteLikeState } from "@/lib/quotes/like-state";
 
 export interface PublicQuote {
   id: string;
@@ -117,7 +118,8 @@ export async function getPublicQuotesByUsername(
  * quotes attached to publicly reachable books are included.
  */
 export async function getLatestPublicQuotes(
-  limit = 6
+  limit = 6,
+  viewerId?: string,
 ): Promise<PublicQuote[]> {
   const rows = await db
     .select({
@@ -137,6 +139,11 @@ export async function getLatestPublicQuotes(
       authorName: User.name,
       authorImage: User.image,
       likeCount: sql<number>`count(${QuoteLike.id})::int`,
+      // The viewer's liked state is aggregated with the same query as the
+      // persisted total, avoiding a per-card follow-up request in feeds.
+      likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${
+        viewerId ?? null
+      }), false)`,
     })
     .from(Quote)
     .innerJoin(Book, eq(Quote.bookId, Book.id))
@@ -185,8 +192,7 @@ export async function getLatestPublicQuotes(
         bookAuthor: row.bookAuthor,
         bookSlug,
         bookCover: coalesceCoverImage(row.bookCover),
-        likeCount: row.likeCount,
-        likedByViewer: false,
+        ...normalizeQuoteLikeState(row.likeCount, row.likedByViewer),
         authorUsername: row.authorUsername,
         authorName: row.authorName,
         authorImage: row.authorImage,

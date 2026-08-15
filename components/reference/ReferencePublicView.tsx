@@ -1,13 +1,17 @@
 import { notFound, permanentRedirect } from "next/navigation";
 
 import BookArchiveFilters from "@/components/books/BookArchiveFilters";
+import CollapsibleContent from "@/components/content/CollapsibleContent";
 import PublicShell from "@/components/PublicShell";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
 import {
   type BookArchiveScope,
   getBookArchivePageData,
 } from "@/lib/book/archive-service";
-import { getReferenceEntity, ROUTE_BY_TYPE } from "@/lib/reference/public-service";
+import {
+  getReferenceEntity,
+  ROUTE_BY_TYPE,
+} from "@/lib/reference/public-service";
 import {
   REFERENCE_TYPE_LABELS,
   type ReferenceTypeValue,
@@ -89,7 +93,7 @@ export default async function ReferencePublicView({
   const scopedArchiveData = usesArchiveFilters
     ? await getBookArchivePageData(searchParams ?? {}, archiveScope)
     : null;
-  const bookCount = scopedArchiveData?.archive.totalCount ?? 0;
+  const description = entity.description?.trim();
 
   return (
     <PublicShell>
@@ -140,13 +144,11 @@ export default async function ReferencePublicView({
                       {entity.originalName}
                     </p>
                   ) : null}
-                  <p className="mt-3 text-sm font-bold text-muted-foreground">
-                    {bookCount.toLocaleString("fa-IR")} کتاب
-                  </p>
-                  {(entity.birthYear ||
-                    entity.deathYear ||
-                    entity.countryName ||
-                    entity.website) ? (
+
+                  {entity.birthYear ||
+                  entity.deathYear ||
+                  entity.countryName ||
+                  entity.website ? (
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       {entity.birthYear || entity.deathYear ? (
                         <span className="rounded-full border border-border/60 bg-background/60 px-3 py-1">
@@ -173,12 +175,15 @@ export default async function ReferencePublicView({
                 </div>
               </div>
 
-              {entity.description ? (
-                <div className=" border-t  border-border/50 pt-5">
+              {description ? (
+                <CollapsibleContent
+                  className="border-t border-border/50 pt-5"
+                  fadeClassName="from-card via-card/70"
+                >
                   <p className="max-w-none whitespace-pre-line break-words text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
-                    {entity.description}
+                    {description}
                   </p>
-                </div>
+                </CollapsibleContent>
               ) : null}
             </div>
           </div>

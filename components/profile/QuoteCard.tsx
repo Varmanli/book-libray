@@ -93,7 +93,7 @@ export default function QuoteCard({
     const nextLiked = !previousLiked;
 
     setLiked(nextLiked);
-    setLikeCount(previousCount + (nextLiked ? 1 : -1));
+    setLikeCount(Math.max(0, previousCount + (nextLiked ? 1 : -1)));
     setLikePending(true);
 
     try {

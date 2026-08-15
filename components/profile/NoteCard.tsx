@@ -70,7 +70,7 @@ export default function NoteCard({
     const nextLiked = !liked;
 
     setLiked(nextLiked);
-    setLikeCount((count) => count + (nextLiked ? 1 : -1));
+    setLikeCount((count) => Math.max(0, count + (nextLiked ? 1 : -1)));
     setLikePending(true);
 
     try {

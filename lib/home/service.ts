@@ -959,8 +959,9 @@ export const getHomepageBookSelectorOptions = searchBooksForFeature;
  */
 export async function getRecentHomeQuotes(
   limit = 6,
+  viewerId?: string,
 ): Promise<HomeQuotePreview[]> {
-  return getLatestPublicQuotes(limit);
+  return getLatestPublicQuotes(limit, viewerId);
 }
 
 export async function getLatestHomeBlogPosts(
