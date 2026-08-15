@@ -5,7 +5,9 @@ import { sanitizeMoodTags } from "@/lib/book/moods";
 const userBookUpdateSchema = z
   .object({
     status: z.enum(["UNREAD", "READING", "PAUSED", "STOPPED", "FINISHED"]).optional(),
-    rating: z.number().int().min(0).max(5).nullable().optional(),
+    // Personal ratings are shown and selected on a 1–10 scale in the reading
+    // controls. Zero is retained as the client-side clear value.
+    rating: z.number().int().min(0).max(10).nullable().optional(),
     review: z.string().max(10_000).nullable().optional(),
     moodTags: z.unknown().optional(),
     isFavorite: z.boolean().optional(),

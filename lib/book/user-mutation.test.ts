@@ -21,6 +21,38 @@ test("regular users can update only personal library state", () => {
   }
 });
 
+test("regular users can create or update a ten-point rating with reading feelings", () => {
+  const result = parseUserBookUpdate({
+    rating: 9,
+    moodTags: ["عمیق", "الهام‌بخش", "عمیق"],
+  });
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.deepEqual(result.data, {
+      rating: 9,
+      moodTags: ["عمیق", "الهام‌بخش"],
+    });
+  }
+});
+
+test("regular users can update personal reading information independently", () => {
+  const result = parseUserBookUpdate({
+    status: "FINISHED",
+    review: "تجربه‌ی خواندنی و ماندگار بود.",
+    isFavorite: true,
+  });
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.deepEqual(result.data, {
+      status: "FINISHED",
+      review: "تجربه‌ی خواندنی و ماندگار بود.",
+      isFavorite: true,
+    });
+  }
+});
+
 test("regular users cannot submit canonical Book metadata", () => {
   for (const metadata of [
     { title: "عنوان تغییرکرده" },
