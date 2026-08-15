@@ -12,7 +12,6 @@ import {
 } from "@/lib/home/service";
 import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
-import HomeQuickActions from "@/components/home/HomeQuickActions";
 import HomeBookCarousel from "@/components/home/HomeBookCarousel";
 import HomeQuotesSection from "@/components/home/HomeQuotesSection";
 import HomePopularAuthors from "@/components/home/HomePopularAuthors";
@@ -96,14 +95,6 @@ export default async function HomePage() {
         />
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:space-y-10">
           <HomeHeroSlider slides={heroSlides} />
-
-          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_720px]">
-            <HomeQuickActions
-              isLoggedIn={isLoggedIn}
-              libraryHref={libraryHref}
-              profileHref={profileHref}
-            />
-          </div>
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_650px]">
             <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />

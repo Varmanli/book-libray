@@ -1,6 +1,7 @@
 import "../globals.css";
 import SiteHeader from "@/components/layout/SiteHeader";
 import SiteFooter from "@/components/layout/SiteFooter";
+import MobileNav from "@/components/layout/MobileNav";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -22,7 +23,7 @@ export default async function DashboardLayout({
   const branding = { logoUrl: settings.logoUrl, siteName: settings.siteName };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <SiteHeader
         user={{
           name: user.name,
@@ -45,6 +46,7 @@ export default async function DashboardLayout({
           username: user.username,
         }}
       />
+      <MobileNav />
     </div>
   );
 }

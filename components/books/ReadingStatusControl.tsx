@@ -274,6 +274,7 @@ export default function ReadingStatusControl({
           type="button"
           onClick={() => setStatusOpen(true)}
           disabled={busy}
+          data-onboarding="book-reading-status"
           className="group flex h-12 w-full items-center justify-between gap-3 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/15 transition-all hover:-translate-y-0.5 hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
         >
           <span className="inline-flex min-w-0 items-center gap-2">
@@ -670,10 +671,12 @@ function PersonalBookLink({
   href?: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="group flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/[0.07] px-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.11]"
-    >
+    <div data-onboarding="book-private-note">
+      <Link
+        href={href}
+        data-onboarding="book-reading-progress"
+        className="group flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/[0.07] px-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.11]"
+      >
       <span className="inline-flex min-w-0 items-center gap-2.5">
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/12 text-primary">
           <LibraryBig className="h-4 w-4" />
@@ -685,6 +688,7 @@ function PersonalBookLink({
         </span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-primary/70 transition-transform group-hover:-translate-x-0.5" />
-    </Link>
+      </Link>
+    </div>
   );
 }

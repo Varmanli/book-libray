@@ -96,48 +96,43 @@ export default async function BlogArchivePage({
             className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
           />
 
-          <div className="relative flex min-h-[250px] flex-col justify-center px-5 py-8 sm:min-h-[280px] sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+          <div className="relative flex min-h-[190px] flex-col justify-center px-4 py-6 sm:min-h-[240px] sm:px-8 sm:py-9 lg:px-12 lg:py-12">
             <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[11px] font-black text-primary shadow-sm backdrop-blur-md">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-50" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.08] px-2.5 py-1 text-[10px] font-black text-primary backdrop-blur-md sm:px-3 sm:py-1.5 sm:text-[11px]">
+                  <span className="relative flex size-1.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
                   </span>
                   بلاگ قفسه
                 </span>
 
                 {activeCategory ? (
-                  <span className="inline-flex items-center rounded-full border border-border/80 bg-background/50 px-3 py-1.5 text-[11px] font-bold text-muted-foreground backdrop-blur-md">
-                    دسته‌بندی:
-                    <span className="mr-1 text-foreground">
+                  <span className="inline-flex items-center rounded-full border border-border/70 bg-background/45 px-2.5 py-1 text-[10px] font-bold text-muted-foreground backdrop-blur-md sm:px-3 sm:py-1.5 sm:text-[11px]">
+                    <span className="hidden sm:inline">دسته‌بندی:</span>
+
+                    <span className="sm:mr-1 text-foreground">
                       {activeCategory.name}
                     </span>
                   </span>
                 ) : null}
               </div>
 
-              <h1 className="mt-5 max-w-2xl text-3xl font-black leading-[1.35] tracking-tight text-foreground sm:text-4xl sm:leading-[1.3] lg:text-[2.8rem]">
-                نوشته‌هایی درباره
-                <span className="relative mx-2 inline-block text-primary">
-                  خواندن
+              <h1 className="mt-3 max-w-xl text-[1.7rem] font-black leading-[1.35] tracking-[-0.03em] text-foreground sm:mt-5 sm:text-4xl lg:text-[2.8rem]">
+                نوشته‌هایی برای
+                <span className="relative mx-1.5 inline-block text-primary sm:mx-2">
+                  کشف کتاب
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-0 -bottom-1 h-2 rounded-full bg-primary/15 blur-sm"
+                    className="absolute inset-x-0 -bottom-0.5 h-1.5 rounded-full bg-primary/15 blur-sm"
                   />
                 </span>
-                و کشف کتاب
               </h1>
 
-              <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-muted-foreground sm:text-base sm:leading-8">
-                یادداشت‌ها، تجربه‌ها و پیشنهادهایی برای پیدا کردن کتاب‌های تازه
-                و ساختن رابطه‌ای عمیق‌تر با دنیای مطالعه.
-              </p>
+              <div className="mt-4 flex items-center gap-2.5 sm:mt-7 sm:gap-3">
+                <div className="h-px w-8 bg-gradient-to-l from-primary/60 to-transparent sm:w-16" />
 
-              <div className="mt-7 flex items-center gap-3">
-                <div className="h-px w-12 bg-gradient-to-l from-primary/70 to-transparent sm:w-20" />
-
-                <span className="text-[11px] font-bold tracking-wide text-muted-foreground">
+                <span className="text-[10px] font-bold text-muted-foreground sm:text-[11px]">
                   بخوان، کشف کن، به اشتراک بگذار
                 </span>
               </div>

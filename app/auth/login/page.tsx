@@ -22,13 +22,14 @@ import { AuthInput } from "@/components/auth/AuthInput";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { VerificationCodePanel } from "@/components/auth/VerificationCodePanel";
 import { cn } from "@/lib/utils";
+import { getSafeRedirectPath } from "@/lib/auth/routes";
 
 const LOGIN_STORAGE_KEY = "ghafaseh-login-form";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/books";
+  const redirectTo = getSafeRedirectPath(searchParams.get("redirect"));
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);

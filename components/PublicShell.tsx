@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
 import SiteHeader from "@/components/layout/SiteHeader";
 import SiteFooter from "@/components/layout/SiteFooter";
+import MobileNav from "@/components/layout/MobileNav";
 import { getSiteSettings } from "@/lib/settings/service";
 
 /**
@@ -22,7 +23,7 @@ export default async function PublicShell({
   const branding = { logoUrl: settings.logoUrl, siteName: settings.siteName };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <SiteHeader
         user={
           user
@@ -51,6 +52,7 @@ export default async function PublicShell({
             : null
         }
       />
+      <MobileNav />
     </div>
   );
 }

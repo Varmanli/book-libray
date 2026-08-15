@@ -2,6 +2,7 @@ import { Lock } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 
 import UserLibraryPage from "@/components/library/UserLibraryPage";
+import PublicShell from "@/components/PublicShell";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findBookRouteCandidate } from "@/lib/book/service";
 import {
@@ -78,7 +79,11 @@ export default async function UserLibraryRoutePage({
     library.isOwner
   );
 
-  return renderLibrary(library, q ?? "", filter);
+  return (
+    <PublicShell user={viewer}>
+      {renderLibrary(library, q ?? "", filter)}
+    </PublicShell>
+  );
 }
 
 /** Renders a resolved library result, including the private-library notice. */

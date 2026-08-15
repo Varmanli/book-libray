@@ -1,0 +1,27 @@
+
+> book-libray@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.2
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 11.2s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/78) ...
+   Generating static pages (19/78) 
+   Generating static pages (38/78) 
+   Generating static pages (58/78) 
+ ✓ Generating static pages (78/78)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+> Build error occurred
+[Error: ENOSPC: no space left on device, copyfile 'C:\Users\amirhosein\Desktop\Project\multi-project-deploy\ghafaseh\node_modules\webpack\lib\sharing\resolveMatchedConfigs.js' -> 'C:\Users\amirhosein\Desktop\Project\multi-project-deploy\ghafaseh\.next\standalone\node_modules\webpack\lib\sharing\resolveMatchedConfigs.js'] {
+  errno: -4055,
+  code: 'ENOSPC',
+  syscall: 'copyfile',
+  path: 'C:\\Users\\amirhosein\\Desktop\\Project\\multi-project-deploy\\ghafaseh\\node_modules\\webpack\\lib\\sharing\\resolveMatchedConfigs.js',
+  dest: 'C:\\Users\\amirhosein\\Desktop\\Project\\multi-project-deploy\\ghafaseh\\.next\\standalone\\node_modules\\webpack\\lib\\sharing\\resolveMatchedConfigs.js'
+}

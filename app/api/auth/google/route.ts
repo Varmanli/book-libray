@@ -8,6 +8,7 @@ import {
   redactGoogleAuthorizationUrl,
 } from "@/lib/auth/google";
 import { getPublicAppOriginSource } from "@/lib/auth/redirects";
+import { getSafeRedirectPath } from "@/lib/auth/routes";
 
 const GOOGLE_STATE_COOKIE = "google_oauth_state";
 const GOOGLE_REDIRECT_COOKIE = "google_oauth_redirect";
@@ -22,7 +23,7 @@ const OAUTH_COOKIE_OPTIONS = {
 /** Starts Google OAuth without accepting external post-login redirect URLs. */
 export async function GET(req: NextRequest) {
   const state = createGoogleState();
-  const redirect = req.nextUrl.searchParams.get("redirect") || "/books";
+  const redirect = getSafeRedirectPath(req.nextUrl.searchParams.get("redirect"));
   const authUrl = buildGoogleAuthUrl({ state });
   if (isGoogleOAuthDebugEnabled()) {
     console.info("[auth] Google OAuth start", {

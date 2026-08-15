@@ -199,6 +199,7 @@ export default function BookNotesTabsSection({
                 <Button
                   type="button"
                   onClick={openAdd}
+                  data-onboarding="book-public-note"
                   className="h-9 shrink-0 rounded-xl px-3 text-xs font-bold sm:px-4 sm:text-sm"
                 >
                   <Plus className="h-4 w-4" />

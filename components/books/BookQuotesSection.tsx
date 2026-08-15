@@ -400,6 +400,7 @@ export default function BookQuotesSection({
                 <Button
                   type="button"
                   onClick={openAdd}
+                  data-onboarding="book-quote"
                   className="h-8 gap-1.5 rounded-xl px-3 text-xs font-semibold"
                 >
                   <Plus className="h-3.5 w-3.5" />

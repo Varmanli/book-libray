@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import AppProviders from "@/components/AppProviders";
 import { getSiteMetadataBase } from "@/lib/seo/site";
 import { getSiteSettings } from "@/lib/settings/service";
@@ -9,12 +9,12 @@ import { getSiteSettings } from "@/lib/settings/service";
 // being frozen into the build alongside the starter favicon.
 export const dynamic = "force-dynamic";
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#2B6252",
+  themeColor: "#2b6252",
 };
 
 // یک نسخه‌ی پایدار (هشِ کوتاه) از روی URL برای کش‌شکنیِ فاوآیکون می‌سازد.
@@ -59,9 +59,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const siteName = s.siteName || "قفسه";
   const ogImage = s.ogImageUrl || "/og-image.png";
 
-  // A custom favicon must be the *only* icon candidate. Keeping /favicon.ico
-  // beside it lets browsers prefer the stale static file over the uploaded
-  // asset. The stable URL hash busts aggressive browser favicon caches.
+  // A custom favicon must be the only browser-icon candidate. The stable URL
+  // hash busts aggressive browser favicon caches while the PWA and Apple
+  // icons continue to use the official packaged artwork.
   const favicon = s.faviconUrl && isUsableFaviconUrl(s.faviconUrl)
     ? withVersion(s.faviconUrl)
     : null;
@@ -69,20 +69,34 @@ export async function generateMetadata(): Promise<Metadata> {
     ? {
         icon: [{ url: favicon, type: faviconType(favicon) }],
         shortcut: favicon,
-        apple: favicon,
+        // The PWA's home-screen icon remains stable even when an admin
+        // changes the browser favicon.
+        apple: [
+          {
+            url: "/icons/apple-touch-icon.png",
+            sizes: "180x180",
+            type: "image/png",
+          },
+        ],
       }
     : {
         icon: [
-          { url: "/favicon.ico", sizes: "any" },
-          { url: "/icons/icon-192x192.svg", sizes: "192x192", type: "image/svg+xml" },
-          { url: "/icons/icon-512x512.svg", sizes: "512x512", type: "image/svg+xml" },
+          { url: "/icons/icon.png", sizes: "1254x1254", type: "image/png" },
+          { url: "/icons/pwa-192.png", sizes: "192x192", type: "image/png" },
+          { url: "/icons/pwa-512.png", sizes: "512x512", type: "image/png" },
         ],
         apple: [
-          { url: "/icons/icon-152x152.svg", sizes: "152x152", type: "image/svg+xml" },
+          {
+            url: "/icons/apple-touch-icon.png",
+            sizes: "180x180",
+            type: "image/png",
+          },
         ],
       };
 
   return {
+    applicationName: "قفسه",
+    manifest: "/manifest.webmanifest",
     title,
     description,
     keywords: [
@@ -126,6 +140,11 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     },
     icons,
+    appleWebApp: {
+      capable: true,
+      title: "قفسه",
+      statusBarStyle: "black-translucent",
+    },
     other: {
       "application-name": siteName,
       "msapplication-TileColor": "#2B6252",

@@ -56,6 +56,7 @@ interface GlobalSearchResponse {
 
 interface SearchComponentProps {
   className?: string;
+  onboardingTarget?: string;
   placeholder?: string;
   onSearch?: (query: string) => void;
   resultsHref?: string;
@@ -82,6 +83,7 @@ const EMPTY_RESULTS: GlobalSearchResponse = {
 
 const SearchComponent = memo(function SearchComponent({
   className = "",
+  onboardingTarget,
   placeholder = "جست‌وجو در قفسه...",
   onSearch,
   resultsHref = "/books",
@@ -376,7 +378,11 @@ const SearchComponent = memo(function SearchComponent({
   }, [selectedIndex]);
 
   return (
-    <div ref={rootRef} className={cn("relative w-full", className)}>
+    <div
+      ref={rootRef}
+      data-onboarding={onboardingTarget}
+      className={cn("relative w-full", className)}
+    >
       <form
         onSubmit={handleSubmit}
         className="

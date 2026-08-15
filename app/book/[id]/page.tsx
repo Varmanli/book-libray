@@ -21,6 +21,8 @@ import { getBookDetail } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
 import { Carousel } from "@/components/ui/Carousel";
 import ReadingStatusControl from "@/components/books/ReadingStatusControl";
+import BookReadingTour from "@/components/onboarding/BookReadingTour";
+import BookNotesTour from "@/components/onboarding/BookNotesTour";
 import ReferenceChip from "@/components/books/ReferenceChip";
 import MetaAvatar from "@/components/books/MetaAvatar";
 import BookQuotesSection from "@/components/books/BookQuotesSection";
@@ -186,6 +188,7 @@ export default async function BookPage({
       key="viewer-rating"
       icon={<FiStar className="h-4 w-4" />}
       label="امتیاز تو"
+      onboardingTarget="book-rating"
       value={
         entry?.rating != null
           ? `${entry.rating.toLocaleString("fa-IR")} از ۱۰`
@@ -559,6 +562,8 @@ export default async function BookPage({
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/notes`}
           />
         </div>
+        <BookReadingTour isAuthenticated={isLoggedIn} />
+        <BookNotesTour isAuthenticated={isLoggedIn && Boolean(entry)} />
       </div>
     </PublicShell>
   );
@@ -621,12 +626,14 @@ function BookMetaItem({
   value,
   valueAvatar,
   href,
+  onboardingTarget,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   valueAvatar?: ReactNode;
   href?: string;
+  onboardingTarget?: string;
 }) {
   const className =
     "group relative block h-full min-h-[86px] overflow-hidden rounded-[1.35rem] border border-border/70 bg-card/60 px-4 py-4 text-right backdrop-blur-md transition-colors hover:border-primary/25 hover:bg-card/80";
@@ -660,13 +667,13 @@ function BookMetaItem({
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <Link href={href} data-onboarding={onboardingTarget} className={className}>
         {inner}
       </Link>
     );
   }
 
-  return <div className={className}>{inner}</div>;
+  return <div data-onboarding={onboardingTarget} className={className}>{inner}</div>;
 }
 
 function BookPill({

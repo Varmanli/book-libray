@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { LogIn, Search } from "lucide-react";
 
 import { BrandLogo } from "@/components/BrandLogo";
-import MobileNav from "@/components/layout/MobileNav";
 import type { LayoutUser } from "@/components/layout/types";
 import UserMenu from "@/components/layout/UserMenu";
 import SearchComponent from "@/components/SearchComponent";
@@ -82,6 +81,7 @@ function MobileSearchDialog({
           type="button"
           size="icon"
           variant="ghost"
+          data-onboarding="search"
           aria-label="جست‌وجو"
           className="
             size-10 rounded-xl
@@ -174,8 +174,6 @@ export default function SiteHeader({
     siteName: string;
   };
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   const pathname = usePathname();
 
   const isAuthenticated = Boolean(user);
@@ -184,10 +182,6 @@ export default function SiteHeader({
     () => getPrimaryNav(user?.username),
     [user?.username],
   );
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   return (
     <header
@@ -225,6 +219,13 @@ export default function SiteHeader({
                     key={item.label}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
+                    data-onboarding={
+                      item.href === "/books"
+                        ? "nav-books"
+                        : item.href === "/authors"
+                          ? "nav-authors"
+                          : undefined
+                    }
                     className={cn(
                       `
                         relative flex h-9 items-center
@@ -279,6 +280,7 @@ export default function SiteHeader({
           >
             <SearchComponent
               resultsHref="/books"
+              onboardingTarget="search"
               className="
                 w-full max-w-[26rem]
                 transition-all
@@ -310,25 +312,11 @@ export default function SiteHeader({
             lg:hidden
           "
         >
-          {/* Right: Navigation */}
-          <div className="z-10 flex shrink-0 items-center">
-            <MobileNav
-              user={user}
-              isAdmin={isAdmin}
-              searchResultsHref="/books"
-              open={mobileOpen}
-              onOpenChange={setMobileOpen}
-            />
-          </div>
-
-          {/* Center: Brand */}
+          {/* Right: Brand */}
           <div
             className="
-              pointer-events-auto
-              absolute left-1/2 top-1/2
-              flex max-w-[42%]
-              -translate-x-1/2 -translate-y-1/2
-              items-center justify-center
+              z-10 flex min-w-0 max-w-[58%]
+              items-center
             "
           >
             <Brand {...branding} compact />

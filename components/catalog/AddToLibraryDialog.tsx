@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getLoginPath } from "@/lib/auth/routes";
 import {
   type CatalogEdition,
   type CatalogResult,
@@ -71,6 +72,14 @@ export function AddToLibraryDialog({
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        onOpenChange(false);
+        router.push(
+          getLoginPath(`${window.location.pathname}${window.location.search}`),
+        );
+        return;
+      }
+
       if (!res.ok) {
         toast.error(data.error || "افزودن به کتابخانه ناموفق بود");
         return;

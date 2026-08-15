@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 
 import type { LayoutUser } from "@/components/layout/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import ProfileMenuTour from "@/components/onboarding/ProfileMenuTour";
 import { getLibraryPath, getProfilePath } from "@/lib/library/paths";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ interface MenuItem {
   label: string;
   href: string;
   icon: ElementType;
+  onboardingTarget?: string;
 }
 
 function getDisplayName(user: LayoutUser) {
@@ -69,21 +71,25 @@ export default function UserMenu({
         label: "پروفایل من",
         href: getProfilePath(user.username),
         icon: UserRound,
+        onboardingTarget: "profile-menu-profile",
       },
       {
         label: "کتابخانه من",
         href: getLibraryPath(user.username),
         icon: BookOpen,
+        onboardingTarget: "profile-menu-library",
       },
       {
         label: "داشبورد",
         href: "/dashboard",
         icon: BarChart3,
+        onboardingTarget: "profile-menu-dashboard",
       },
       {
         label: "تنظیمات",
         href: "/settings/profile",
         icon: Settings,
+        onboardingTarget: "profile-menu-settings",
       },
     ],
     [user.username],
@@ -461,6 +467,8 @@ export default function UserMenu({
           </button>
         </div>
       ) : null}
+
+      <ProfileMenuTour open={open} />
     </div>
   );
 }
@@ -483,6 +491,7 @@ function MenuLink({
       href={item.href}
       role="menuitem"
       aria-current={active ? "page" : undefined}
+      data-onboarding={item.onboardingTarget}
       onClick={onSelect}
       className={cn(
         `

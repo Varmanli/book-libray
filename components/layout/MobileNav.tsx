@@ -3,426 +3,241 @@
 import type { ElementType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BookOpen,
-  ChevronLeft,
-  Home,
-  Menu,
-  Newspaper,
-  PenTool,
-  X,
-} from "lucide-react";
+import { BookOpen, Home, Newspaper, PenTool } from "lucide-react";
 
-import type { LayoutUser } from "@/components/layout/types";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { getPrimaryNav } from "@/lib/layout/navigation";
 import { cn } from "@/lib/utils";
 
 function isActivePath(pathname: string, href: string) {
-  if (href === "/") {
-    return pathname === "/";
-  }
-
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return href === "/"
+    ? pathname === "/"
+    : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function getNavigationIcon(href: string, label: string): ElementType {
-  if (href === "/") {
-    return Home;
-  }
-
-  if (href.startsWith("/books")) {
-    return BookOpen;
-  }
-
-  if (href.startsWith("/authors")) {
-    return PenTool;
-  }
-
-  if (
-    href.startsWith("/articles") ||
-    href.startsWith("/blog") ||
-    href.startsWith("/posts")
-  ) {
-    return Newspaper;
-  }
-
-  /*
-   * Fallback برای لینک‌هایی که route مشخصی ندارند.
-   * تشخیص اصلی بر اساس href انجام می‌شود تا UI
-   * وابسته به متن فارسی navigation نباشد.
-   */
-  if (label.includes("کتاب")) {
-    return BookOpen;
-  }
-
-  if (label.includes("نویسنده")) {
-    return PenTool;
-  }
+function getNavigationIcon(href: string): ElementType {
+  if (href === "/") return Home;
+  if (href.startsWith("/books")) return BookOpen;
+  if (href.startsWith("/authors")) return PenTool;
 
   return Newspaper;
 }
 
-export default function MobileNav({
-  user,
-  open,
-  onOpenChange,
-}: {
-  user?: LayoutUser | null;
-  isAdmin?: boolean;
-  searchResultsHref: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export default function MobileNav() {
   const pathname = usePathname();
-
-  const primaryLinks = getPrimaryNav(user?.username);
+  const primaryLinks = getPrimaryNav();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* Trigger */}
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="باز کردن منو"
-          className={cn(
-            `
-              size-10 rounded-xl
-              border border-border/50
-              bg-card/45
-              p-0
-              text-muted-foreground
-              shadow-none
-
-              transition-all duration-200
-
-              hover:border-border
-              hover:bg-card/80
-              hover:text-foreground
-
-              active:scale-95
-
-              focus-visible:ring-2
-              focus-visible:ring-primary/30
-              focus-visible:ring-offset-2
-              focus-visible:ring-offset-background
-            `,
-            open &&
-              `
-                border-primary/20
-                bg-primary/[0.07]
-                text-primary
-              `,
-          )}
-        >
-          <Menu className="size-[18px]" />
-        </Button>
-      </SheetTrigger>
-
-      <SheetContent
-        side="right"
-        hideClose
-        dir="rtl"
+    <nav
+      dir="rtl"
+      aria-label="ناوبری اصلی موبایل"
+      className="
+        fixed
+        inset-x-0
+        bottom-0
+        z-50
+        px-3
+        pb-[max(0.75rem,env(safe-area-inset-bottom))]
+        lg:hidden
+      "
+    >
+      <div
         className="
-          flex h-full
-          w-[19rem] max-w-[88vw]
-          flex-col
-          border-l border-border/50
-          bg-background/95
-          p-0
-          text-foreground
-          shadow-2xl
-          backdrop-blur-xl
+          relative
+          mx-auto
+          flex
+          w-full
+          max-w-md
+          items-center
+          overflow-hidden
+          rounded-[1.7rem]
+          border
+          border-border/60
+          bg-background/80
+          p-1.5
+          shadow-[0_-8px_40px_rgba(0,0,0,0.08),0_12px_40px_rgba(0,0,0,0.10)]
+          backdrop-blur-2xl
+          supports-[backdrop-filter]:bg-background/70
 
-          sm:w-[20rem]
+          before:pointer-events-none
+          before:absolute
+          before:inset-x-8
+          before:top-0
+          before:h-px
+          before:bg-gradient-to-r
+          before:from-transparent
+          before:via-foreground/10
+          before:to-transparent
         "
       >
-        {/* Header */}
-        <header
-          className="
-            shrink-0
-            border-b border-border/45
-            px-4 pb-4 pt-4
-          "
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SheetTitle
-                className="
-                  text-base font-black
-                  tracking-tight
-                  text-foreground
-                "
-              >
-                منوی قفسه
-              </SheetTitle>
+        {primaryLinks.map((item) => {
+          const active = isActivePath(pathname, item.href);
+          const Icon = getNavigationIcon(item.href);
 
-              <p
-                className="
-                  mt-1
-                  text-[10px] leading-5
-                  text-muted-foreground
-                "
-              >
-                دسترسی سریع به بخش‌های اصلی
-              </p>
-            </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              data-onboarding={
+                item.href === "/books"
+                  ? "nav-books"
+                  : item.href === "/authors"
+                    ? "nav-authors"
+                    : undefined
+              }
+              className={cn(
+                `
+                  group
+                  relative
+                  isolate
+                  flex
+                  min-h-[4.15rem]
+                  flex-1
+                  select-none
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-1
+                  rounded-[1.25rem]
+                  px-1
+                  outline-none
+                  transition-[transform,color]
+                  duration-300
+                  ease-out
 
-            <SheetClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="بستن منو"
-                className="
-                  size-10 shrink-0
-                  rounded-xl
-                  border border-border/50
-                  bg-card/40
-                  p-0
-                  text-muted-foreground
-                  shadow-none
-
-                  transition-all duration-200
-
-                  hover:border-border
-                  hover:bg-card/80
-                  hover:text-foreground
-
-                  active:scale-95
+                  active:scale-[0.94]
 
                   focus-visible:ring-2
-                  focus-visible:ring-primary/30
-                "
-              >
-                <X className="size-[18px]" />
-              </Button>
-            </SheetClose>
-          </div>
-        </header>
-
-        {/* Navigation */}
-        <div
-          className="
-            flex min-h-0 flex-1
-            flex-col
-            overflow-hidden
-          "
-        >
-          <div
-            className="
-              shrink-0
-              px-4 pb-2 pt-4
-            "
-          >
-            <p
-              className="
-                px-2
-                text-[10px] font-bold
-                text-muted-foreground/75
-              "
+                  focus-visible:ring-primary/40
+                  focus-visible:ring-offset-2
+                  focus-visible:ring-offset-background
+                `,
+                active
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              دسترسی اصلی
-            </p>
-          </div>
+              {/* Active background */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  `
+                    absolute
+                    inset-0
+                    -z-10
+                    rounded-[1.25rem]
+                    bg-primary/[0.09]
+                    opacity-0
+                    scale-[0.88]
+                    transition-all
+                    duration-300
+                    ease-[cubic-bezier(0.22,1,0.36,1)]
+                  `,
+                  active && "scale-100 opacity-100",
+                )}
+              />
 
-          <nav
-            aria-label="ناوبری موبایل"
-            className="
-              min-h-0 flex-1
-              space-y-1
-              overflow-y-auto
-              overscroll-contain
-              px-3 pb-5
+              {/* Top active indicator */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  `
+                    absolute
+                    top-0
+                    h-[3px]
+                    w-7
+                    -translate-y-[1px]
+                    rounded-full
+                    bg-primary
+                    opacity-0
+                    scale-x-50
+                    shadow-[0_0_12px_color-mix(in_oklab,var(--primary)_45%,transparent)]
+                    transition-all
+                    duration-300
+                    ease-[cubic-bezier(0.22,1,0.36,1)]
+                  `,
+                  active && "scale-x-100 opacity-100",
+                )}
+              />
 
-              [scrollbar-width:thin]
-            "
-          >
-            {primaryLinks.map((item) => {
-              const active = isActivePath(pathname, item.href);
+              {/* Icon */}
+              <span
+                className={cn(
+                  `
+                    relative
+                    flex
+                    size-9
+                    items-center
+                    justify-center
+                    rounded-xl
+                    transition-all
+                    duration-300
+                    ease-[cubic-bezier(0.22,1,0.36,1)]
 
-              const Icon = getNavigationIcon(item.href, item.label);
-
-              return (
-                <MobileLink
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                  active={active}
-                  icon={Icon}
-                  onSelect={() => onOpenChange(false)}
+                    group-hover:-translate-y-0.5
+                  `,
+                  active
+                    ? "-translate-y-0.5 bg-primary/10 shadow-[0_6px_16px_rgba(0,0,0,0.05)]"
+                    : "group-active:translate-y-0",
+                )}
+              >
+                <Icon
+                  aria-hidden="true"
+                  strokeWidth={active ? 2.25 : 1.8}
+                  className={cn(
+                    `
+                      size-[1.3rem]
+                      transition-all
+                      duration-300
+                      ease-[cubic-bezier(0.22,1,0.36,1)]
+                    `,
+                    active ? "scale-110" : "scale-100 group-hover:scale-105",
+                  )}
                 />
-              );
-            })}
-          </nav>
-        </div>
 
-        {/* Footer */}
-        <footer
-          className="
-            shrink-0
-            border-t border-border/40
-            bg-muted/[0.15]
-            px-4 py-3
-          "
-        >
-          <p
-            className="
-              text-center
-              text-[9px] font-medium
-              text-muted-foreground/60
-            "
-          >
-            قفسه، خانه‌ی کتاب‌های تو
-          </p>
-        </footer>
-      </SheetContent>
-    </Sheet>
-  );
-}
+                {/* Active icon glow */}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    `
+                      absolute
+                      inset-1
+                      -z-10
+                      rounded-full
+                      bg-primary/20
+                      blur-lg
+                      opacity-0
+                      transition-opacity
+                      duration-300
+                    `,
+                    active && "opacity-70",
+                  )}
+                />
+              </span>
 
-function MobileLink({
-  href,
-  label,
-  active,
-  onSelect,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  active: boolean;
-  onSelect: () => void;
-  icon: ElementType;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onSelect}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        `
-          group relative
-          flex min-h-12 w-full
-          items-center gap-3
-          overflow-hidden
-          rounded-xl
-          px-3
-          text-sm font-bold
-          outline-none
-
-          transition-all duration-150
-
-          focus-visible:ring-2
-          focus-visible:ring-primary/20
-        `,
-        active
-          ? `
-            bg-primary/[0.08]
-            text-primary
-            ring-1 ring-primary/10
-          `
-          : `
-            text-foreground/80
-
-            hover:bg-muted/50
-            hover:text-foreground
-
-            active:bg-muted/70
-          `,
-      )}
-    >
-      {/* Icon */}
-      <span
-        className={cn(
-          `
-            flex size-8 shrink-0
-            items-center justify-center
-            rounded-lg
-
-            transition-all duration-150
-          `,
-          active
-            ? `
-              bg-primary/10
-              text-primary
-            `
-            : `
-              bg-muted/55
-              text-muted-foreground
-
-              group-hover:bg-muted
-              group-hover:text-foreground
-            `,
-        )}
-      >
-        <Icon className="size-4" />
-      </span>
-
-      {/* Label */}
-      <span className="min-w-0 flex-1 truncate text-right">{label}</span>
-
-      {/* Active / navigation state */}
-      {active ? (
-        <span
-          className="
-            flex shrink-0
-            items-center gap-1.5
-          "
-        >
-          <span
-            className="
-              size-1.5
-              rounded-full
-              bg-primary
-            "
-          />
-
-          <ChevronLeft
-            className="
-              size-3.5
-              text-primary/70
-            "
-          />
-        </span>
-      ) : (
-        <ChevronLeft
-          className="
-            size-3.5 shrink-0
-            translate-x-1
-            text-muted-foreground/35
-            opacity-0
-
-            transition-all duration-150
-
-            group-hover:translate-x-0
-            group-hover:opacity-100
-          "
-        />
-      )}
-
-      {/* Active edge */}
-      {active ? (
-        <span
-          aria-hidden
-          className="
-            absolute right-0
-            top-1/2
-            h-6 w-[3px]
-            -translate-y-1/2
-            rounded-l-full
-            bg-primary
-          "
-        />
-      ) : null}
-    </Link>
+              {/* Label */}
+              <span
+                className={cn(
+                  `
+                    max-w-full
+                    truncate
+                    text-[10px]
+                    leading-none
+                    tracking-tight
+                    transition-all
+                    duration-300
+                  `,
+                  active
+                    ? "translate-y-0 font-bold opacity-100"
+                    : "font-medium opacity-75 group-hover:opacity-100",
+                )}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
