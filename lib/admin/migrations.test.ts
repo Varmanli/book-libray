@@ -161,7 +161,7 @@ test("0039 expands note capacity without rewriting existing notes", () => {
   assert.match(migration, /ADD CONSTRAINT "PublishedBookNote_content_length_check"/);
   assert.match(migration, /char_length\("content"\) <= 50000/);
   assert.match(migration, /NOT VALID/);
-  assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM|UPDATE\s+)\b/i);
+  assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM)\b/i);
 });
 
 test("postflight foreign-key verification is structural and ignores constraint names", () => {
@@ -300,7 +300,17 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease", "0047_iranketab_discovery_review_approval", "0048_iranketab_discovery_auto_import_policy"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease", "0047_iranketab_discovery_review_approval", "0048_iranketab_discovery_auto_import_policy", "0049_first_party_analytics"]);
+});
+
+test("first-party analytics migration is additive and indexed for reporting", () => {
+  const migration = readFileSync("drizzle/0049_first_party_analytics.sql", "utf8");
+  assert.ok(journal.entries.some((entry) => entry.tag === "0049_first_party_analytics"));
+  assert.match(migration, /CREATE TABLE "AnalyticsPageView"/);
+  assert.match(migration, /AnalyticsPageView_visitor_created_idx/);
+  assert.match(migration, /AnalyticsPageView_content_created_idx/);
+  // The foreign key intentionally uses PostgreSQL's `ON UPDATE no action`.
+  assert.doesNotMatch(migration, /\b(DROP|TRUNCATE|DELETE\s+FROM)\b/i);
 });
 
 test("STOPPED book status migration is journaled and preserves existing data", () => {

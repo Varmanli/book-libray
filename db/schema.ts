@@ -838,6 +838,44 @@ export const IranKetabPreviewOperation = pgTable(
   }),
 );
 
+// ---------------- AnalyticsPageView ----------------
+// First-party, privacy-conscious traffic measurement. `visitorId` is a random
+// opaque cookie value; IP addresses, user agents and query strings are never
+// persisted. Content fields are derived from the normalized public pathname.
+export const AnalyticsPageView = pgTable(
+  "AnalyticsPageView",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    visitorId: varchar("visitor_id", { length: 64 }).notNull(),
+    userId: varchar("user_id").references(() => User.id, {
+      onDelete: "set null",
+    }),
+    path: varchar("path", { length: 500 }).notNull(),
+    contentKind: varchar("content_kind", { length: 32 }),
+    contentSlug: varchar("content_slug", { length: 255 }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("AnalyticsPageView_created_at_idx").on(table.createdAt),
+    visitorCreatedIdx: index("AnalyticsPageView_visitor_created_idx").on(
+      table.visitorId,
+      table.createdAt,
+    ),
+    contentCreatedIdx: index("AnalyticsPageView_content_created_idx").on(
+      table.contentKind,
+      table.contentSlug,
+      table.createdAt,
+    ),
+    userCreatedIdx: index("AnalyticsPageView_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  }),
+);
+
 /** Configured, curated IranKetab surfaces. Discovery fetches these pages; it never uses them as book import URLs. */
 export const IranKetabDiscoverySource = pgTable(
   "IranKetabDiscoverySource",
