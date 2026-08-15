@@ -163,7 +163,7 @@ export default function AdminBlogCategoriesPage() {
         <AdminDataTableSearch
           value={q}
           onChange={setQ}
-          placeholder="جست‌وجو در دسته‌بندی‌های بلاگ..."
+          placeholder="جست‌وجو در دسته‌بندی‌های مجله..."
         />
         <Button
           type="button"

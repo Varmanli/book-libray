@@ -167,18 +167,36 @@ export default function SettingsForm({
 
         {/* ---------------- برندینگ ---------------- */}
         <AdminFormSection title="برندینگ">
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <div>
-              <Label className="mb-2 block">لوگوی سایت</Label>
-              <ImageUploader
-                value={settings.logoUrl}
-                onChange={(url) => set("logoUrl", url)}
-                onUploadStateChange={onUploadState}
-                folder="settings"
-                variant="square"
-                maxSizeKb={1024}
-                className="max-w-full"
-              />
+              <Label className="mb-2 block">لوگوی حالت روشن</Label>
+              <div className="rounded-2xl bg-white p-2">
+                <ImageUploader
+                  value={settings.logoLightUrl}
+                  onChange={(url) => set("logoLightUrl", url)}
+                  onUploadStateChange={onUploadState}
+                  folder="settings"
+                  variant="square"
+                  maxSizeKb={1024}
+                  className="max-w-full"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">PNG، JPG یا WEBP</p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">لوگوی حالت تاریک</Label>
+              <div className="rounded-2xl bg-slate-950 p-2">
+                <ImageUploader
+                  value={settings.logoDarkUrl}
+                  onChange={(url) => set("logoDarkUrl", url)}
+                  onUploadStateChange={onUploadState}
+                  folder="settings"
+                  variant="square"
+                  maxSizeKb={1024}
+                  className="max-w-full"
+                />
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">PNG، JPG یا WEBP</p>
             </div>
 

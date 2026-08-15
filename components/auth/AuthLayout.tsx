@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { BrandLogo } from "@/components/BrandLogo";
+import type { SiteBranding } from "@/lib/settings/types";
 
 export function AuthLayout({
   children,
   branding,
 }: {
   children: ReactNode;
-  branding: { logoUrl: string; siteName: string };
+  branding: SiteBranding;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#07110d] text-foreground">

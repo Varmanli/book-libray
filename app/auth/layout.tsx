@@ -9,7 +9,14 @@ export default async function AuthLayout({
 }) {
   const settings = await getSiteSettings();
   return (
-    <AuthShell branding={{ logoUrl: settings.logoUrl, siteName: settings.siteName }}>
+    <AuthShell
+      branding={{
+        logoUrl: settings.logoUrl,
+        logoLightUrl: settings.logoLightUrl,
+        logoDarkUrl: settings.logoDarkUrl,
+        siteName: settings.siteName,
+      }}
+    >
       {children}
     </AuthShell>
   );

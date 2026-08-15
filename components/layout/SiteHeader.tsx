@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { getPrimaryNav } from "@/lib/layout/navigation";
+import type { SiteBranding } from "@/lib/settings/types";
 import { cn } from "@/lib/utils";
 
 export type HeaderUser = LayoutUser;
@@ -31,10 +32,14 @@ function isActivePath(pathname: string, href: string) {
 
 function Brand({
   logoUrl,
+  logoLightUrl,
+  logoDarkUrl,
   siteName,
   compact = false,
 }: {
   logoUrl: string;
+  logoLightUrl: string;
+  logoDarkUrl: string;
   siteName: string;
   compact?: boolean;
 }) {
@@ -51,6 +56,8 @@ function Brand({
     >
       <BrandLogo
         logoUrl={logoUrl}
+        logoLightUrl={logoLightUrl}
+        logoDarkUrl={logoDarkUrl}
         siteName={siteName}
         size={compact ? "mobile" : "header"}
         nameClassName="
@@ -169,10 +176,7 @@ export default function SiteHeader({
 }: {
   user?: HeaderUser | null;
   isAdmin?: boolean;
-  branding: {
-    logoUrl: string;
-    siteName: string;
-  };
+  branding: SiteBranding;
 }) {
   const pathname = usePathname();
 

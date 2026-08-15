@@ -1,10 +1,11 @@
-import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { BlogCategory, BlogPost, User } from "@/db/schema";
+import { BlogCategory, BlogPost, BlogPostAuthor, BlogPostBook, BlogPostGenre, CatalogBook, ReferenceItem, User } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
 import { normalizeMediaUrl } from "@/lib/book/cover";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import { extractBlogBookEmbedIds, resolveBlogBookEmbeds, type BlogBookEmbed } from "@/lib/blog/book-embed";
 import type {
   BlogCategoryInput,
   BlogPostInput,
@@ -33,6 +34,11 @@ export interface AdminBlogPostDetail extends AdminBlogPostRow {
   content: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  canonicalUrl: string | null;
+  ogImage: string | null;
+  relatedBookIds: string[];
+  relatedAuthorIds: string[];
+  relatedGenreIds: string[];
 }
 
 export interface PublicBlogPostPreview {
@@ -52,7 +58,16 @@ export interface PublicBlogPost extends PublicBlogPostPreview {
   content: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  canonicalUrl: string | null;
+  ogImage: string | null;
+  updatedAt: Date;
 }
+
+export type MagazineRelatedEntities = {
+  books: BlogBookEmbed[];
+  authors: { id: string; name: string; slug: string; coverImage: string | null }[];
+  genres: { id: string; name: string; slug: string }[];
+};
 
 export interface AdminBlogCategoryRow {
   id: string;
@@ -68,6 +83,7 @@ export interface BlogCategoryOption {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
 }
 
 function stripHtml(html: string) {
@@ -166,7 +182,25 @@ function normalizeInput(input: BlogPostInput) {
     readingTime: estimateReadingTime(sanitizedContent),
     seoTitle: input.seoTitle?.trim() || null,
     seoDescription: input.seoDescription?.trim() || null,
+    canonicalUrl: input.canonicalUrl?.trim() || null,
+    ogImage: (normalizeMediaUrl(input.ogImage) ?? input.ogImage?.trim()) || null,
   };
+}
+
+async function validateRelationshipIds(input: Pick<BlogPostInput, "relatedBookIds" | "relatedAuthorIds" | "relatedGenreIds">) {
+  const [books, authors, genres] = await Promise.all([
+    input.relatedBookIds.length ? db.select({ id: CatalogBook.id }).from(CatalogBook).where(and(inArray(CatalogBook.id, input.relatedBookIds), eq(CatalogBook.status, "APPROVED"))) : Promise.resolve([]),
+    input.relatedAuthorIds.length ? db.select({ id: ReferenceItem.id }).from(ReferenceItem).where(and(inArray(ReferenceItem.id, input.relatedAuthorIds), eq(ReferenceItem.type, "AUTHOR"), eq(ReferenceItem.status, "APPROVED"))) : Promise.resolve([]),
+    input.relatedGenreIds.length ? db.select({ id: ReferenceItem.id }).from(ReferenceItem).where(and(inArray(ReferenceItem.id, input.relatedGenreIds), eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"))) : Promise.resolve([]),
+  ]);
+  if (books.length !== input.relatedBookIds.length || authors.length !== input.relatedAuthorIds.length || genres.length !== input.relatedGenreIds.length) throw new Error("BLOG_RELATION_NOT_FOUND");
+}
+
+async function replaceBlogPostRelations(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], postId: string, input: Pick<BlogPostInput, "relatedBookIds" | "relatedAuthorIds" | "relatedGenreIds">) {
+  await Promise.all([tx.delete(BlogPostBook).where(eq(BlogPostBook.postId, postId)), tx.delete(BlogPostAuthor).where(eq(BlogPostAuthor.postId, postId)), tx.delete(BlogPostGenre).where(eq(BlogPostGenre.postId, postId))]);
+  if (input.relatedBookIds.length) await tx.insert(BlogPostBook).values(input.relatedBookIds.map((bookId) => ({ postId, bookId })));
+  if (input.relatedAuthorIds.length) await tx.insert(BlogPostAuthor).values(input.relatedAuthorIds.map((authorId) => ({ postId, authorId })));
+  if (input.relatedGenreIds.length) await tx.insert(BlogPostGenre).values(input.relatedGenreIds.map((genreId) => ({ postId, genreId })));
 }
 
 export async function listAdminBlogPosts({
@@ -243,6 +277,8 @@ export async function getAdminBlogPostById(id: string): Promise<AdminBlogPostDet
       readingTime: BlogPost.readingTime,
       seoTitle: BlogPost.seoTitle,
       seoDescription: BlogPost.seoDescription,
+      canonicalUrl: BlogPost.canonicalUrl,
+      ogImage: BlogPost.ogImage,
     })
     .from(BlogPost)
     .leftJoin(User, eq(BlogPost.createdById, User.id))
@@ -250,11 +286,18 @@ export async function getAdminBlogPostById(id: string): Promise<AdminBlogPostDet
     .where(eq(BlogPost.id, id))
     .limit(1);
 
-  return post ? normalizeBlogBanner(post) : null;
+  if (!post) return null;
+  const [books, authors, genres] = await Promise.all([
+    db.select({ id: BlogPostBook.bookId }).from(BlogPostBook).where(eq(BlogPostBook.postId, id)),
+    db.select({ id: BlogPostAuthor.authorId }).from(BlogPostAuthor).where(eq(BlogPostAuthor.postId, id)),
+    db.select({ id: BlogPostGenre.genreId }).from(BlogPostGenre).where(eq(BlogPostGenre.postId, id)),
+  ]);
+  return { ...normalizeBlogBanner(post), relatedBookIds: books.map((row) => row.id), relatedAuthorIds: authors.map((row) => row.id), relatedGenreIds: genres.map((row) => row.id) };
 }
 
 export async function createBlogPost(input: BlogPostInput, adminId: string) {
   const normalized = normalizeInput(input);
+  await validateRelationshipIds(input);
   const categoryOk = await blogCategoryExists(normalized.categoryId);
   if (!categoryOk) {
     throw new Error("BLOG_CATEGORY_NOT_FOUND");
@@ -262,9 +305,8 @@ export async function createBlogPost(input: BlogPostInput, adminId: string) {
   // اسلاگ به‌صورت خودکار از عنوان ساخته می‌شود (یکتا).
   const slug = await generateUniqueBlogSlug(normalized.title);
 
-  const [created] = await db
-    .insert(BlogPost)
-    .values({
+  const created = await db.transaction(async (tx) => {
+    const [row] = await tx.insert(BlogPost).values({
       title: normalized.title,
       slug,
       categoryId: normalized.categoryId,
@@ -277,23 +319,27 @@ export async function createBlogPost(input: BlogPostInput, adminId: string) {
       readingTime: normalized.readingTime,
       seoTitle: normalized.seoTitle,
       seoDescription: normalized.seoDescription,
-    })
-    .returning({ id: BlogPost.id, slug: BlogPost.slug });
+      canonicalUrl: normalized.canonicalUrl,
+      ogImage: normalized.ogImage,
+    }).returning({ id: BlogPost.id, slug: BlogPost.slug });
+    await replaceBlogPostRelations(tx, row.id, input);
+    return row;
+  });
 
   return created;
 }
 
 export async function updateBlogPost(id: string, input: BlogPostInput) {
   const normalized = normalizeInput(input);
+  await validateRelationshipIds(input);
   const categoryOk = await blogCategoryExists(normalized.categoryId);
   if (!categoryOk) {
     throw new Error("BLOG_CATEGORY_NOT_FOUND");
   }
 
   // اسلاگ پس از ساخت پایدار می‌ماند؛ در ویرایش تغییر نمی‌کند تا URL عمومی نشکند.
-  const [updated] = await db
-    .update(BlogPost)
-    .set({
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx.update(BlogPost).set({
       title: normalized.title,
       categoryId: normalized.categoryId,
       excerpt: normalized.excerpt,
@@ -304,10 +350,14 @@ export async function updateBlogPost(id: string, input: BlogPostInput) {
       readingTime: normalized.readingTime,
       seoTitle: normalized.seoTitle,
       seoDescription: normalized.seoDescription,
+      canonicalUrl: normalized.canonicalUrl,
+      ogImage: normalized.ogImage,
       updatedAt: new Date(),
-    })
-    .where(eq(BlogPost.id, id))
-    .returning({ id: BlogPost.id, slug: BlogPost.slug });
+    }).where(eq(BlogPost.id, id)).returning({ id: BlogPost.id, slug: BlogPost.slug });
+    if (!row) throw new Error("BLOG_POST_NOT_FOUND");
+    await replaceBlogPostRelations(tx, id, input);
+    return row;
+  });
 
   return updated;
 }
@@ -437,6 +487,9 @@ export async function getPublicBlogPostBySlug(slug: string): Promise<PublicBlogP
       categorySlug: BlogCategory.slug,
       seoTitle: BlogPost.seoTitle,
       seoDescription: BlogPost.seoDescription,
+      canonicalUrl: BlogPost.canonicalUrl,
+      ogImage: BlogPost.ogImage,
+      updatedAt: BlogPost.updatedAt,
     })
     .from(BlogPost)
     .leftJoin(User, eq(BlogPost.createdById, User.id))
@@ -450,6 +503,52 @@ export async function getPublicBlogPostBySlug(slug: string): Promise<PublicBlogP
     ...post,
     publishedAt: post.publishedAt,
   });
+}
+
+/** Deterministic Phase 1 related-content query; never returns the current post. */
+export async function getRelatedPublishedBlogPosts(post: Pick<PublicBlogPost, "id" | "categorySlug">, limit = 3) {
+  if (!post.categorySlug) return [];
+  const rows = await db
+    .select({
+      id: BlogPost.id, slug: BlogPost.slug, title: BlogPost.title, excerpt: BlogPost.excerpt,
+      bannerImage: BlogPost.bannerImage, publishedAt: BlogPost.publishedAt, readingTime: BlogPost.readingTime,
+      authorName: User.name, categoryName: BlogCategory.name, categorySlug: BlogCategory.slug,
+    })
+    .from(BlogPost)
+    .leftJoin(User, eq(BlogPost.createdById, User.id))
+    .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
+    .where(and(eq(BlogPost.status, "PUBLISHED"), eq(BlogCategory.slug, post.categorySlug), sql`${BlogPost.id} <> ${post.id}`, sql`${BlogPost.publishedAt} is not null`))
+    .orderBy(desc(BlogPost.publishedAt), desc(BlogPost.createdAt))
+    .limit(limit);
+  return rows.filter((row): row is PublicBlogPostPreview => Boolean(row.publishedAt)).map(normalizeBlogBanner);
+}
+
+export async function getMagazineRelatedEntities(post: Pick<PublicBlogPost, "id" | "content">): Promise<MagazineRelatedEntities> {
+  const [manualBooks, authors, genres] = await Promise.all([
+    db.select({ id: BlogPostBook.bookId }).from(BlogPostBook).where(eq(BlogPostBook.postId, post.id)),
+    db.select({ id: ReferenceItem.id, name: ReferenceItem.name, slug: ReferenceItem.slug, coverImage: ReferenceItem.coverImage }).from(BlogPostAuthor).innerJoin(ReferenceItem, eq(BlogPostAuthor.authorId, ReferenceItem.id)).where(and(eq(BlogPostAuthor.postId, post.id), eq(ReferenceItem.type, "AUTHOR"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
+    db.select({ id: ReferenceItem.id, name: ReferenceItem.name, slug: ReferenceItem.slug }).from(BlogPostGenre).innerJoin(ReferenceItem, eq(BlogPostGenre.genreId, ReferenceItem.id)).where(and(eq(BlogPostGenre.postId, post.id), eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
+  ]);
+  const booksById = await resolveBlogBookEmbeds([...manualBooks.map((row) => row.id), ...extractBlogBookEmbedIds(post.content)]);
+  return { books: [...booksById.values()], authors: authors.map((row) => ({ ...row, slug: row.slug! })), genres: genres.map((row) => ({ ...row, slug: row.slug! })) };
+}
+
+async function listPublishedMagazineArticlesByRelation(where: ReturnType<typeof and> | undefined, limit: number) {
+  const rows = await db.select({ id: BlogPost.id, slug: BlogPost.slug, title: BlogPost.title, excerpt: BlogPost.excerpt, bannerImage: BlogPost.bannerImage, publishedAt: BlogPost.publishedAt, readingTime: BlogPost.readingTime, authorName: User.name, categoryName: BlogCategory.name, categorySlug: BlogCategory.slug }).from(BlogPost).leftJoin(User, eq(BlogPost.createdById, User.id)).leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id)).where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt), where)).orderBy(desc(BlogPost.publishedAt)).limit(limit);
+  return rows.filter((row): row is PublicBlogPostPreview => Boolean(row.publishedAt)).map(normalizeBlogBanner);
+}
+
+export function getMagazineArticlesForBook(bookId: string, limit = 4) {
+  // Embed references are computed from canonical article content, so legacy embeds work immediately.
+  return listPublishedMagazineArticlesByRelation(or(sql`exists (select 1 from "BlogPostBook" edge where edge.post_id = ${BlogPost.id} and edge.book_id = ${bookId})`, sql`${BlogPost.content} ilike ${`%data-blog-book-id="${bookId}"%`}`), limit);
+}
+
+export function getMagazineArticlesForAuthor(authorId: string, limit = 4) {
+  return listPublishedMagazineArticlesByRelation(sql`exists (select 1 from "BlogPostAuthor" edge where edge.post_id = ${BlogPost.id} and edge.author_id = ${authorId})`, limit);
+}
+
+export function getMagazineArticlesForGenre(genreId: string, limit = 4) {
+  return listPublishedMagazineArticlesByRelation(sql`exists (select 1 from "BlogPostGenre" edge where edge.post_id = ${BlogPost.id} and edge.genre_id = ${genreId})`, limit);
 }
 
 // ---------------- دسته‌بندی‌های بلاگ ----------------
@@ -477,6 +576,7 @@ export async function listBlogCategoryOptions(): Promise<BlogCategoryOption[]> {
       id: BlogCategory.id,
       name: BlogCategory.name,
       slug: BlogCategory.slug,
+      description: BlogCategory.description,
     })
     .from(BlogCategory)
     .orderBy(asc(BlogCategory.name));
@@ -511,6 +611,7 @@ export async function getPublicBlogCategoryBySlug(
       id: BlogCategory.id,
       name: BlogCategory.name,
       slug: BlogCategory.slug,
+      description: BlogCategory.description,
     })
     .from(BlogCategory)
     .where(eq(BlogCategory.slug, slug))

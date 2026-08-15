@@ -564,6 +564,7 @@ export async function searchAdminCatalogBooks(
     conds.push(
       sql`(
         ${CatalogBook.title} ilike ${term}
+        or ${CatalogBook.id} = ${q}
         or ${CatalogBook.originalTitle} ilike ${term}
         or ${CatalogBook.author} ilike ${term}
         or ${CatalogBook.slug} ilike ${term}

@@ -11,6 +11,7 @@ import AdminFormSection from "@/components/admin/AdminFormSection";
 import AdminBlogBannerUpload from "@/components/admin/blog/AdminBlogBannerUpload";
 import AdminRichTextEditor from "@/components/admin/AdminRichTextEditor";
 import AdminBlogCategorySelect from "@/components/admin/blog/BlogCategorySelect";
+import BlogEntityRelations from "@/components/admin/blog/BlogEntityRelations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,11 @@ type BlogFormState = {
   status: "DRAFT" | "PUBLISHED";
   seoTitle: string;
   seoDescription: string;
+  canonicalUrl: string;
+  ogImage: string;
+  relatedBookIds: string[];
+  relatedAuthorIds: string[];
+  relatedGenreIds: string[];
 };
 
 function toFormState(post?: AdminBlogPostDetail | null): BlogFormState {
@@ -40,6 +46,9 @@ function toFormState(post?: AdminBlogPostDetail | null): BlogFormState {
     status: post?.status ?? "DRAFT",
     seoTitle: post?.seoTitle ?? "",
     seoDescription: post?.seoDescription ?? "",
+    canonicalUrl: post?.canonicalUrl ?? "",
+    ogImage: post?.ogImage ?? "",
+    relatedBookIds: post?.relatedBookIds ?? [], relatedAuthorIds: post?.relatedAuthorIds ?? [], relatedGenreIds: post?.relatedGenreIds ?? [],
   };
 }
 
@@ -91,6 +100,9 @@ export default function AdminBlogForm({
         status,
         seoTitle: form.seoTitle.trim() || undefined,
         seoDescription: form.seoDescription.trim() || undefined,
+        canonicalUrl: form.canonicalUrl.trim() || undefined,
+        ogImage: form.ogImage.trim() || undefined,
+        relatedBookIds: form.relatedBookIds, relatedAuthorIds: form.relatedAuthorIds, relatedGenreIds: form.relatedGenreIds,
       };
 
       const url =
@@ -203,7 +215,30 @@ export default function AdminBlogForm({
                 className="min-h-28 rounded-[1.35rem] border-border/70 bg-background/75"
               />
             </AdminFormField>
+            <AdminFormField label="Canonical URL (اختیاری)">
+              <Input
+                dir="ltr"
+                value={form.canonicalUrl}
+                onChange={(event) => setField("canonicalUrl", event.target.value)}
+                placeholder="https://ghafaseh.ir/blog/..."
+                className="h-12 rounded-2xl border-border/70 bg-background/75"
+              />
+            </AdminFormField>
+            <AdminFormField label="تصویر Open Graph (اختیاری)">
+              <Input
+                dir="ltr"
+                value={form.ogImage}
+                onChange={(event) => setField("ogImage", event.target.value)}
+                placeholder="در صورت خالی‌بودن از تصویر بنر استفاده می‌شود"
+                className="h-12 rounded-2xl border-border/70 bg-background/75"
+              />
+            </AdminFormField>
           </div>
+        </AdminFormSection>
+
+        <AdminFormSection title="ارتباط با قفسه">
+          <p className="-mt-2 text-sm text-muted-foreground">کتاب‌ها، نویسنده‌ها و موضوعات مرتبط با این مطلب را انتخاب کنید.</p>
+          <BlogEntityRelations bookIds={form.relatedBookIds} authorIds={form.relatedAuthorIds} genreIds={form.relatedGenreIds} onChange={(field, ids) => setField(field, ids)} />
         </AdminFormSection>
       </div>
 

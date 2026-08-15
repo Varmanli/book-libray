@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import AdminNav from "@/components/admin/AdminSidebar";
+import type { SiteBranding } from "@/lib/settings/types";
 
 interface AdminUser {
   name: string | null;
@@ -26,7 +27,7 @@ interface AdminUser {
 function Brand({
   branding,
 }: {
-  branding: { logoUrl: string; siteName: string };
+  branding: SiteBranding;
 }) {
   return (
     <Link href="/admin" className="flex items-center gap-2.5">
@@ -64,7 +65,7 @@ export default function AdminShell({
 }: {
   user: AdminUser;
   children: React.ReactNode;
-  branding: { logoUrl: string; siteName: string };
+  branding: SiteBranding;
 }) {
   const [open, setOpen] = useState(false);
 

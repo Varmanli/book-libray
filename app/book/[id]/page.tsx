@@ -31,6 +31,8 @@ import BookEditionSelector from "@/components/books/BookEditionSelector";
 import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import BookIntroduction from "@/components/books/BookIntroduction";
+import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
+import { getMagazineArticlesForBook } from "@/lib/blog/service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
   buildBreadcrumbJsonLd,
@@ -127,6 +129,7 @@ export default async function BookPage({
   const loginHref = `/auth/login?redirect=/book/${encodeURIComponent(book.slug)}`;
 
   const genreList = book.genres.map((genre) => genre.name);
+  const magazinePosts = await getMagazineArticlesForBook(book.id);
   const visibleGenres = genreList.slice(0, 3);
   const hiddenGenres = genreList.slice(3);
 
@@ -540,6 +543,7 @@ export default async function BookPage({
             <BookIntroduction content={book.description} />
           </div>
         </section>
+        <RelatedMagazineArticles posts={magazinePosts} description="راهنماها و مطالب مرتبط با این کتاب" />
         <div className="mt-10 lg:mt-12">
           <BookQuotesSection
             subjectBookId={book.id}

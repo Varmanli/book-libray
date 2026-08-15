@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import {
   Bold,
+  BookOpen,
   Heading2,
   Heading3,
   Italic,
@@ -19,6 +20,8 @@ import {
   Undo2,
 } from "lucide-react";
 
+import { BlogBookEmbedNode } from "@/components/blog/editor/BlogBookEmbedNode";
+import { BlogBookPicker, type BlogBookPickerResult } from "@/components/blog/editor/BlogBookPicker";
 import { cn } from "@/lib/utils";
 
 type EditorVariant = "admin" | "note";
@@ -30,6 +33,7 @@ export default function RichTextEditor({
   className,
   variant = "admin",
   ariaLabel,
+  enableBookEmbeds = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -37,8 +41,10 @@ export default function RichTextEditor({
   className?: string;
   variant?: EditorVariant;
   ariaLabel?: string;
+  enableBookEmbeds?: boolean;
 }) {
   const isNote = variant === "note";
+  const [bookPickerOpen, setBookPickerOpen] = useState(false);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -50,6 +56,7 @@ export default function RichTextEditor({
       Placeholder.configure({
         placeholder: placeholder ?? "توضیحات کتاب را اینجا بنویس...",
       }),
+      ...(!isNote && enableBookEmbeds ? [BlogBookEmbedNode] : []),
     ],
     content: value,
     editorProps: {
@@ -89,6 +96,14 @@ export default function RichTextEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
+  const insertBookEmbed = (book: BlogBookPickerResult) => {
+    editor
+      .chain()
+      .focus()
+      .insertContent({ type: "blogBookEmbed", attrs: { bookId: book.id } })
+      .run();
+  };
+
   return (
     <div
       dir="rtl"
@@ -106,12 +121,14 @@ export default function RichTextEditor({
         <ToolbarButton active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} icon={<ListOrdered />} label="شماره‌دار" compact={isNote} />
         <ToolbarButton active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} icon={<Quote />} label="نقل‌قول" compact={isNote} />
         <ToolbarButton active={editor.isActive("link")} onClick={setLink} icon={<Link2 />} label="لینک" compact={isNote} />
+        {!isNote && enableBookEmbeds ? <ToolbarButton onClick={() => setBookPickerOpen(true)} icon={<BookOpen />} label="افزودن کتاب" /> : null}
         <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} icon={<RemoveFormatting />} label="پاک‌سازی" compact={isNote} />
         <span aria-hidden className="mx-0.5 h-6 w-px shrink-0 bg-border/80" />
         <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().chain().focus().undo().run()} icon={<Undo2 />} label="واگرد" compact={isNote} />
         <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().chain().focus().redo().run()} icon={<Redo2 />} label="ازنو" compact={isNote} />
       </div>
       <EditorContent editor={editor} className={cn("min-h-0 bg-transparent", isNote && "overflow-y-auto overscroll-contain")} />
+      {!isNote && enableBookEmbeds ? <BlogBookPicker open={bookPickerOpen} onOpenChange={setBookPickerOpen} onPick={insertBookEmbed} /> : null}
     </div>
   );
 }

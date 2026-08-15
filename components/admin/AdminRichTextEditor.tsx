@@ -8,5 +8,5 @@ export default function AdminRichTextEditor(props: {
   placeholder?: string;
   className?: string;
 }) {
-  return <RichTextEditor {...props} variant="admin" />;
+  return <RichTextEditor {...props} variant="admin" enableBookEmbeds />;
 }

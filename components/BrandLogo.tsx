@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { resolveBrandLogoUrls } from "@/lib/settings/types";
 import { cn } from "@/lib/utils";
 
 type BrandLogoSize = "header" | "footer" | "mobile" | "auth" | "admin";
 
 interface BrandLogoProps {
   logoUrl?: string | null;
+  logoLightUrl?: string | null;
+  logoDarkUrl?: string | null;
   siteName?: string | null;
   size?: BrandLogoSize;
 
@@ -37,6 +40,8 @@ const nameSizeClasses: Record<BrandLogoSize, string> = {
 
 export function BrandLogo({
   logoUrl,
+  logoLightUrl,
+  logoDarkUrl,
   siteName,
   size = "header",
   showName = false,
@@ -45,12 +50,18 @@ export function BrandLogo({
   nameClassName,
   fallbackClassName,
 }: BrandLogoProps) {
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedThemes, setFailedThemes] = useState({ light: false, dark: false });
 
   const name = siteName?.trim() || "قفسه";
-  const resolvedLogo = logoUrl?.trim() || "/logo.svg";
+  const { lightLogoUrl, darkLogoUrl } = resolveBrandLogoUrls({
+    logoUrl: logoUrl ?? "",
+    logoLightUrl: logoLightUrl ?? "",
+    logoDarkUrl: logoDarkUrl ?? "",
+  });
 
-  const showImage = !imageFailed && Boolean(resolvedLogo);
+  useEffect(() => {
+    setFailedThemes({ light: false, dark: false });
+  }, [lightLogoUrl, darkLogoUrl]);
 
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
@@ -65,41 +76,56 @@ export function BrandLogo({
           fallbackClassName,
         )}
       >
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={resolvedLogo}
-            alt={`لوگوی ${name}`}
-            onError={() => setImageFailed(true)}
-            className={cn(
-              `
-                block h-full w-auto
-                max-w-full object-contain
-                select-none
-              `,
-              logoClassName,
-            )}
-            draggable={false}
-          />
-        ) : (
-          <span
-            aria-label={name}
-            className={cn(
-              `
-                flex size-full
-                items-center justify-center
-                rounded-xl
-                bg-primary/10
-                px-3
-                font-black
-                text-primary
-              `,
-              nameSizeClasses[size],
-            )}
-          >
-            {name}
-          </span>
-        )}
+        <>
+          {!failedThemes.light ? (
+              // CSS theme selectors avoid a hydration mismatch and ensure a direct
+              // dark-mode refresh shows the correct asset before React hydrates.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={lightLogoUrl}
+                alt={`لوگوی ${name}`}
+                onError={() => setFailedThemes((current) => ({ ...current, light: true }))}
+                className={cn(
+                  "block h-full w-auto max-w-full object-contain select-none dark:hidden",
+                  logoClassName,
+                )}
+                draggable={false}
+              />
+          ) : (
+            <span
+              aria-label={name}
+              className={cn(
+                "flex size-full items-center justify-center rounded-xl bg-primary/10 px-3 font-black text-primary dark:hidden",
+                nameSizeClasses[size],
+              )}
+            >
+              {name}
+            </span>
+          )}
+          {!failedThemes.dark ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={darkLogoUrl}
+                alt={`لوگوی ${name}`}
+                onError={() => setFailedThemes((current) => ({ ...current, dark: true }))}
+                className={cn(
+                  "hidden h-full w-auto max-w-full object-contain select-none dark:block",
+                  logoClassName,
+                )}
+                draggable={false}
+              />
+          ) : (
+            <span
+              aria-label={name}
+              className={cn(
+                "hidden size-full items-center justify-center rounded-xl bg-primary/10 px-3 font-black text-primary dark:flex",
+                nameSizeClasses[size],
+              )}
+            >
+              {name}
+            </span>
+          )}
+        </>
       </span>
 
       {showName ? (

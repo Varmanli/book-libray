@@ -16,6 +16,8 @@ export interface SiteSettings {
   seoDescription: string;
   // برندینگ
   logoUrl: string;
+  logoLightUrl: string;
+  logoDarkUrl: string;
   faviconUrl: string;
   ogImageUrl: string;
   // ظاهر
@@ -40,6 +42,8 @@ export const SITE_SETTINGS_DEFAULTS: SiteSettings = {
   seoTitle: "قفسه - کتابخانه شخصی",
   seoDescription: "مدیریت کتابخانه شخصی و کشف کتاب",
   logoUrl: "",
+  logoLightUrl: "",
+  logoDarkUrl: "",
   faviconUrl: "",
   ogImageUrl: "",
   defaultTheme: "dark",
@@ -92,6 +96,8 @@ export const siteSettingsSchema = z.object({
   seoTitle: optionalText(160),
   seoDescription: optionalText(320),
   logoUrl: optionalUrl,
+  logoLightUrl: optionalUrl,
+  logoDarkUrl: optionalUrl,
   faviconUrl: optionalUrl,
   ogImageUrl: optionalUrl,
   defaultTheme: z.enum(SETTINGS_THEMES).default("dark"),
@@ -106,6 +112,31 @@ export const siteSettingsSchema = z.object({
 });
 
 export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;
+
+/** داده‌ی برندینگِ مشترک میان layoutهای سایت. */
+export type SiteBranding = Pick<
+  SiteSettings,
+  "siteName" | "logoUrl" | "logoLightUrl" | "logoDarkUrl"
+>;
+
+/**
+ * URLهای لوگو را برای هر تم تعیین می‌کند و تنظیم تک‌لوگوی قدیمی را معتبر نگه
+ * می‌دارد. نتیجه همیشه URL قابل نمایش دارد تا لوگوی پیش‌فرض آخرین fallback باشد.
+ */
+export function resolveBrandLogoUrls({
+  logoUrl,
+  logoLightUrl,
+  logoDarkUrl,
+}: Pick<SiteSettings, "logoUrl" | "logoLightUrl" | "logoDarkUrl">) {
+  const legacy = logoUrl.trim();
+  const light = logoLightUrl.trim() || legacy || logoDarkUrl.trim();
+  const dark = logoDarkUrl.trim() || legacy || logoLightUrl.trim();
+
+  return {
+    lightLogoUrl: light || "/logo.svg",
+    darkLogoUrl: dark || "/logo.svg",
+  };
+}
 
 // کلیدهای بولین برای تبدیل امن متن↔بولین در لایه‌ی ذخیره‌سازی.
 export const BOOLEAN_SETTING_KEYS: ReadonlyArray<keyof SiteSettings> = [

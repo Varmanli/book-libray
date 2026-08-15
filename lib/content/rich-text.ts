@@ -14,9 +14,10 @@ const ALLOWED_TAGS = [
   "li",
   "blockquote",
   "a",
+  "div",
 ];
 
-const ALLOWED_ATTR = ["href", "target", "rel"];
+const ALLOWED_ATTR = ["href", "target", "rel", "id", "data-blog-book-id"];
 
 function escapeHtml(value: string) {
   return value

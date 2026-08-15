@@ -11,7 +11,7 @@ export function getPrimaryNav(username?: string | null): NavLinkItem[] {
     { label: "خانه", href: "/" },
     { label: "کتاب‌ها", href: "/books" },
     { label: "نویسنده‌ها", href: "/authors" },
-    { label: "بلاگ", href: "/blog" },
+    { label: "مجله قفسه", href: "/blog" },
   ];
 }
 
@@ -22,7 +22,7 @@ export function getFooterPrimaryNav(
     { label: "خانه", href: "/" },
     { label: "کتاب‌ها", href: "/books" },
     { label: "نویسنده‌ها", href: "/authors" },
-    { label: "بلاگ", href: "/blog" },
+    { label: "مجله قفسه", href: "/blog" },
     { label: "درباره ما", href: "/about" },
   ];
 }

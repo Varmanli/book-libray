@@ -206,12 +206,12 @@ export const ADMIN_NAV: AdminNavEntry[] = [
         },
         {
           href: "/admin/blog",
-          label: "نوشته‌های بلاگ",
+          label: "مطالب مجله قفسه",
           icon: Newspaper,
         },
         {
           href: "/admin/blog/categories",
-          label: "دسته‌بندی‌های بلاگ",
+          label: "دسته‌بندی‌های مجله",
           icon: Tags,
         },
         {

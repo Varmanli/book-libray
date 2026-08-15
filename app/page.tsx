@@ -9,6 +9,7 @@ import {
   HOME_FALLBACK_SLIDES,
   type HeroSlideView,
   getPopularAuthors,
+  getHomepageGenres,
 } from "@/lib/home/service";
 import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
@@ -18,6 +19,8 @@ import HomePopularAuthors from "@/components/home/HomePopularAuthors";
 // import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
 // import HomeFeatureCards from "@/components/home/HomeFeatureCards";
 import HomeBlogPreview from "@/components/home/HomeBlogPreview";
+import HomeExploreGhafaseh from "@/components/home/HomeExploreGhafaseh";
+import HomeGenreDiscovery from "@/components/home/HomeGenreDiscovery";
 
 export const dynamic = "force-dynamic";
 
@@ -30,21 +33,23 @@ export default async function HomePage() {
     latestBlogPosts,
     dbHeroSlides,
     popularAuthors,
+    popularBooks,
+    genres,
   ] = await Promise.all([
     userPromise,
-    getFeaturedBooks(12),
+    getFeaturedBooks(8),
     userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id)),
     getLatestHomeBlogPosts(3),
     getHeroSlides(),
     getPopularAuthors(10),
+    getPopularBooks(8),
+    getHomepageGenres(5),
   ]);
 
   // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
   // کتاب‌های اخیر عمومی (به‌صورت شفاف با برچسب «تازه‌ترین‌ها»).
   const hasFeatured = featuredBooks.length > 0;
-  const showcaseBooks = hasFeatured
-    ? featuredBooks
-    : await getPopularBooks(12);
+  const showcaseBooks = hasFeatured ? featuredBooks : popularBooks;
 
   const isLoggedIn = !!user;
   const libraryHref = getLibraryPath(user?.username);
@@ -97,6 +102,10 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:space-y-10">
           <HomeHeroSlider slides={heroSlides} />
 
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_340px]">
+            <HomeExploreGhafaseh />
+          </div>
+
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_650px]">
             <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />
           </div>
@@ -107,6 +116,10 @@ export default async function HomePage() {
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_400px]">
             <HomePopularAuthors authors={popularAuthors} />
+          </div>
+
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_380px]">
+            <HomeGenreDiscovery genres={genres} />
           </div>
 
           {/* <HomeReadingListsPreview lists={HOME_PLACEHOLDER_LISTS} /> */}

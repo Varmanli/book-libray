@@ -45,26 +45,25 @@ export default function HomePopularAuthors({
 }: {
   authors: PopularAuthor[];
 }) {
+  if (!authors.length) return null;
   return (
     <section className="relative">
       <div className="mb-4 sm:mb-5">
-        <HomeSectionHeader icon={Users} title="نویسندگان محبوب" />
+        <HomeSectionHeader
+          icon={Users}
+          title="نویسنده های منتخب"
+          href="/authors"
+        />
       </div>
 
-      {authors.length > 0 ? (
-        <Carousel
-          ariaLabel="نویسندگان محبوب"
-          slideClassName="basis-[135px] py-4 sm:basis-[170px] lg:basis-[190px]"
-          containerClassName="gap-4"
-          slides={authors.map((author) => (
-            <AuthorCard key={author.id} author={author} />
-          ))}
-        />
-      ) : (
-        <div className="rounded-[1.5rem] border border-dashed border-border bg-card/75 px-5 py-8 text-center text-sm leading-7 text-muted-foreground">
-          هنوز اطلاعات کافی برای نمایش نویسندگان محبوب در دسترس نیست.
-        </div>
-      )}
+      <Carousel
+        ariaLabel="نویسندگان محبوب"
+        slideClassName="basis-[135px] py-4 sm:basis-[170px] lg:basis-[190px]"
+        containerClassName="gap-4"
+        slides={authors.map((author) => (
+          <AuthorCard key={author.id} author={author} />
+        ))}
+      />
     </section>
   );
 }

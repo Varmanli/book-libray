@@ -2,22 +2,20 @@ import Link from "next/link";
 
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LayoutUser } from "@/components/layout/types";
+import type { SiteBranding } from "@/lib/settings/types";
 
 export default function SiteFooter({
   user,
   branding,
 }: {
   user?: LayoutUser | null;
-  branding: {
-    logoUrl: string;
-    siteName: string;
-  };
+  branding: SiteBranding;
 }) {
   const footerLinks = [
     { label: "صفحه اصلی", href: "/" },
     { label: "کتاب‌ها", href: "/books" },
     { label: "نویسنده‌ها", href: "/authors" },
-    { label: "بلاگ", href: "/blog" },
+    { label: "مجله قفسه", href: "/blog" },
     { label: "درباره قفسه", href: "/about" },
     { label: "تماس با ما", href: "/contact" },
     { label: "قوانین", href: "/terms" },
@@ -96,6 +94,8 @@ export default function SiteFooter({
             >
               <BrandLogo
                 logoUrl={branding.logoUrl}
+                logoLightUrl={branding.logoLightUrl}
+                logoDarkUrl={branding.logoDarkUrl}
                 siteName={branding.siteName}
                 size="mobile"
               />

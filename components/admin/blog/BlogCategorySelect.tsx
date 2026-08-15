@@ -72,7 +72,7 @@ export default function BlogCategorySelect({
           <ul className="max-h-60 overflow-y-auto p-1.5" role="listbox">
             {filtered.length === 0 ? (
               <li className="px-3 py-4 text-center text-xs text-muted-foreground">
-                دسته‌بندی‌ای پیدا نشد. ابتدا از بخش «دسته‌بندی‌های بلاگ» یکی بساز.
+                دسته‌بندی‌ای پیدا نشد. ابتدا از بخش «دسته‌بندی‌های مجله» یکی بساز.
               </li>
             ) : (
               filtered.map((o) => {

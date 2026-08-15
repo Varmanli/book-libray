@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const relationIdsSchema = z.array(z.string().uuid()).max(30).refine((ids) => new Set(ids).size === ids.length, "ارتباط تکراری مجاز نیست");
+
 export const blogPostStatusSchema = z.enum(["DRAFT", "PUBLISHED"]);
 
 export const blogPostInputSchema = z.object({
@@ -13,6 +15,11 @@ export const blogPostInputSchema = z.object({
   publishedAt: z.string().datetime().optional().nullable(),
   seoTitle: z.string().max(500).optional(),
   seoDescription: z.string().max(1000).optional(),
+  canonicalUrl: z.string().url("نشانی canonical معتبر نیست").max(5000).optional(),
+  ogImage: z.string().max(5000).optional(),
+  relatedBookIds: relationIdsSchema.default([]),
+  relatedAuthorIds: relationIdsSchema.default([]),
+  relatedGenreIds: relationIdsSchema.default([]),
 });
 
 export const adminBlogListQuerySchema = z.object({

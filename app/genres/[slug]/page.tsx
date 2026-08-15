@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
-import ReferencePublicView, {
-  buildReferenceMetadata,
-} from "@/components/reference/ReferencePublicView";
+import { notFound, permanentRedirect } from "next/navigation";
+import GenreLandingPage from "@/components/genre/GenreLandingPage";
+import { getReferenceEntity } from "@/lib/reference/public-service";
+import { getPublicGenreHref } from "@/lib/genre/paths";
+import { buildReferenceMetadata } from "@/components/reference/ReferencePublicView";
 
 export const dynamic = "force-dynamic";
 
@@ -17,18 +19,12 @@ export async function generateMetadata({
 
 export default async function GenrePage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
-  return (
-    <ReferencePublicView
-      type="GENRE"
-      slugParam={slug}
-      searchParams={resolvedSearchParams}
-    />
-  );
+  const genre = await getReferenceEntity("GENRE", decodeURIComponent(slug));
+  if (!genre) notFound();
+  if (decodeURIComponent(slug) !== genre.slug) permanentRedirect(getPublicGenreHref(genre)!);
+  return <GenreLandingPage genre={genre} />;
 }

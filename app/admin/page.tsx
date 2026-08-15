@@ -36,8 +36,8 @@ const QUICK_ACTIONS = [
   },
   {
     href: "/admin/blog",
-    label: "نوشتن بلاگ",
-    description: "انتشار مطلب و محتوای سایت",
+    label: "نوشتن برای مجله",
+    description: "انتشار مطلب در مجله قفسه",
     icon: FileText,
   },
   {

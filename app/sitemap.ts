@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { BlogPost, CatalogBook, ReferenceItem, StaticPage } from "@/db/schema";
+import { BlogCategory, BlogPost, CatalogBook, ReferenceItem, StaticPage } from "@/db/schema";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { getSiteOrigin } from "@/lib/seo/site";
 
@@ -18,7 +18,7 @@ const STATIC_PUBLIC_ROUTES = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteOrigin = getSiteOrigin();
 
-  const [catalogBooks, references, blogPosts, staticPages] = await Promise.all([
+  const [catalogBooks, references, blogPosts, blogCategories, staticPages] = await Promise.all([
     db
       .select({
         id: CatalogBook.id,
@@ -43,6 +43,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         publishedAt: BlogPost.publishedAt,
       })
       .from(BlogPost)
+      .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
+    db
+      .selectDistinct({ slug: BlogCategory.slug, updatedAt: BlogCategory.updatedAt })
+      .from(BlogCategory)
+      .innerJoin(BlogPost, eq(BlogPost.categoryId, BlogCategory.id))
       .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
     db
       .select({
@@ -97,6 +102,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: post.updatedAt,
       changeFrequency: "monthly" as const,
       priority: 0.7,
+    })),
+    ...blogCategories.map((category) => ({
+      url: `${siteOrigin}/blog/category/${encodeURIComponent(category.slug)}`,
+      lastModified: category.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
     })),
     ...staticPages.map((page) => ({
       url: `${siteOrigin}/${encodeURIComponent(page.slug)}`,

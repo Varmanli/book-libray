@@ -8,7 +8,7 @@ export default async function AdminNewBlogPage() {
   const categories = await listBlogCategoryOptions();
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="افزودن نوشته" description="ایجاد نوشته جدید بلاگ" />
+      <AdminPageHeader title="افزودن مطلب" description="ایجاد مطلب جدید برای مجله قفسه" />
       <AdminBlogForm mode="create" categories={categories} />
     </div>
   );

@@ -1,10 +1,11 @@
 import { BookOpenText, LibraryBig, Quote, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import type { SiteBranding } from "@/lib/settings/types";
 
 export function AuthBrandPanel({
   branding,
 }: {
-  branding: { logoUrl: string; siteName: string };
+  branding: SiteBranding;
 }) {
   return (
     <aside className="relative hidden w-[48%] overflow-hidden border-l border-white/8 lg:flex lg:flex-col">

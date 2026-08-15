@@ -4,6 +4,8 @@ import BookArchiveFilters from "@/components/books/BookArchiveFilters";
 import CollapsibleContent from "@/components/content/CollapsibleContent";
 import PublicShell from "@/components/PublicShell";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
+import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
+import { getMagazineArticlesForAuthor, getMagazineArticlesForGenre } from "@/lib/blog/service";
 import {
   type BookArchiveScope,
   getBookArchivePageData,
@@ -93,6 +95,7 @@ export default async function ReferencePublicView({
   const scopedArchiveData = usesArchiveFilters
     ? await getBookArchivePageData(searchParams ?? {}, archiveScope)
     : null;
+  const magazinePosts = type === "AUTHOR" ? await getMagazineArticlesForAuthor(entity.id) : type === "GENRE" ? await getMagazineArticlesForGenre(entity.id) : [];
   const description = entity.description?.trim();
 
   return (
@@ -204,6 +207,7 @@ export default async function ReferencePublicView({
             />
           ) : null}
         </div>
+        <RelatedMagazineArticles posts={magazinePosts} title={type === "GENRE" ? `مطالب مجله درباره ${entity.name}` : "از مجله قفسه"} description={type === "AUTHOR" ? `مطالب مرتبط با ${entity.name}` : undefined} />
       </div>
     </PublicShell>
   );

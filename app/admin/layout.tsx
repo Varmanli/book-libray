@@ -17,7 +17,12 @@ export default async function AdminLayout({
   return (
     <AdminShell
       user={{ name: user.name, username: user.username, image: user.image }}
-      branding={{ logoUrl: settings.logoUrl, siteName: settings.siteName }}
+      branding={{
+        logoUrl: settings.logoUrl,
+        logoLightUrl: settings.logoLightUrl,
+        logoDarkUrl: settings.logoDarkUrl,
+        siteName: settings.siteName,
+      }}
     >
       {children}
     </AdminShell>

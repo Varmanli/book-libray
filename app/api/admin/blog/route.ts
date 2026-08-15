@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === "BLOG_CATEGORY_NOT_FOUND") {
       return apiError("دسته‌بندی انتخاب‌شده معتبر نیست", 422);
     }
+    if (error instanceof Error && error.message === "BLOG_RELATION_NOT_FOUND") {
+      return apiError("یکی از ارتباط‌های انتخاب‌شده دیگر معتبر نیست", 422);
+    }
     throw error;
   }
   return apiSuccess(

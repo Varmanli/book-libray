@@ -216,7 +216,7 @@ export default function BlogCategoriesManager() {
               {editingId ? "ویرایش دسته‌بندی" : "دسته‌بندی جدید"}
             </SheetTitle>
             <SheetDescription className="sr-only">
-              نام و توضیح دسته‌بندی بلاگ. اسلاگ به‌صورت خودکار ساخته می‌شود.
+              نام و توضیح دسته‌بندی مجله. اسلاگ به‌صورت خودکار ساخته می‌شود.
             </SheetDescription>
           </SheetHeader>
 

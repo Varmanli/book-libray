@@ -20,6 +20,7 @@ import {
 } from "@/lib/home/book-resolver";
 import { searchAdminCatalogBooks } from "@/lib/admin/service";
 import { coalesceCoverImage, normalizeCoverImage } from "@/lib/book/cover";
+import { eligibleGenreRows } from "@/lib/genre/query";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import {
   getLatestPublishedBlogPosts,
@@ -1024,4 +1025,27 @@ export async function getPopularAuthors(limit = 10): Promise<Array<{
     bookCount: r.bookCount,
     readCount: r.readCount,
   }));
+}
+
+export interface HomeGenreDiscovery {
+  id: string;
+  name: string;
+  slug: string;
+  bookCount: number;
+}
+
+/** Stable, database-ranked public genres for the homepage. */
+export async function getHomepageGenres(limit = 10): Promise<HomeGenreDiscovery[]> {
+  const rows = await db
+    .select({
+      id: ReferenceItem.id,
+      name: ReferenceItem.name,
+      slug: ReferenceItem.slug,
+      bookCount: sql<number>`(select count(*)::int from "CatalogBook" book where book.status = 'APPROVED' and exists (select 1 from regexp_split_to_table(coalesce(book.genre, ''), E'[\\n\\r،,;؛•]+') genre_value where lower(trim(genre_value)) = lower(${ReferenceItem.name})))`,
+    })
+    .from(ReferenceItem)
+    .where(and(eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug)))
+    .orderBy(desc(sql`(select count(*) from "CatalogBook" book where book.status = 'APPROVED' and exists (select 1 from regexp_split_to_table(coalesce(book.genre, ''), E'[\\n\\r،,;؛•]+') genre_value where lower(trim(genre_value)) = lower(${ReferenceItem.name})))`), asc(ReferenceItem.name))
+    .limit(limit);
+  return eligibleGenreRows(rows).map((row) => ({ ...row, slug: row.slug! }));
 }

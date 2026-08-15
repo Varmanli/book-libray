@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
 
 import BlogCard from "@/components/blog/BlogCard";
 import PublicShell from "@/components/PublicShell";
+
 import {
   BLOG_PAGE_SIZE,
   getPublicBlogCategoryBySlug,
   listBlogCategoryOptions,
   listPublicBlogPosts,
 } from "@/lib/blog/service";
+
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
-    title: "بلاگ",
+    title: "مجله قفسه",
     description:
       "نوشته‌ها، یادداشت‌ها و مقاله‌های قفسه درباره خواندن و کشف کتاب.",
     path: "/blog",
@@ -30,12 +32,15 @@ export default async function BlogArchivePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = await searchParams;
+
   const q =
     typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : "";
+
   const category =
     typeof resolvedSearchParams.category === "string"
       ? resolvedSearchParams.category
       : "";
+
   const page = Math.max(
     1,
     Number(
@@ -52,185 +57,157 @@ export default async function BlogArchivePage({
       page,
       pageSize: BLOG_PAGE_SIZE,
     }),
+
     listBlogCategoryOptions(),
+
     category ? getPublicBlogCategoryBySlug(category) : Promise.resolve(null),
   ]);
 
+  const isFiltering = Boolean(q || category);
+
   return (
     <PublicShell>
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
-        <section className="group relative isolate overflow-hidden rounded-[2rem] border border-border/70 bg-card/80 shadow-[0_32px_110px_-70px_rgba(0,0,0,0.9)] backdrop-blur-xl">
-          {/* Background atmosphere */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(103,146,124,0.22),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(103,146,124,0.14),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.045),transparent_38%)]"
-          />
+      <main
+        dir="rtl"
+        className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-9"
+      >
+        {/* PAGE HEADER */}
+        <header className="border-b border-border/60 pb-6 sm:pb-8">
+          <div className="max-w-2xl">
+            <p className="mb-2 text-xs font-extrabold text-primary">
+              مجله قفسه
+            </p>
 
-          {/* Subtle grid pattern */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-[0.14]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
-              backgroundSize: "34px 34px",
-              maskImage:
-                "linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 82%)",
-            }}
-          />
+            <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              برای بهتر خواندن
+            </h1>
 
-          {/* Decorative glow */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl transition-opacity duration-500 group-hover:opacity-80"
-          />
+            <p className="mt-2 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+              یادداشت‌ها، راهنماها و پیشنهادهایی درباره کتاب و خواندن.
+            </p>
+          </div>
+        </header>
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-28 -right-20 h-72 w-72 rounded-full bg-primary/[0.07] blur-3xl"
-          />
+        {/* DISCOVERY TOOLBAR */}
+        <section className="mt-6">
+          <form method="get">
+            <div className="flex items-center gap-2">
+              <div className="group relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute right-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
 
-          {/* Top highlight */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
-          />
+                <input
+                  type="search"
+                  name="q"
+                  dir="rtl"
+                  defaultValue={q}
+                  placeholder="جستجو در مجله..."
+                  className="h-12 w-full rounded-2xl border border-border/70 bg-card pr-11 pl-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary/35 focus:ring-[3px] focus:ring-primary/10"
+                />
 
-          <div className="relative flex min-h-[190px] flex-col justify-center px-4 py-6 sm:min-h-[240px] sm:px-8 sm:py-9 lg:px-12 lg:py-12">
-            <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.08] px-2.5 py-1 text-[10px] font-black text-primary backdrop-blur-md sm:px-3 sm:py-1.5 sm:text-[11px]">
-                  <span className="relative flex size-1.5">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
-                    <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
-                  </span>
-                  بلاگ قفسه
-                </span>
+                {q ? (
+                  <Link
+                    href={buildArchiveHref("", 1, category)}
+                    aria-label="پاک کردن جستجو"
+                    className="absolute left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
 
-                {activeCategory ? (
-                  <span className="inline-flex items-center rounded-full border border-border/70 bg-background/45 px-2.5 py-1 text-[10px] font-bold text-muted-foreground backdrop-blur-md sm:px-3 sm:py-1.5 sm:text-[11px]">
-                    <span className="hidden sm:inline">دسته‌بندی:</span>
-
-                    <span className="sm:mr-1 text-foreground">
-                      {activeCategory.name}
-                    </span>
-                  </span>
+                {category ? (
+                  <input type="hidden" name="category" value={category} />
                 ) : null}
               </div>
 
-              <h1 className="mt-3 max-w-xl text-[1.7rem] font-black leading-[1.35] tracking-[-0.03em] text-foreground sm:mt-5 sm:text-4xl lg:text-[2.8rem]">
-                نوشته‌هایی برای
-                <span className="relative mx-1.5 inline-block text-primary sm:mx-2">
-                  کشف کتاب
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 -bottom-0.5 h-1.5 rounded-full bg-primary/15 blur-sm"
-                  />
-                </span>
-              </h1>
-
-              <div className="mt-4 flex items-center gap-2.5 sm:mt-7 sm:gap-3">
-                <div className="h-px w-8 bg-gradient-to-l from-primary/60 to-transparent sm:w-16" />
-
-                <span className="text-[10px] font-bold text-muted-foreground sm:text-[11px]">
-                  بخوان، کشف کن، به اشتراک بگذار
-                </span>
-              </div>
+              <button
+                type="submit"
+                className="inline-flex h-12 shrink-0 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground transition hover:bg-primary/90"
+              >
+                جستجو
+              </button>
             </div>
-          </div>
+          </form>
 
-          {/* Bottom fade */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/15 to-transparent"
-          />
+          {/* CATEGORIES */}
+          {categories.length > 0 ? (
+            <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+              <nav
+                aria-label="دسته‌بندی‌های مجله"
+                className="flex w-max min-w-full items-center gap-2 sm:flex-wrap"
+              >
+                <CategoryPill
+                  href={buildArchiveHref(q, 1, "")}
+                  active={!category}
+                  label="همه"
+                />
+
+                {categories.map((item) => (
+                  <CategoryPill
+                    key={item.id}
+                    href={buildArchiveHref(q, 1, item.slug)}
+                    active={category === item.slug}
+                    label={item.name}
+                  />
+                ))}
+              </nav>
+            </div>
+          ) : null}
         </section>
 
-        <form className="mt-6">
-          <div className="relative">
-            <Search className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="جست‌وجو در نوشته‌ها..."
-              className="h-14 w-full rounded-[1.8rem] border border-border/70 bg-card/70 pr-12 pl-4 text-sm text-foreground shadow-[0_24px_80px_-60px_rgba(0,0,0,0.7)] outline-none transition focus:border-primary/30 focus:ring-2 focus:ring-primary/15 sm:text-base"
-            />
-            {category ? (
-              <input type="hidden" name="category" value={category} />
+        {/* CONTENT */}
+        <section className="mt-9 sm:mt-11">
+          <div className="mb-5 flex min-w-0 items-end justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-black tracking-tight text-foreground sm:text-2xl">
+                {q
+                  ? `نتایج برای «${q}»`
+                  : activeCategory
+                    ? activeCategory.name
+                    : "تازه‌های مجله"}
+              </h2>
+
+              {isFiltering ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {archive.posts.length.toLocaleString("fa-IR")} نوشته در این
+                  صفحه
+                </p>
+              ) : null}
+            </div>
+
+            {isFiltering ? (
+              <Link
+                href="/blog"
+                className="shrink-0 text-xs font-bold text-muted-foreground transition hover:text-primary sm:text-sm"
+              >
+                پاک کردن فیلترها
+              </Link>
             ) : null}
           </div>
-        </form>
 
-        {categories.length > 0 ? (
-          <div className="mt-5 flex flex-wrap gap-2">
-            <CategoryPill
-              href={buildArchiveHref(q, 1, "")}
-              active={!category}
-              label="همه"
-            />
-            {categories.map((item) => (
-              <CategoryPill
-                key={item.id}
-                href={buildArchiveHref(q, 1, item.slug)}
-                active={category === item.slug}
-                label={item.name}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-8">
           {archive.posts.length === 0 ? (
-            <div className="rounded-[1.8rem] border border-dashed border-border/70 bg-card/50 px-6 py-14 text-center">
-              <h2 className="text-xl font-black text-foreground">
-                نوشته‌ای پیدا نشد
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                جست‌وجوی دیگری را امتحان کن یا بعداً دوباره سر بزن.
-              </p>
-            </div>
+            <EmptyState />
           ) : (
             <>
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-x-5 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
                 {archive.posts.map((post) => (
                   <BlogCard key={post.id} post={post} />
                 ))}
               </div>
 
               {archive.pageCount > 1 ? (
-                <div className="mt-8 flex items-center justify-between gap-3 rounded-[1.6rem] border border-border/75 bg-card/70 px-4 py-3">
-                  <PaginationLink
-                    disabled={archive.page <= 1}
-                    href={buildArchiveHref(q, archive.page - 1, category)}
-                    label="صفحه قبل"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    صفحه {archive.page.toLocaleString("fa-IR")} از{" "}
-                    {archive.pageCount.toLocaleString("fa-IR")}
-                  </p>
-                  <PaginationLink
-                    disabled={archive.page >= archive.pageCount}
-                    href={buildArchiveHref(q, archive.page + 1, category)}
-                    label="صفحه بعد"
-                  />
-                </div>
+                <Pagination
+                  currentPage={archive.page}
+                  pageCount={archive.pageCount}
+                  previousHref={buildArchiveHref(q, archive.page - 1, category)}
+                  nextHref={buildArchiveHref(q, archive.page + 1, category)}
+                />
               ) : null}
             </>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </PublicShell>
   );
-}
-
-function buildArchiveHref(q: string, page: number, category: string) {
-  const params = new URLSearchParams();
-  if (q.trim()) params.set("q", q.trim());
-  if (category.trim()) params.set("category", category.trim());
-  if (page > 1) params.set("page", String(page));
-  const query = params.toString();
-  return query ? `/blog?${query}` : "/blog";
 }
 
 function CategoryPill({
@@ -247,8 +224,8 @@ function CategoryPill({
       href={href}
       className={
         active
-          ? "inline-flex rounded-full border border-primary/20 bg-primary/12 px-3 py-1.5 text-xs font-bold text-primary"
-          : "inline-flex rounded-full border border-border/70 bg-card/55 px-3 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-primary/20 hover:text-primary"
+          ? "inline-flex h-9 shrink-0 items-center rounded-full bg-foreground px-4 text-xs font-black text-background"
+          : "inline-flex h-9 shrink-0 items-center rounded-full border border-border/70 bg-card px-4 text-xs font-bold text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
       }
     >
       {label}
@@ -256,29 +233,94 @@ function CategoryPill({
   );
 }
 
-function PaginationLink({
-  href,
-  label,
-  disabled,
+function EmptyState() {
+  return (
+    <div className="flex min-h-[280px] flex-col items-center justify-center border-y border-border/60 px-5 text-center">
+      <Search className="h-6 w-6 text-muted-foreground/60" />
+
+      <h2 className="mt-4 text-base font-black text-foreground">
+        نوشته‌ای پیدا نشد
+      </h2>
+
+      <p className="mt-2 max-w-sm text-sm leading-7 text-muted-foreground">
+        عبارت دیگری را جستجو کن یا دسته‌بندی دیگری را انتخاب کن.
+      </p>
+
+      <Link
+        href="/blog"
+        className="mt-5 text-sm font-black text-primary hover:underline"
+      >
+        مشاهده همه نوشته‌ها
+      </Link>
+    </div>
+  );
+}
+
+function Pagination({
+  currentPage,
+  pageCount,
+  previousHref,
+  nextHref,
 }: {
-  href: string;
-  label: string;
-  disabled: boolean;
+  currentPage: number;
+  pageCount: number;
+  previousHref: string;
+  nextHref: string;
 }) {
-  if (disabled) {
-    return (
-      <span className="inline-flex h-10 items-center rounded-2xl border border-border/70 px-4 text-sm text-muted-foreground opacity-50">
-        {label}
+  return (
+    <nav
+      aria-label="صفحه‌بندی مجله"
+      className="mt-12 flex items-center justify-between border-t border-border/60 pt-5"
+    >
+      {currentPage > 1 ? (
+        <Link
+          href={previousHref}
+          className="group inline-flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold text-foreground transition hover:text-primary"
+        >
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          قبلی
+        </Link>
+      ) : (
+        <span className="w-16" />
+      )}
+
+      <span className="text-xs font-bold text-muted-foreground">
+        {currentPage.toLocaleString("fa-IR")}
+        <span className="mx-1.5 text-border">/</span>
+        {pageCount.toLocaleString("fa-IR")}
       </span>
-    );
+
+      {currentPage < pageCount ? (
+        <Link
+          href={nextHref}
+          className="group inline-flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold text-foreground transition hover:text-primary"
+        >
+          بعدی
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+        </Link>
+      ) : (
+        <span className="w-16" />
+      )}
+    </nav>
+  );
+}
+
+function buildArchiveHref(q: string, page: number, category: string) {
+  const params = new URLSearchParams();
+
+  if (q.trim()) {
+    params.set("q", q.trim());
   }
 
-  return (
-    <Link
-      href={href}
-      className="inline-flex h-10 items-center rounded-2xl border border-border/70 px-4 text-sm text-foreground transition hover:border-primary/25 hover:text-primary"
-    >
-      {label}
-    </Link>
-  );
+  if (category.trim()) {
+    params.set("category", category.trim());
+  }
+
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
+  const query = params.toString();
+
+  return query ? `/blog?${query}` : "/blog";
 }

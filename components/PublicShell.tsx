@@ -21,7 +21,12 @@ export default async function PublicShell({
 }) {
   const user = initialUser === undefined ? await getCurrentUser() : initialUser;
   const settings = await getSiteSettings();
-  const branding = { logoUrl: settings.logoUrl, siteName: settings.siteName };
+  const branding = {
+    logoUrl: settings.logoUrl,
+    logoLightUrl: settings.logoLightUrl,
+    logoDarkUrl: settings.logoDarkUrl,
+    siteName: settings.siteName,
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">

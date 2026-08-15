@@ -54,26 +54,25 @@ export default function HomeBookCarousel({
   books: HomeBookCard[];
   isFallback?: boolean;
 }) {
+  if (!books.length) return null;
   return (
     <section className="relative">
       <div className="mb-4 sm:mb-5">
-        <HomeSectionHeader icon={BookMarked} title="کتاب‌های پیشنهادی" />
+        <HomeSectionHeader
+          icon={BookMarked}
+          title="کتاب های پیشنهادی"
+          href="/books"
+        />
       </div>
 
-      {books.length > 0 ? (
-        <Carousel
-          ariaLabel="کتاب‌های پیشنهادی"
-          slideClassName="basis-[145px] sm:basis-[175px] lg:basis-[195px]"
-          containerClassName="gap-4"
-          slides={books.map((book) => (
-            <BookCard key={book.id} book={book} />
-          ))}
-        />
-      ) : (
-        <div className="rounded-[1.5rem] border border-dashed border-border bg-card/75 px-5 py-8 text-center text-sm leading-7 text-muted-foreground">
-          هنوز کتاب عمومی کافی برای پیشنهاد در صفحه اصلی ثبت نشده است.
-        </div>
-      )}
+      <Carousel
+        ariaLabel="کتاب‌های پیشنهادی"
+        slideClassName="basis-[145px] sm:basis-[175px] lg:basis-[195px]"
+        containerClassName="gap-4"
+        slides={books.map((book) => (
+          <BookCard key={book.id} book={book} />
+        ))}
+      />
     </section>
   );
 }

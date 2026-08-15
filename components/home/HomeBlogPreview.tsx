@@ -9,21 +9,16 @@ export default function HomeBlogPreview({
 }: {
   posts: HomeBlogPostPreview[];
 }) {
+  if (!posts.length) return null;
   return (
     <section>
-      <HomeSectionHeader icon={Newspaper} title="آخرین نوشته‌ها" />
+      <HomeSectionHeader icon={Newspaper} title="از مجله قفسه" description="راهنماها و پیشنهادهایی برای پیدا کردن کتاب بعدی" href="/blog" linkLabel="مشاهده مجله" />
 
-      {posts.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
           {posts.map((post) => (
             <BlogCard key={post.id} post={post} />
           ))}
         </div>
-      ) : (
-        <div className="rounded-[1.6rem] border border-dashed border-border bg-card/75 px-5 py-8 text-center text-sm leading-7 text-muted-foreground">
-          هنوز نوشته منتشرشده‌ای برای نمایش در صفحه اصلی وجود ندارد.
-        </div>
-      )}
     </section>
   );
 }

@@ -1366,9 +1366,43 @@ export const BlogPost = pgTable("BlogPost", {
   readingTime: integer("reading_time"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
+  canonicalUrl: text("canonical_url"),
+  ogImage: text("og_image"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+// Explicit editorial graph edges. Embedded books remain a live relationship
+// source in article HTML; these tables store only editor-managed additions.
+export const BlogPostBook = pgTable(
+  "BlogPostBook",
+  {
+    postId: varchar("post_id").notNull().references(() => BlogPost.id, { onDelete: "cascade" }),
+    bookId: varchar("book_id").notNull().references(() => CatalogBook.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({ uniqueEdge: unique("BlogPostBook_unique").on(t.postId, t.bookId), postIdx: index("BlogPostBook_post_idx").on(t.postId), bookIdx: index("BlogPostBook_book_idx").on(t.bookId) }),
+);
+
+export const BlogPostAuthor = pgTable(
+  "BlogPostAuthor",
+  {
+    postId: varchar("post_id").notNull().references(() => BlogPost.id, { onDelete: "cascade" }),
+    authorId: varchar("author_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({ uniqueEdge: unique("BlogPostAuthor_unique").on(t.postId, t.authorId), postIdx: index("BlogPostAuthor_post_idx").on(t.postId), authorIdx: index("BlogPostAuthor_author_idx").on(t.authorId) }),
+);
+
+export const BlogPostGenre = pgTable(
+  "BlogPostGenre",
+  {
+    postId: varchar("post_id").notNull().references(() => BlogPost.id, { onDelete: "cascade" }),
+    genreId: varchar("genre_id").notNull().references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({ uniqueEdge: unique("BlogPostGenre_unique").on(t.postId, t.genreId), postIdx: index("BlogPostGenre_post_idx").on(t.postId), genreIdx: index("BlogPostGenre_genre_idx").on(t.genreId) }),
+);
 
 // ---------------- SiteSetting (تنظیمات سراسری سایت؛ مدل کلید-مقدار) ----------------
 // یک ردیف به‌ازای هر کلید تنظیم. مقادیر به‌صورت متن ذخیره می‌شوند (بولین‌ها
