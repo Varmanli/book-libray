@@ -6,9 +6,11 @@ import type { PublicBlogPostPreview } from "@/lib/blog/service";
 export default function RelatedMagazineArticles({
   posts,
   title = "ادامه مطالعه در مجله قفسه",
+  description,
 }: {
   posts: PublicBlogPostPreview[];
   title?: string;
+  description?: string;
 }) {
   if (!posts.length) return null;
 
@@ -49,6 +51,12 @@ export default function RelatedMagazineArticles({
           {title}
         </h2>
       </div>
+
+      {description ? (
+        <p className="-mt-3 mb-6 text-sm leading-7 text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
 
       <div
         className="
