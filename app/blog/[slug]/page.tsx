@@ -166,6 +166,7 @@ export default async function BlogPostPage({
             <div
               data-magazine-hero-image
               className="
+      article-hero-image
       relative
       min-h-[520px]
       w-full
@@ -179,6 +180,7 @@ export default async function BlogPostPage({
                 sizes="(max-width: 768px) 100vw, 1280px"
                 priority
                 className="
+        article-hero-cover
         object-cover
         transition-transform
         duration-700
@@ -189,6 +191,7 @@ export default async function BlogPostPage({
               {/* cinematic overlays */}
               <div
                 className="
+        article-hero-overlay
         absolute inset-0
         bg-gradient-to-t
         from-black/85
@@ -199,6 +202,7 @@ export default async function BlogPostPage({
 
               <div
                 className="
+        article-hero-content
         absolute inset-x-0 bottom-0
         p-6
         sm:p-10

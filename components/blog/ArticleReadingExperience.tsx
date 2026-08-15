@@ -216,7 +216,7 @@ export default function ArticleReadingExperience({
     [tocHeadings, activeId],
   );
 
-  const controls = (
+  const entryControls = (
     <div className="article-reading-controls z-40 flex justify-center gap-2">
       {tocHeadings.length > 0 && (
         <ReadingButton onClick={() => setTocOpen(true)}>
@@ -238,12 +238,44 @@ export default function ArticleReadingExperience({
     </div>
   );
 
+  const readingToolbar = (
+    <div className="article-reading-toolbar" dir="rtl">
+      <div className="mx-auto flex h-12 max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
+        <button
+          type="button"
+          onClick={() => setReadingMode(false)}
+          aria-label="خروج از حالت مطالعه"
+          className="inline-flex h-8 items-center gap-1.5 border-b border-border/80 px-1 text-xs font-black text-foreground transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <X className="size-3.5" aria-hidden="true" />
+          خروج از مطالعه
+        </button>
+
+        {tocHeadings.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setTocOpen(true)}
+            aria-label="باز کردن فهرست مطلب"
+            className="inline-flex h-8 items-center gap-1.5 px-1 text-xs font-bold text-muted-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          >
+            <List className="size-3.5" aria-hidden="true" />
+            فهرست
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     <div
       className={cn("article-reading-experience", readingMode && "is-reading")}
     >
       {children}
-      {heroTarget ? createPortal(controls, heroTarget) : null}
+      {readingMode
+        ? createPortal(readingToolbar, document.body)
+        : heroTarget
+          ? createPortal(entryControls, heroTarget)
+          : null}
 
       {/* Mobile TOC */}
 
@@ -304,6 +336,8 @@ export default function ArticleReadingExperience({
               </h2>
 
               <button
+                type="button"
+                aria-label="بستن فهرست مطلب"
                 onClick={() => setTocOpen(false)}
                 className="
                   rounded-xl

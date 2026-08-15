@@ -189,6 +189,7 @@ export default function SiteHeader({
 
   return (
     <header
+      data-site-header
       className="
         sticky top-0 z-50 w-full
         border-b border-border/50

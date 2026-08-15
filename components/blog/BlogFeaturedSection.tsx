@@ -1,0 +1,3 @@
+import BlogCard from "@/components/blog/BlogCard";
+import type { PublicBlogPostPreview } from "@/lib/blog/service";
+export default function BlogFeaturedSection({ posts }: { posts: PublicBlogPostPreview[] }) { if (!posts.length) return null; return <section className="mt-14 border-y border-border/60 py-10 sm:mt-20 sm:py-14" aria-labelledby="featured-magazine-title"><div className="mb-6"><p className="text-xs font-black text-primary">پیشنهاد سردبیر</p><h2 id="featured-magazine-title" className="mt-2 text-2xl font-black tracking-tight text-foreground">منتخب قفسه</h2></div><div className="grid gap-5 md:grid-cols-3">{posts.slice(0, 3).map((post) => <BlogCard key={post.id} post={post} />)}</div></section>; }

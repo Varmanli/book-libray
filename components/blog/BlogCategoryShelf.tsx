@@ -1,0 +1,10 @@
+import Link from "next/link";
+import { BookOpen, Compass, Feather, LibraryBig, Quote } from "lucide-react";
+import { buildBlogArchiveHref } from "@/components/blog/blog-archive";
+import type { BlogCategoryOption } from "@/lib/blog/service";
+
+const shelfIcons = [LibraryBig, BookOpen, Feather, Quote, Compass];
+export default function BlogCategoryShelf({ categories }: { categories: BlogCategoryOption[] }) {
+  if (!categories.length) return null;
+  return <section className="mt-12 sm:mt-16" aria-labelledby="magazine-shelves-title"><div className="flex items-end justify-between gap-5"><div><p className="text-xs font-black text-primary">برای شروع یک مسیر تازه</p><h2 id="magazine-shelves-title" className="mt-2 text-2xl font-black tracking-tight text-foreground">قفسه‌های مجله</h2></div><span className="hidden border-b border-border pb-1 text-xs font-bold text-muted-foreground sm:block">هر قفسه، یک جهان خواندنی</span></div><div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-3">{categories.map((category, index) => { const Icon = shelfIcons[index % shelfIcons.length]; return <Link key={category.id} href={buildBlogArchiveHref({ category: category.slug })} className="group min-w-[250px] snap-start border border-border/70 bg-card/45 p-5 transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card sm:min-w-0"><div className="flex items-start justify-between gap-4"><span className="flex h-10 w-10 items-center justify-center border border-primary/15 bg-primary/5 text-primary"><Icon className="h-4 w-4" strokeWidth={1.6} /></span><span className="mt-2 h-px w-10 bg-border transition group-hover:w-14 group-hover:bg-primary/40" /></div><h3 className="mt-7 text-base font-black text-foreground transition group-hover:text-primary">{category.name}</h3><p className="mt-2 line-clamp-2 min-h-12 text-xs leading-6 text-muted-foreground">{category.description || "یادداشت‌ها و پیشنهادهایی برای خواندن عمیق‌تر."}</p></Link>; })}</div></section>;
+}
