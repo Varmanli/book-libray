@@ -3,6 +3,14 @@
 All production uploads use Arvan's S3-compatible API. The application never
 uses `public/uploads` or a local fallback when `NODE_ENV=production`.
 
+## Local development
+
+`npm run dev` uses the local driver by default (or explicitly set
+`UPLOAD_DRIVER=local`). Files are written under `public/uploads` and returned
+as `/uploads/<generated-key>`, which Next.js serves in development. No S3
+credentials are required for this workflow. Set `UPLOAD_DRIVER=s3` only when
+you intentionally need to test the object-storage integration locally.
+
 Set these exact runtime environment variables on the production service:
 
 ```env

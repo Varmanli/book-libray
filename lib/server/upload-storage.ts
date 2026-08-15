@@ -13,7 +13,7 @@ export interface SaveUploadResult {
 }
 
 export async function deleteImageUpload(key: string): Promise<void> {
-  if (configuredDriver() === "local") {
+  if (getConfiguredUploadDriver() === "local") {
     await deleteImageFromLocal(key);
     return;
   }
@@ -32,15 +32,19 @@ export async function deleteImageUpload(key: string): Promise<void> {
     throw error;
   }
 }
-export async function headImageUpload(key: string): Promise<StoredImageMetadata | null> { return configuredDriver() === "local" ? headImageInLocal(key) : headImageInS3(key); }
-export async function copyImageUpload(input: { sourceKey: string; destinationKey: string; contentType?: string; metadata?: Record<string, string> }): Promise<void> { if (configuredDriver() === "local") return copyImageInLocal(input.sourceKey, input.destinationKey); return copyImageInS3(input); }
+export async function headImageUpload(key: string): Promise<StoredImageMetadata | null> { return getConfiguredUploadDriver() === "local" ? headImageInLocal(key) : headImageInS3(key); }
+export async function copyImageUpload(input: { sourceKey: string; destinationKey: string; contentType?: string; metadata?: Record<string, string> }): Promise<void> { if (getConfiguredUploadDriver() === "local") return copyImageInLocal(input.sourceKey, input.destinationKey); return copyImageInS3(input); }
 
-/** درایورِ پیکربندی‌شده (پیش‌فرض S3). */
-function configuredDriver(): UploadDriver {
+/**
+ * درایورِ پیکربندی‌شده. توسعه به‌صورت پیش‌فرض از دیسک محلی استفاده می‌کند تا
+ * اجرای `npm run dev` به credentials یا شبکهٔ object storage وابسته نباشد.
+ * production عمداً و بدون استثنا S3 است.
+ */
+export function getConfiguredUploadDriver(): UploadDriver {
   // Containers must never use /public/uploads: it is ephemeral and commonly
   // unwritable by the runtime user. Local storage is intentionally dev-only.
   if (process.env.NODE_ENV === "production") return "s3";
-  return process.env.UPLOAD_DRIVER === "local" ? "local" : "s3";
+  return process.env.UPLOAD_DRIVER === "s3" ? "s3" : "local";
 }
 
 /**
@@ -70,7 +74,7 @@ export async function saveImageUpload(params: {
   objectKey?: string;
   metadata?: Record<string, string>;
 }): Promise<SaveUploadResult> {
-  const driver = configuredDriver();
+  const driver = getConfiguredUploadDriver();
 
   if (driver === "local") {
     const r = await uploadImageToLocal(params);

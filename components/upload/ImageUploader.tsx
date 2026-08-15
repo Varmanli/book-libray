@@ -85,6 +85,9 @@ function uploadImage(
     signal?.addEventListener("abort", abort, { once: true });
     xhr.open("POST", "/api/upload/image");
     xhr.responseType = "json";
+    // Never leave the form disabled forever when a proxy or storage request
+    // stops responding. The server still owns validation and storage timeouts.
+    xhr.timeout = 60_000;
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
@@ -92,6 +95,8 @@ function uploadImage(
     };
 
     xhr.onerror = () => reject(new Error(UPLOAD_FAILED_MESSAGE));
+    xhr.ontimeout = () =>
+      reject(new Error("آپلود بیش از حد طول کشید. لطفاً دوباره تلاش کنید."));
     xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
     xhr.onload = () => {
       const response = xhr.response as

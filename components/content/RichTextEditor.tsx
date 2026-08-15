@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
@@ -23,6 +24,7 @@ import {
 import { BlogBookEmbedNode } from "@/components/blog/editor/BlogBookEmbedNode";
 import { BlogBookPicker, type BlogBookPickerResult } from "@/components/blog/editor/BlogBookPicker";
 import { cn } from "@/lib/utils";
+import { looksLikeMarkdown, markdownToRichTextHtml } from "@/lib/content/markdown";
 
 type EditorVariant = "admin" | "note";
 
@@ -34,6 +36,7 @@ export default function RichTextEditor({
   variant = "admin",
   ariaLabel,
   enableBookEmbeds = false,
+  stickyToolbar = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -42,6 +45,7 @@ export default function RichTextEditor({
   variant?: EditorVariant;
   ariaLabel?: string;
   enableBookEmbeds?: boolean;
+  stickyToolbar?: boolean;
 }) {
   const isNote = variant === "note";
   const [bookPickerOpen, setBookPickerOpen] = useState(false);
@@ -60,15 +64,24 @@ export default function RichTextEditor({
     ],
     content: value,
     editorProps: {
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (!looksLikeMarkdown(text)) return false;
+
+        const container = document.createElement("div");
+        container.innerHTML = markdownToRichTextHtml(text);
+        const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(container);
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        return true;
+      },
       attributes: {
         dir: "rtl",
         role: "textbox",
         "aria-label": ariaLabel ?? "ویرایشگر متن",
         class: cn(
-          "ProseMirror w-full break-words text-right text-sm leading-8 text-foreground outline-none",
+          "magazine-rich-text ProseMirror w-full break-words text-right text-sm leading-8 text-foreground outline-none",
           "[overflow-wrap:anywhere] [&_a]:break-all [&_a]:text-primary [&_a]:underline",
-          "[&_blockquote]:my-4 [&_blockquote]:border-r-2 [&_blockquote]:border-primary/35 [&_blockquote]:bg-primary/[0.06] [&_blockquote]:py-2 [&_blockquote]:pr-4 [&_blockquote]:pl-3 [&_blockquote]:text-foreground/90",
-          "[&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pr-7 [&_ol]:pl-2 [&_p]:my-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pr-7 [&_ul]:pl-2",
+          "[&_ol]:list-decimal [&_ol]:pr-7 [&_ol]:pl-2 [&_ul]:list-disc [&_ul]:pr-7 [&_ul]:pl-2",
           "[&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-right [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-muted-foreground/70 [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
           isNote ? "min-h-64 px-4 py-4 sm:min-h-96 sm:px-5" : "min-h-64 px-5 py-4 [&_h2]:text-xl [&_h2]:font-black [&_h3]:text-lg [&_h3]:font-black",
         ),
@@ -108,11 +121,15 @@ export default function RichTextEditor({
     <div
       dir="rtl"
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-border/75 bg-background/70 shadow-inner transition focus-within:border-primary/35 focus-within:ring-2 focus-within:ring-primary/15",
+        "flex min-h-0 flex-col rounded-[1.35rem] border border-border/75 bg-background/70 shadow-inner transition focus-within:border-primary/35 focus-within:ring-2 focus-within:ring-primary/15",
+        stickyToolbar ? "overflow-visible" : "overflow-hidden",
         className,
       )}
     >
-      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border/70 bg-card/90 p-2 sm:flex-wrap sm:gap-2 sm:p-3">
+      <div className={cn(
+        "flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border/70 bg-card/90 p-2 sm:flex-wrap sm:gap-2 sm:p-3",
+        stickyToolbar && "sticky top-14 z-30",
+      )}>
         <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} icon={<Bold />} label="ضخیم" compact={isNote} />
         <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} icon={<Italic />} label="مورب" compact={isNote} />
         {!isNote ? <ToolbarButton active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} icon={<Heading2 />} label="تیتر ۲" /> : null}

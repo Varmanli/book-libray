@@ -543,7 +543,7 @@ export default async function BookPage({
             <BookIntroduction content={book.description} />
           </div>
         </section>
-        <RelatedMagazineArticles posts={magazinePosts} description="راهنماها و مطالب مرتبط با این کتاب" />
+        <RelatedMagazineArticles posts={magazinePosts} />
         <div className="mt-10 lg:mt-12">
           <BookQuotesSection
             subjectBookId={book.id}
@@ -671,13 +671,21 @@ function BookMetaItem({
 
   if (href) {
     return (
-      <Link href={href} data-onboarding={onboardingTarget} className={className}>
+      <Link
+        href={href}
+        data-onboarding={onboardingTarget}
+        className={className}
+      >
         {inner}
       </Link>
     );
   }
 
-  return <div data-onboarding={onboardingTarget} className={className}>{inner}</div>;
+  return (
+    <div data-onboarding={onboardingTarget} className={className}>
+      {inner}
+    </div>
+  );
 }
 
 function BookPill({

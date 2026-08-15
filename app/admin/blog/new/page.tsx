@@ -1,4 +1,3 @@
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminBlogForm from "@/components/admin/blog/AdminBlogForm";
 import { listBlogCategoryOptions } from "@/lib/blog/service";
 
@@ -8,7 +7,6 @@ export default async function AdminNewBlogPage() {
   const categories = await listBlogCategoryOptions();
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="افزودن مطلب" description="ایجاد مطلب جدید برای مجله قفسه" />
       <AdminBlogForm mode="create" categories={categories} />
     </div>
   );

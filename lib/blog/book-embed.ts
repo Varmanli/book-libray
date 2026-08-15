@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { CatalogBook } from "@/db/schema";
-import { coalesceCoverImage } from "@/lib/book/cover";
+import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 export { extractBlogBookEmbedIds, splitBlogContentByEmbeds, type BlogContentPart } from "@/lib/blog/book-embed-content";
 
@@ -27,8 +27,10 @@ export async function resolveBlogBookEmbeds(bookIds: string[]) {
       slug: CatalogBook.slug,
       title: CatalogBook.title,
       author: CatalogBook.author,
-      coverImage: CatalogBook.coverImage,
-      editionCoverImage: preferredEditionFieldSql<string | null>("cover_image"),
+      // Keep Magazine cards on the same cover-resolution path as normal
+      // public book cards: primary approved edition → catalog → linked legacy
+      // book.  Older catalog rows often only have the last of these populated.
+      coverImage: displayCoverFieldSql(),
       publisher: preferredEditionFieldSql<string | null>("publisher"),
       translator: preferredEditionFieldSql<string | null>("translator"),
     })
@@ -38,10 +40,7 @@ export async function resolveBlogBookEmbeds(bookIds: string[]) {
   return new Map(
     rows.map((row) => [
       row.id,
-      {
-        ...row,
-        coverImage: coalesceCoverImage(row.editionCoverImage, row.coverImage),
-      },
+      row,
     ]),
   );
 }

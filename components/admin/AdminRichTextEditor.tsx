@@ -7,6 +7,7 @@ export default function AdminRichTextEditor(props: {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  stickyToolbar?: boolean;
 }) {
   return <RichTextEditor {...props} variant="admin" enableBookEmbeds />;
 }

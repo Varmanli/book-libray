@@ -7,7 +7,10 @@ import {
 } from "@/lib/storage/image-url";
 import { normalizeMediaUrl } from "@/lib/book/cover";
 
-test("recognizes all supported legacy local upload path forms", () => {
+test("recognizes local upload path forms and rejects them in production", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const previousNodeEnv = process.env.NODE_ENV;
+  env.NODE_ENV = "production";
   for (const value of [
     "/uploads/books/a.jpg",
     "uploads/books/a.jpg",
@@ -18,6 +21,17 @@ test("recognizes all supported legacy local upload path forms", () => {
     assert.equal(isLocalUploadPath(value), true, value);
     assert.equal(isAllowedPersistedImageUrl(value), false, value);
   }
+  if (previousNodeEnv === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = previousNodeEnv;
+});
+
+test("allows local upload URLs in development", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const previousNodeEnv = process.env.NODE_ENV;
+  env.NODE_ENV = "development";
+  assert.equal(isAllowedPersistedImageUrl("/uploads/blog/example.webp"), true);
+  if (previousNodeEnv === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = previousNodeEnv;
 });
 
 test("allows public S3 and external image URLs", () => {

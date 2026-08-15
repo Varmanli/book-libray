@@ -5,9 +5,17 @@ import { notFound } from "next/navigation";
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
 import BlogCoverImage from "@/components/blog/BlogCoverImage";
 import BlogCard from "@/components/blog/BlogCard";
+import ReadingProgressBar from "@/components/blog/ReadingProgressBar";
+import ArticleReadingExperience, {
+  ArticleDesktopToc,
+} from "@/components/blog/ArticleReadingExperience";
 import MagazineRelatedEntities from "@/components/blog/MagazineRelatedEntities";
 import PublicShell from "@/components/PublicShell";
-import { getMagazineRelatedEntities, getRelatedPublishedBlogPosts, getPublicBlogPostBySlug } from "@/lib/blog/service";
+import {
+  getMagazineRelatedEntities,
+  getRelatedPublishedBlogPosts,
+  getPublicBlogPostBySlug,
+} from "@/lib/blog/service";
 import { prepareArticleContent } from "@/lib/blog/article-content";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
@@ -47,13 +55,27 @@ export default async function BlogPostPage({
   const { slug } = await params;
   const post = await getPublicBlogPostBySlug(decodeURIComponent(slug));
   if (!post) notFound();
-  const [relatedPosts, relatedEntities] = await Promise.all([getRelatedPublishedBlogPosts(post), getMagazineRelatedEntities(post)]);
+  const [relatedPosts, relatedEntities] = await Promise.all([
+    getRelatedPublishedBlogPosts(post),
+    getMagazineRelatedEntities(post),
+  ]);
   const preparedContent = prepareArticleContent(post.content);
-  const canonicalUrl = post.canonicalUrl || toAbsoluteUrl(`/blog/${encodeURIComponent(post.slug)}`);
+  const canonicalUrl =
+    post.canonicalUrl ||
+    toAbsoluteUrl(`/blog/${encodeURIComponent(post.slug)}`);
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "قفسه", url: toAbsoluteUrl("/") },
     { name: "مجله قفسه", url: toAbsoluteUrl("/blog") },
-    ...(post.categoryName && post.categorySlug ? [{ name: post.categoryName, url: toAbsoluteUrl(`/blog/category/${encodeURIComponent(post.categorySlug)}`) }] : []),
+    ...(post.categoryName && post.categorySlug
+      ? [
+          {
+            name: post.categoryName,
+            url: toAbsoluteUrl(
+              `/blog/category/${encodeURIComponent(post.categorySlug)}`,
+            ),
+          },
+        ]
+      : []),
     {
       name: post.title,
       url: toAbsoluteUrl(`/blog/${encodeURIComponent(post.slug)}`),
@@ -64,7 +86,10 @@ export default async function BlogPostPage({
     "@type": "BlogPosting",
     headline: post.title,
     description: post.seoDescription || post.excerpt || undefined,
-    image: (post.ogImage || post.bannerImage) ? [toAbsoluteUrl(post.ogImage || post.bannerImage)] : undefined,
+    image:
+      post.ogImage || post.bannerImage
+        ? [toAbsoluteUrl(post.ogImage || post.bannerImage)]
+        : undefined,
     datePublished: post.publishedAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
     articleSection: post.categoryName || undefined,
@@ -76,77 +101,236 @@ export default async function BlogPostPage({
 
   return (
     <PublicShell>
-      <article className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-8">
+      <ReadingProgressBar targetId="article-content-column" />
+      <article className="mx-auto w-full max-w-7xl px-3 pb-24 sm:px-6">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: serializeJsonLd(breadcrumbJsonLd),
           }}
         />
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: serializeJsonLd(articleJsonLd),
           }}
         />
-        <nav aria-label="مسیر صفحه" className="mb-5 flex flex-wrap gap-1 text-xs text-muted-foreground sm:text-sm">
-          <Link href="/">خانه</Link><span>/</span><Link href="/blog">مجله قفسه</Link>
-          {post.categoryName && post.categorySlug ? <><span>/</span><Link href={`/blog/category/${encodeURIComponent(post.categorySlug)}`}>{post.categoryName}</Link></> : null}
-          <span>/</span><span className="line-clamp-1 text-foreground">{post.title}</span>
-        </nav>
-        <div className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
-          <div className="relative aspect-[16/7] overflow-hidden">
-            <BlogCoverImage
-              src={post.bannerImage}
-              alt={post.title}
-              sizes="100vw"
-              className="object-cover"
-              priority
-            />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-          </div>
-          <div className="relative -mt-20 px-5 pb-6 sm:px-7 sm:pb-8">
-            <div className="max-w-4xl rounded-[1.8rem] border border-border/70 bg-background/75 p-5 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:p-7">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-muted-foreground">
-                {post.categoryName && post.categorySlug ? (
-                  <>
-                    <Link
-                      href={`/blog/category/${encodeURIComponent(post.categorySlug)}`}
-                      className="inline-flex rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] text-primary transition hover:border-primary/25"
+
+        <ArticleReadingExperience headings={preparedContent.headings}>
+          {/* Breadcrumb */}
+          <nav
+            aria-label="مسیر صفحه"
+            className="
+          article-breadcrumb
+          mb-6 flex flex-wrap items-center mt-4 gap-2
+          text-xs text-muted-foreground
+          sm:text-sm
+        "
+          >
+            <Link href="/" className="hover:text-primary">
+              خانه
+            </Link>
+
+            <span>/</span>
+
+            <Link href="/blog" className="hover:text-primary">
+              مجله قفسه
+            </Link>
+
+            {post.categoryName && post.categorySlug && (
+              <>
+                <span>/</span>
+                <Link
+                  href={`/blog/category/${post.categorySlug}`}
+                  className="hover:text-primary"
+                >
+                  {post.categoryName}
+                </Link>
+              </>
+            )}
+          </nav>
+
+          {/* Hero */}
+          <header
+            className="
+    article-hero
+    relative
+    overflow-hidden
+    rounded-[2rem]
+    border border-border/50
+    bg-card
+    shadow-xl
+  "
+          >
+            <div
+              data-magazine-hero-image
+              className="
+      relative
+      min-h-[520px]
+      w-full
+      overflow-hidden
+      sm:min-h-[600px]
+    "
+            >
+              <BlogCoverImage
+                src={post.bannerImage}
+                alt={post.title}
+                sizes="(max-width: 768px) 100vw, 1280px"
+                priority
+                className="
+        object-cover
+        transition-transform
+        duration-700
+        hover:scale-105
+      "
+              />
+
+              {/* cinematic overlays */}
+              <div
+                className="
+        absolute inset-0
+        bg-gradient-to-t
+        from-black/85
+        via-black/45
+        to-black/10
+      "
+              />
+
+              <div
+                className="
+        absolute inset-x-0 bottom-0
+        p-6
+        sm:p-10
+        lg:p-14
+      "
+              >
+                <div
+                  className="
+          mb-6
+          flex flex-wrap items-center gap-3
+          text-xs font-bold
+          text-white/80
+        "
+                >
+                  {post.categoryName && (
+                    <span
+                      className="
+              rounded-full
+              border border-white/20
+              bg-white/10
+              px-4 py-1.5
+              text-white
+              backdrop-blur-md
+            "
                     >
                       {post.categoryName}
-                    </Link>
-                    <span>•</span>
-                  </>
-                ) : null}
-                <span>{post.publishedAt.toLocaleDateString("fa-IR")}</span>
-                {post.readingTime ? <span>•</span> : null}
-                {post.readingTime ? (
-                  <span>{post.readingTime.toLocaleString("fa-IR")} دقیقه مطالعه</span>
-                ) : null}
-                {post.authorName ? <span>•</span> : null}
-                {post.authorName ? <span>{post.authorName}</span> : null}
-              </div>
-              <h1 className="mt-4 text-3xl font-black leading-[1.35] tracking-tight text-foreground sm:text-4xl">
-                {post.title}
-              </h1>
-              {post.excerpt ? (
-                <p className="mt-4 max-w-3xl text-sm leading-8 text-muted-foreground sm:text-base">
-                  {post.excerpt}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
+                    </span>
+                  )}
 
-        <div className="mx-auto mt-10 grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start">
-          <div className="rounded-[2rem] border border-border/70 bg-card/55 px-5 py-7 shadow-[0_24px_90px_-60px_rgba(0,0,0,0.9)] backdrop-blur-md sm:px-8 sm:py-9">
-            <BlogContentRenderer content={preparedContent.html} />
+                  <span className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-white/60" />
+                    {post.publishedAt.toLocaleDateString("fa-IR")}
+                  </span>
+
+                  {post.readingTime && (
+                    <span className="flex items-center gap-2">
+                      <span className="h-1 w-1 rounded-full bg-white/60" />
+                      {post.readingTime.toLocaleString("fa-IR")}
+                      دقیقه مطالعه
+                    </span>
+                  )}
+                </div>
+
+                <h1
+                  className="
+          max-w-5xl
+          text-3xl
+          font-black
+          leading-[1.35]
+          tracking-tight
+          text-white
+          sm:text-5xl
+          lg:text-6xl
+        "
+                >
+                  {post.title}
+                </h1>
+
+                {post.excerpt && (
+                  <p
+                    className="
+            mt-6
+            max-w-3xl
+            text-base
+            leading-8
+            text-white/80
+            sm:text-lg
+          "
+                  >
+                    {post.excerpt}
+                  </p>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* Article */}
+          <div
+            className="
+          article-reading-layout
+          mt-12
+          grid
+          gap-10
+        "
+            dir="rtl"
+          >
+            <ArticleDesktopToc headings={preparedContent.headings} />
+
+            <main
+              id="article-content-column"
+              dir="rtl"
+              className="
+            article-content-column
+            min-w-0
+          "
+            >
+              <BlogContentRenderer content={preparedContent.html} />
+            </main>
           </div>
-          {preparedContent.headings.length >= 3 ? <aside className="rounded-2xl border border-border/70 bg-card/55 p-4 lg:sticky lg:top-24"><h2 className="text-sm font-black text-foreground">در این مطلب</h2><ol className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">{preparedContent.headings.map((heading) => <li key={heading.id} className={heading.level === 3 ? "pr-3" : ""}><a className="transition hover:text-primary" href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></aside> : null}
-        </div>
-        <MagazineRelatedEntities entities={relatedEntities} />
-        {relatedPosts.length ? <section className="mx-auto mt-12 max-w-7xl" aria-labelledby="related-articles"><h2 id="related-articles" className="mb-5 text-2xl font-black text-foreground">مطالب مرتبط</h2><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{relatedPosts.map((item) => <BlogCard key={item.id} post={item} />)}</div></section> : null}
+
+          {/* Extras */}
+          <div data-reading-extras className="mt-16">
+            <MagazineRelatedEntities entities={relatedEntities} />
+
+            {relatedPosts.length > 0 && (
+              <section className="mt-14">
+                <h2
+                  className="
+                mb-6
+                text-2xl
+                font-black
+              "
+                >
+                  مطالب مرتبط
+                </h2>
+
+                <div
+                  className="
+                grid
+                gap-6
+                sm:grid-cols-2
+                xl:grid-cols-3
+              "
+                >
+                  {relatedPosts.map((item) => (
+                    <BlogCard key={item.id} post={item} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </ArticleReadingExperience>
       </article>
     </PublicShell>
   );

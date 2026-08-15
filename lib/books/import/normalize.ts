@@ -3,7 +3,7 @@ import {
   type ImportReferenceInput,
 } from "@/lib/reference/service";
 import { splitMultiValueText } from "@/lib/book/genres";
-import { isLocalUploadPath } from "@/lib/storage/image-url";
+import { isAllowedPersistedImageUrl } from "@/lib/storage/image-url";
 import { normalizeIsbn as normalizeImportIsbn } from "@/lib/books/import/isbn";
 import { normalizeBookGroupingKey, normalizeBookTitle } from "@/lib/books/import/title-normalization";
 import type {
@@ -212,7 +212,7 @@ export function normalizeIsbn(value: unknown): string | null {
 }
 
 export function canPersistCoverUrl(coverUrl: string | null): boolean {
-  return !!coverUrl && !isLocalUploadPath(coverUrl);
+  return !!coverUrl && isAllowedPersistedImageUrl(coverUrl);
 }
 
 export { normalizeBookGroupingKey, normalizeBookTitle } from "@/lib/books/import/title-normalization";

@@ -13,6 +13,7 @@ const ALLOWED_TAGS = [
   "ol",
   "li",
   "blockquote",
+  "hr",
   "a",
   "div",
 ];
