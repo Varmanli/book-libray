@@ -3,10 +3,7 @@ import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
-import { sanitizeMoodTags } from "@/lib/book/moods";
-
-const bookStatusSchema = z.enum(["UNREAD", "READING", "PAUSED", "STOPPED", "FINISHED"]);
+import { parseUserBookUpdate, type UserBookUpdate } from "@/lib/book/user-mutation";
 
 // Helper برای گرفتن ID از مسیر
 function getIdFromUrl(req: NextRequest) {
@@ -44,7 +41,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT: بروزرسانی کتاب (مالک)
+// PUT: بروزرسانی داده‌های شخصیِ کتاب (مالک)
 export async function PUT(req: NextRequest) {
   try {
     const token = req.cookies.get("token")?.value;
@@ -64,45 +61,18 @@ export async function PUT(req: NextRequest) {
     if (book.userId !== userId)
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
 
-    const body = await req.json();
-
-    if ("status" in body && !bookStatusSchema.safeParse(body.status).success) {
-      return NextResponse.json({ error: "وضعیت مطالعه نامعتبر است" }, { status: 422 });
+    const parsed = parseUserBookUpdate(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 422 });
     }
-
-    // ✅ فیلتر کردن undefined ها
-    const updateData: Record<string, any> = {};
-    for (const key of Object.keys(body)) {
-      if (body[key] !== undefined) {
-        updateData[key] = body[key];
-      }
-    }
-
-    // حس‌ها فقط از فهرست مجاز پذیرفته می‌شوند (ضد ورودی دلخواه)
-    if ("moodTags" in body) {
-      const moods = sanitizeMoodTags(body.moodTags);
-      if (moods === undefined) {
-        return NextResponse.json(
-          { error: "فهرست حس‌ها نامعتبر است" },
-          { status: 400 }
-        );
-      }
-      updateData.moodTags = moods;
-    }
+    const updateData: UserBookUpdate & { completedAt?: Date | null } = { ...parsed.data };
 
     // Keep completion metadata consistent for status changes made outside the
     // dedicated reading-progress screen as well.
-    if (body.status === "FINISHED") {
+    if (updateData.status === "FINISHED") {
       updateData.completedAt = book.completedAt ?? new Date();
-    } else if (body.status && body.status !== "FINISHED") {
+    } else if (updateData.status) {
       updateData.completedAt = null;
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: "هیچ مقداری برای بروزرسانی ارسال نشده" },
-        { status: 400 }
-      );
     }
 
     const [updatedBook] = await db

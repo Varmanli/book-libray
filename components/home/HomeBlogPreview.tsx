@@ -12,13 +12,18 @@ export default function HomeBlogPreview({
   if (!posts.length) return null;
   return (
     <section>
-      <HomeSectionHeader icon={Newspaper} title="از مجله قفسه" description="راهنماها و پیشنهادهایی برای پیدا کردن کتاب بعدی" href="/blog" linkLabel="مشاهده مجله" />
+      <HomeSectionHeader
+        icon={Newspaper}
+        title="از مجله قفسه"
+        href="/blog"
+        linkLabel="مشاهده مجله"
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
-          {posts.map((post) => (
-            <BlogCard key={post.id} post={post} />
-          ))}
-        </div>
+        {posts.map((post) => (
+          <BlogCard key={post.id} post={post} />
+        ))}
+      </div>
     </section>
   );
 }

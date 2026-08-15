@@ -45,8 +45,8 @@ export function normalizeUsername(value: string) {
 }
 
 /**
- * Usernames reserve path-critical segments so `/books/add` and `/books/edit/...`
- * can never collide with profile libraries.
+ * Usernames reserve path-critical segments so `/books/add` can never collide
+ * with profile libraries.
  */
 export function isReservedUsername(value: string) {
   return RESERVED_USERNAMES.has(normalizeUsername(value));

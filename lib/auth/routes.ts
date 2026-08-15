@@ -11,7 +11,7 @@ const PROTECTED_PREFIXES = [
   "/wishlist",
 ] as const;
 
-const PROTECTED_BOOK_WORKSPACE_PREFIXES = ["/books/add", "/books/edit"] as const;
+const PROTECTED_BOOK_WORKSPACE_PREFIXES = ["/books/add"] as const;
 
 export function isProtectedPagePath(pathname: string) {
   return (

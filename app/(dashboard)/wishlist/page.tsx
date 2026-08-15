@@ -275,8 +275,8 @@ export default function WishlistPage() {
         // اگر لازم دارید، لیست Wishlist را دوباره fetch کنید
         fetchItems?.();
 
-        // هدایت به صفحه Edit همان کتاب
-        window.location.href = `/books/edit/${data.bookId}`;
+        // کتاب جدید مستقیماً به فضای شخصیِ مطالعه باز می‌شود.
+        window.location.href = `/book/${data.bookId}/my`;
       } else {
         const err = await res.json().catch(() => ({}));
         toast.error(err?.error || "خطا در خرید کتاب");
