@@ -10,5 +10,10 @@ export const MAGAZINE_CATEGORIES = [
 export type MagazineCategorySlug = (typeof MAGAZINE_CATEGORIES)[number]["slug"];
 
 export function getMagazineCategory(slug: string) {
-  return MAGAZINE_CATEGORIES.find((category) => category.slug === slug) ?? null;
+  const normalizedSlug = normalizeBlogCategorySlug(slug);
+  return (
+    MAGAZINE_CATEGORIES.find((category) => category.slug === normalizedSlug) ??
+    null
+  );
 }
+import { normalizeBlogCategorySlug } from "@/lib/blog/category-slug";

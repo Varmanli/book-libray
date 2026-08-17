@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or, sql } from "d
 import { db } from "@/db";
 import { BlogCategory, BlogPost, BlogPostAuthor, BlogPostBook, BlogPostGenre, CatalogBook, ReferenceItem, User } from "@/db/schema";
 import { slugify } from "@/lib/book/slug";
+import { decodeBlogCategorySlug, normalizeBlogCategorySlug } from "@/lib/blog/category-slug";
 import { normalizeMediaUrl } from "@/lib/book/cover";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
 import { extractBlogBookEmbedIds, resolveBlogBookEmbeds, type BlogBookEmbed } from "@/lib/blog/book-embed";
@@ -129,7 +130,7 @@ async function generateUniqueBlogSlug(title: string, excludeId?: string) {
 }
 
 async function generateUniqueCategorySlug(name: string, excludeId?: string) {
-  const base = slugify(name) || "category";
+  const base = normalizeBlogCategorySlug(name) || "category";
   const rows = await db
     .select({ slug: BlogCategory.slug, id: BlogCategory.id })
     .from(BlogCategory)
@@ -394,7 +395,11 @@ export async function listPublicBlogPosts({
     );
   }
   if (categorySlug?.trim()) {
-    conditions.push(eq(BlogCategory.slug, categorySlug.trim()));
+    const category = await getPublicBlogCategoryBySlug(categorySlug);
+    if (!category) {
+      return { posts: [], total: 0, page: 1, pageCount: 1 };
+    }
+    conditions.push(eq(BlogCategory.slug, category.slug));
   }
 
   const where = and(...conditions);
@@ -606,17 +611,31 @@ export async function getBlogCategoryById(
 export async function getPublicBlogCategoryBySlug(
   slug: string,
 ): Promise<BlogCategoryOption | null> {
-  const [row] = await db
+  const requestedSlug = decodeBlogCategorySlug(slug).trim();
+  const normalizedSlug = normalizeBlogCategorySlug(requestedSlug);
+  if (!requestedSlug || !normalizedSlug) return null;
+
+  const rows = await db
     .select({
       id: BlogCategory.id,
       name: BlogCategory.name,
       slug: BlogCategory.slug,
       description: BlogCategory.description,
     })
-    .from(BlogCategory)
-    .where(eq(BlogCategory.slug, slug))
-    .limit(1);
-  return row ?? null;
+    .from(BlogCategory);
+
+  // Keep legacy URLs working while allowing equivalent Persian/Arabic input.
+  // The category table is intentionally small, and this avoids a database-
+  // specific Unicode-normalization expression while retaining exact canonical
+  // slugs for all subsequent post queries and generated links.
+  return (
+    rows.find((row) => row.slug === requestedSlug) ??
+    rows.find((row) => row.slug === normalizedSlug) ??
+    rows.find(
+      (row) => normalizeBlogCategorySlug(row.slug) === normalizedSlug,
+    ) ??
+    null
+  );
 }
 
 export async function createBlogCategory(input: BlogCategoryInput) {

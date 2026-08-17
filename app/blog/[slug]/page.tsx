@@ -430,16 +430,6 @@ export default async function BlogPostPage({
                       {post.excerpt}
                     </p>
                   ) : null}
-
-                  {/* Author */}
-                  {post.authorName ? (
-                    <p className="mt-4 text-[11px] font-medium text-white/55 sm:text-xs">
-                      نوشته‌ی{" "}
-                      <span className="font-bold text-white/80">
-                        {post.authorName}
-                      </span>
-                    </p>
-                  ) : null}
                 </div>
               </div>
             </div>

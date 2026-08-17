@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
@@ -13,6 +13,7 @@ import BlogArchiveGrid from "@/components/blog/BlogArchiveGrid";
 import BlogCoverImage from "@/components/blog/BlogCoverImage";
 import PublicShell from "@/components/PublicShell";
 import { getMagazineCategory } from "@/lib/blog/categories";
+import { decodeBlogCategorySlug } from "@/lib/blog/category-slug";
 import {
   BLOG_PAGE_SIZE,
   getPublicBlogCategoryBySlug,
@@ -28,9 +29,11 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const requestedSlug = decodeBlogCategorySlug(slug);
 
   const category =
-    getMagazineCategory(slug) ?? (await getPublicBlogCategoryBySlug(slug));
+    getMagazineCategory(requestedSlug) ??
+    (await getPublicBlogCategoryBySlug(requestedSlug));
 
   if (!category) {
     return {
@@ -43,7 +46,7 @@ export async function generateMetadata({
     description:
       category.description ||
       "مطالب منتخب مجله قفسه برای کشف کتاب‌ها، نویسندگان و جهان ادبیات.",
-    path: `/blog/category/${encodeURIComponent(slug)}`,
+    path: `/blog/category/${encodeURIComponent(category.slug)}`,
   });
 }
 
@@ -55,18 +58,24 @@ export default async function MagazineCategoryPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { slug } = await params;
+  const requestedSlug = decodeBlogCategorySlug(slug);
 
-  const fallback = getMagazineCategory(slug);
-  const category = await getPublicBlogCategoryBySlug(slug);
+  const fallback = getMagazineCategory(requestedSlug);
+  const category = await getPublicBlogCategoryBySlug(requestedSlug);
 
   if (!fallback && !category) {
     notFound();
   }
 
+  const categorySlug = category?.slug ?? fallback!.slug;
+  if (requestedSlug !== categorySlug) {
+    permanentRedirect(`/blog/category/${encodeURIComponent(categorySlug)}`);
+  }
+
   const page = Math.max(1, Number((await searchParams).page ?? "1") || 1);
 
   const archive = await listPublicBlogPosts({
-    categorySlug: slug,
+    categorySlug,
     page,
     pageSize: BLOG_PAGE_SIZE,
   });
@@ -275,7 +284,7 @@ export default async function MagazineCategoryPage({
             posts={gridPosts}
             page={archive.page}
             pageCount={archive.pageCount}
-            category={slug}
+            category={categorySlug}
           />
         </section>
       </main>
