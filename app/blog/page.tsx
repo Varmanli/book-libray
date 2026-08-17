@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 
 import BlogArchiveGrid from "@/components/blog/BlogArchiveGrid";
 import BlogCategoryHeader from "@/components/blog/BlogCategoryHeader";
-import BlogCategoryShelf from "@/components/blog/BlogCategoryShelf";
+// import BlogCategoryShelf from "@/components/blog/BlogCategoryShelf";
 import BlogHero from "@/components/blog/BlogHero";
-import BlogLatestSection from "@/components/blog/BlogLatestSection";
+// import BlogLatestSection from "@/components/blog/BlogLatestSection";
 import PublicShell from "@/components/PublicShell";
 import {
   BLOG_PAGE_SIZE,
@@ -14,6 +14,8 @@ import {
   listPublicBlogPosts,
 } from "@/lib/blog/service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import BlogQuickAccess from "@/components/blog/BlogQuickAccess";
+import BlogFeaturedPosts from "@/components/blog/BlogFeaturedPosts";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +56,7 @@ export default async function BlogArchivePage({
 
   return (
     <PublicShell>
-      <main dir="rtl" className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         {isArchiveMode ? (
           <>
             <BlogCategoryHeader
@@ -70,6 +72,7 @@ export default async function BlogArchivePage({
               slug={category}
               q={q}
             />
+
             <BlogArchiveGrid
               posts={archive.posts}
               page={archive.page}
@@ -81,8 +84,12 @@ export default async function BlogArchivePage({
         ) : (
           <>
             <BlogHero latestPosts={latestPosts} />
-            <BlogCategoryShelf categories={categories} />
-            <BlogLatestSection posts={archive.posts.slice(0, 5)} />
+
+            <BlogQuickAccess categories={categories} />
+
+            {/* <BlogLatestSection posts={archive.posts.slice(0, 5)} /> */}
+
+            <BlogFeaturedPosts posts={latestPosts} />
           </>
         )}
       </main>

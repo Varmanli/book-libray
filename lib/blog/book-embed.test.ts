@@ -24,14 +24,21 @@ test("book embeds retain only their stable catalog identifier during parsing", (
 test("legacy articles without embeds preserve their normal HTML content", () => {
   const content = "<p>یک نوشته‌ی قدیمی</p><h2>تیتر</h2>";
   assert.deepEqual(extractBlogBookEmbedIds(content), []);
-  assert.deepEqual(splitBlogContentByEmbeds(content), [{ type: "html", html: content }]);
+  assert.deepEqual(splitBlogContentByEmbeds(content), [
+    { type: "html", html: content },
+  ]);
 });
 
 test("multiple embeds retain article order while batch IDs are deduplicated", () => {
   const content = `<div data-blog-book-id="${BOOK_A}"></div><p>میان متن</p><div data-blog-book-id="${BOOK_B}"></div><div data-blog-book-id="${BOOK_A}"></div>`;
   const parts = splitBlogContentByEmbeds(content);
 
-  assert.deepEqual(parts.filter((part) => part.type === "bookEmbed").map((part) => part.bookId), [BOOK_A, BOOK_B, BOOK_A]);
+  assert.deepEqual(
+    parts
+      .filter((part) => part.type === "bookEmbed")
+      .map((part) => part.bookId),
+    [BOOK_A, BOOK_B, BOOK_A],
+  );
   assert.deepEqual(extractBlogBookEmbedIds(content), [BOOK_A, BOOK_B]);
 });
 

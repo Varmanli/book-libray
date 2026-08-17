@@ -1,30 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
+import ArticleReadingExperience from "@/components/blog/ArticleReadingExperience";
+import BlogCard from "@/components/blog/BlogCard";
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
 import BlogCoverImage from "@/components/blog/BlogCoverImage";
-import BlogCard from "@/components/blog/BlogCard";
-import ReadingProgressBar from "@/components/blog/ReadingProgressBar";
-import ArticleReadingExperience, {
-  ArticleDesktopToc,
-} from "@/components/blog/ArticleReadingExperience";
 import MagazineRelatedEntities from "@/components/blog/MagazineRelatedEntities";
+import ReadingProgressBar from "@/components/blog/ReadingProgressBar";
 import PublicShell from "@/components/PublicShell";
+
+import { prepareArticleContent } from "@/lib/blog/article-content";
 import {
   getMagazineRelatedEntities,
-  getRelatedPublishedBlogPosts,
   getPublicBlogPostBySlug,
+  getRelatedPublishedBlogPosts,
 } from "@/lib/blog/service";
-import { prepareArticleContent } from "@/lib/blog/article-content";
+
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { toAbsoluteUrl } from "@/lib/seo/site";
 import {
   buildBreadcrumbJsonLd,
   serializeJsonLd,
 } from "@/lib/seo/structured-data";
-import { toAbsoluteUrl } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
+
+/* ==========================================================================
+   Metadata
+   ========================================================================== */
 
 export async function generateMetadata({
   params,
@@ -32,10 +37,13 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+
   const post = await getPublicBlogPostBySlug(decodeURIComponent(slug));
 
   if (!post) {
-    return { title: "نوشته پیدا نشد | قفسه" };
+    return {
+      title: "نوشته پیدا نشد | قفسه",
+    };
   }
 
   return buildPageMetadata({
@@ -47,25 +55,50 @@ export async function generateMetadata({
   });
 }
 
+/* ==========================================================================
+   Page
+   ========================================================================== */
+
 export default async function BlogPostPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
   const post = await getPublicBlogPostBySlug(decodeURIComponent(slug));
-  if (!post) notFound();
+
+  if (!post) {
+    notFound();
+  }
+
   const [relatedPosts, relatedEntities] = await Promise.all([
     getRelatedPublishedBlogPosts(post),
     getMagazineRelatedEntities(post),
   ]);
+
   const preparedContent = prepareArticleContent(post.content);
-  const canonicalUrl =
-    post.canonicalUrl ||
-    toAbsoluteUrl(`/blog/${encodeURIComponent(post.slug)}`);
+
+  const articlePath = `/blog/${encodeURIComponent(post.slug)}`;
+
+  const canonicalUrl = post.canonicalUrl || toAbsoluteUrl(articlePath);
+
+  const articleImage = post.ogImage || post.bannerImage || undefined;
+
+  /* --------------------------------------------------------------------------
+     Structured data
+     -------------------------------------------------------------------------- */
+
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
-    { name: "قفسه", url: toAbsoluteUrl("/") },
-    { name: "مجله قفسه", url: toAbsoluteUrl("/blog") },
+    {
+      name: "قفسه",
+      url: toAbsoluteUrl("/"),
+    },
+    {
+      name: "مجله قفسه",
+      url: toAbsoluteUrl("/blog"),
+    },
+
     ...(post.categoryName && post.categorySlug
       ? [
           {
@@ -76,33 +109,61 @@ export default async function BlogPostPage({
           },
         ]
       : []),
+
     {
       name: post.title,
-      url: toAbsoluteUrl(`/blog/${encodeURIComponent(post.slug)}`),
+      url: toAbsoluteUrl(articlePath),
     },
   ]);
+
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
+
     headline: post.title,
+
     description: post.seoDescription || post.excerpt || undefined,
-    image:
-      post.ogImage || post.bannerImage
-        ? [toAbsoluteUrl(post.ogImage || post.bannerImage)]
-        : undefined,
+
+    image: articleImage ? [toAbsoluteUrl(articleImage)] : undefined,
+
     datePublished: post.publishedAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
+
     articleSection: post.categoryName || undefined,
+
     author: post.authorName
-      ? [{ "@type": "Person", name: post.authorName }]
+      ? [
+          {
+            "@type": "Person",
+            name: post.authorName,
+          },
+        ]
       : undefined,
+
     mainEntityOfPage: canonicalUrl,
   };
 
   return (
     <PublicShell>
+      {/* Reading progress */}
       <ReadingProgressBar targetId="article-content-column" />
-      <article className="mx-auto w-full max-w-7xl px-3 pb-24 sm:px-6">
+
+      <article
+        dir="rtl"
+        className="
+          article-page
+          mx-auto
+          w-full
+          max-w-7xl
+          px-3
+          pb-24
+          sm:px-6
+        "
+      >
+        {/* ================================================================
+            Structured data
+        ================================================================= */}
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -117,222 +178,419 @@ export default async function BlogPostPage({
           }}
         />
 
+        {/* ================================================================
+            Reading experience
+        ================================================================= */}
+
         <ArticleReadingExperience headings={preparedContent.headings}>
-          {/* Breadcrumb */}
+          {/* ==============================================================
+              Breadcrumb
+          =============================================================== */}
+
           <nav
             aria-label="مسیر صفحه"
             className="
-          article-breadcrumb
-          mb-6 flex flex-wrap items-center mt-4 gap-2
-          text-xs text-muted-foreground
-          sm:text-sm
-        "
+              article-breadcrumb
+              mb-6
+              mt-4
+              flex
+              flex-wrap
+              items-center
+              gap-1.5
+              text-[11px]
+              font-medium
+              text-muted-foreground
+              sm:text-xs
+            "
           >
-            <Link href="/" className="hover:text-primary">
-              خانه
+            <Link
+              href="/"
+              className="
+                transition-colors
+                hover:text-foreground
+              "
+            >
+              قفسه
             </Link>
 
-            <span>/</span>
+            <ChevronLeft className="h-3 w-3 opacity-40" />
 
-            <Link href="/blog" className="hover:text-primary">
-              مجله قفسه
+            <Link
+              href="/blog"
+              className="
+                transition-colors
+                hover:text-foreground
+              "
+            >
+              مجله
             </Link>
 
-            {post.categoryName && post.categorySlug && (
+            {post.categoryName && post.categorySlug ? (
               <>
-                <span>/</span>
+                <ChevronLeft className="h-3 w-3 opacity-40" />
+
                 <Link
-                  href={`/blog/category/${post.categorySlug}`}
-                  className="hover:text-primary"
+                  href={`/blog/category/${encodeURIComponent(
+                    post.categorySlug,
+                  )}`}
+                  className="
+                    font-bold
+                    text-foreground/80
+                    transition-colors
+                    hover:text-primary
+                  "
                 >
                   {post.categoryName}
                 </Link>
               </>
-            )}
+            ) : null}
           </nav>
 
-          {/* Hero */}
-          <header
-            className="
-    article-hero
-    relative
-    overflow-hidden
-    rounded-[2rem]
-    border border-border/50
-    bg-card
-    shadow-xl
-  "
-          >
+          {/* ==============================================================
+              Article hero
+          =============================================================== */}
+
+          <header className="article-hero">
             <div
               data-magazine-hero-image
               className="
-      article-hero-image
-      relative
-      min-h-[520px]
-      w-full
-      overflow-hidden
-      sm:min-h-[600px]
-    "
+                article-hero-image
+                relative
+                min-h-[420px]
+                w-full
+                overflow-hidden
+                sm:min-h-[560px]
+                lg:min-h-[620px]
+              "
             >
               <BlogCoverImage
                 src={post.bannerImage}
                 alt={post.title}
-                sizes="(max-width: 768px) 100vw, 1280px"
+                sizes="
+                  (max-width: 768px) 100vw,
+                  (max-width: 1280px) 95vw,
+                  1280px
+                "
                 priority
                 className="
-        article-hero-cover
-        object-cover
-        transition-transform
-        duration-700
-        hover:scale-105
-      "
+                  article-hero-cover
+                  object-cover
+                  transition-transform
+                  duration-700
+                "
               />
 
-              {/* cinematic overlays */}
+              {/* Cinematic depth */}
               <div
+                aria-hidden="true"
                 className="
-        article-hero-overlay
-        absolute inset-0
-        bg-gradient-to-t
-        from-black/85
-        via-black/45
-        to-black/10
-      "
+                  article-hero-overlay
+                  absolute
+                  inset-0
+                  bg-gradient-to-t
+                  from-black/90
+                  via-black/40
+                  to-black/10
+                "
               />
 
               <div
+                aria-hidden="true"
                 className="
-        article-hero-content
-        absolute inset-x-0 bottom-0
-        p-6
-        sm:p-10
-        lg:p-14
-      "
+                  pointer-events-none
+                  absolute
+                  inset-x-0
+                  bottom-0
+                  h-3/4
+                  bg-gradient-to-t
+                  from-black/45
+                  to-transparent
+                "
+              />
+
+              {/* Hero content */}
+              <div
+                className="
+                  article-hero-content
+                  absolute
+                  inset-x-0
+                  bottom-0
+                  p-5
+                  sm:p-8
+                  lg:p-12
+                "
               >
-                <div
-                  className="
-          mb-6
-          flex flex-wrap items-center gap-3
-          text-xs font-bold
-          text-white/80
-        "
-                >
-                  {post.categoryName && (
-                    <span
-                      className="
-              rounded-full
-              border border-white/20
-              bg-white/10
-              px-4 py-1.5
-              text-white
-              backdrop-blur-md
-            "
-                    >
-                      {post.categoryName}
-                    </span>
-                  )}
-
-                  <span className="flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-white/60" />
-                    {post.publishedAt.toLocaleDateString("fa-IR")}
-                  </span>
-
-                  {post.readingTime && (
-                    <span className="flex items-center gap-2">
-                      <span className="h-1 w-1 rounded-full bg-white/60" />
-                      {post.readingTime.toLocaleString("fa-IR")}
-                      دقیقه مطالعه
-                    </span>
-                  )}
-                </div>
-
-                <h1
-                  className="
-          max-w-5xl
-          text-3xl
-          font-black
-          leading-[1.35]
-          tracking-tight
-          text-white
-          sm:text-5xl
-          lg:text-6xl
-        "
-                >
-                  {post.title}
-                </h1>
-
-                {post.excerpt && (
-                  <p
+                <div className="max-w-5xl">
+                  {/* Meta */}
+                  <div
                     className="
-            mt-6
-            max-w-3xl
-            text-base
-            leading-8
-            text-white/80
-            sm:text-lg
-          "
+                      mb-4
+                      flex
+                      flex-wrap
+                      items-center
+                      gap-2.5
+                      text-[10px]
+                      font-bold
+                      text-white/70
+                      sm:mb-5
+                      sm:text-xs
+                    "
                   >
-                    {post.excerpt}
-                  </p>
-                )}
+                    {post.categoryName ? (
+                      post.categorySlug ? (
+                        <Link
+                          href={`/blog/category/${encodeURIComponent(
+                            post.categorySlug,
+                          )}`}
+                          className="
+                            rounded-full
+                            border
+                            border-white/15
+                            bg-black/20
+                            px-3
+                            py-1.5
+                            text-white
+                            backdrop-blur-md
+                            transition-colors
+                            hover:bg-white/15
+                          "
+                        >
+                          {post.categoryName}
+                        </Link>
+                      ) : (
+                        <span
+                          className="
+                            rounded-full
+                            border
+                            border-white/15
+                            bg-black/20
+                            px-3
+                            py-1.5
+                            text-white
+                            backdrop-blur-md
+                          "
+                        >
+                          {post.categoryName}
+                        </span>
+                      )
+                    ) : null}
+
+                    <time
+                      dateTime={post.publishedAt.toISOString()}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="h-1 w-1 rounded-full bg-white/40" />
+
+                      {post.publishedAt.toLocaleDateString("fa-IR")}
+                    </time>
+
+                    {post.readingTime ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-white/40" />
+                        {post.readingTime.toLocaleString("fa-IR")} دقیقه مطالعه
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Title */}
+                  <h1
+                    className="
+                      max-w-5xl
+                      text-xl
+                      font-black
+                      leading-[1.65]
+                      tracking-tight
+                      text-white
+
+                      sm:text-4xl
+                      sm:leading-[1.55]
+
+                      lg:text-5xl
+                      lg:leading-[1.45]
+                    "
+                  >
+                    {post.title}
+                  </h1>
+
+                  {/* Excerpt */}
+                  {post.excerpt ? (
+                    <p
+                      className="
+                        mt-4
+                        max-w-3xl
+                        text-xs
+                        leading-7
+                        text-white/70
+
+                        sm:mt-5
+                        sm:text-base
+                        sm:leading-8
+                      "
+                    >
+                      {post.excerpt}
+                    </p>
+                  ) : null}
+
+                  {/* Author */}
+                  {post.authorName ? (
+                    <p className="mt-4 text-[11px] font-medium text-white/55 sm:text-xs">
+                      نوشته‌ی{" "}
+                      <span className="font-bold text-white/80">
+                        {post.authorName}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
           </header>
 
-          {/* Article */}
-          <div
-            className="
-          article-reading-layout
-          mt-12
-          grid
-          gap-10
-        "
-            dir="rtl"
-          >
-            <ArticleDesktopToc headings={preparedContent.headings} />
+          {/* ==============================================================
+              Article body
+              
+              No permanent desktop TOC.
+              ArticleReadingExperience still receives headings and its
+              TOC button opens the sheet/modal.
+          =============================================================== */}
 
+          <div className="article-reading-layout" dir="rtl">
             <main
               id="article-content-column"
               dir="rtl"
               className="
-            article-content-column
-            min-w-0
-          "
+                article-content-column
+                min-w-0
+              "
             >
               <BlogContentRenderer content={preparedContent.html} />
             </main>
           </div>
 
-          {/* Extras */}
-          <div data-reading-extras className="mt-16">
-            <MagazineRelatedEntities entities={relatedEntities} />
+          {/* ==============================================================
+              Related content
+          =============================================================== */}
 
-            {relatedPosts.length > 0 && (
-              <section className="mt-14">
-                <h2
-                  className="
-                mb-6
-                text-2xl
-                font-black
-              "
-                >
-                  مطالب مرتبط
-                </h2>
+          <div
+            data-reading-extras
+            className="
+              mx-auto
+              mt-16
+              max-w-6xl
+              sm:mt-20
+            "
+          >
+            {/* Related entities */}
+            {/* ==============================================================
+    Related content
+=============================================================== */}
+
+            <div
+              data-reading-extras
+              className="
+    mx-auto
+    mt-16
+    max-w-6xl
+    sm:mt-20
+  "
+            >
+              {/* Related entities */}
+              <section>
+                <div className="mb-6">
+                  <p className="text-[11px] font-bold text-primary">
+                    بیشتر در قفسه
+                  </p>
+
+                  <h2
+                    className="
+          mt-1.5
+          text-2xl
+          font-black
+          tracking-tight
+          text-foreground
+          sm:text-3xl
+        "
+                  >
+                    مرتبط با این نوشته
+                  </h2>
+                </div>
+
+                <MagazineRelatedEntities entities={relatedEntities} />
+              </section>
+
+              {/* Related articles */}
+              {relatedPosts.length > 0 ? (
+                <section className="mt-14 sm:mt-16">
+                  <div className="mb-6">
+                    <p className="text-[11px] font-bold text-primary">
+                      ادامه خواندن
+                    </p>
+
+                    <h2
+                      className="
+            mt-1.5
+            text-2xl
+            font-black
+            tracking-tight
+            text-foreground
+            sm:text-3xl
+          "
+                    >
+                      مطالب مرتبط
+                    </h2>
+                  </div>
+
+                  <div
+                    className="
+          grid
+          gap-5
+          sm:grid-cols-2
+          xl:grid-cols-3
+        "
+                  >
+                    {relatedPosts.map((item) => (
+                      <BlogCard key={item.id} post={item} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+
+            {/* Related articles */}
+            {relatedPosts.length > 0 ? (
+              <section className="mt-14 sm:mt-16">
+                <div className="mb-6">
+                  <p className="text-[11px] font-bold text-primary">
+                    ادامه خواندن
+                  </p>
+
+                  <h2
+                    className="
+                      mt-1.5
+                      text-2xl
+                      font-black
+                      tracking-tight
+                      text-foreground
+                      sm:text-3xl
+                    "
+                  >
+                    مطالب مرتبط
+                  </h2>
+                </div>
 
                 <div
                   className="
-                grid
-                gap-6
-                sm:grid-cols-2
-                xl:grid-cols-3
-              "
+                    grid
+                    gap-5
+                    sm:grid-cols-2
+                    xl:grid-cols-3
+                  "
                 >
                   {relatedPosts.map((item) => (
                     <BlogCard key={item.id} post={item} />
                   ))}
                 </div>
               </section>
-            )}
+            ) : null}
           </div>
         </ArticleReadingExperience>
       </article>
