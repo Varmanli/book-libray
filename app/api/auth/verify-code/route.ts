@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { AuthError, createAuthTokenForUser } from "@/lib/auth/service";
+import { isEmailOtpEnabled } from "@/lib/auth/email-otp";
 import { verifyVerificationCode } from "@/lib/auth/verification-codes";
 import { verifyCodeSchema } from "@/lib/validations/auth";
 
@@ -20,6 +21,10 @@ export async function POST(req: NextRequest) {
       parsed.error.issues[0]?.message ?? "کد تایید نامعتبر است.",
       422
     );
+  }
+
+  if (!isEmailOtpEnabled()) {
+    return apiError("تایید کد ایمیل موقتاً غیرفعال است.", 503, "EMAIL_OTP_DISABLED");
   }
 
   try {

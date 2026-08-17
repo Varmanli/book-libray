@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
-import { issueVerificationCode } from "@/lib/auth/verification-codes";
+import { requestPasswordReset } from "@/lib/auth/service";
+import { getPublicAppOrigin } from "@/lib/auth/redirects";
 import { getClientKey, rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -31,15 +32,17 @@ export async function POST(req: NextRequest) {
 
   // پیام عمومی همیشه یکسان است تا وجود/نبود ایمیل لو نرود
   const genericMessage =
-    "اگر این ایمیل در سیستم ثبت شده باشد، کد بازیابی برای آن ارسال شد.";
+    "اگر این ایمیل در سیستم ثبت شده باشد، لینک بازیابی برای آن ارسال شد.";
 
   try {
-    const { devCode } = await issueVerificationCode({
-      email: parsed.data.email,
-      purpose: "password_reset",
-      requireExistingUser: true,
+    const { devResetUrl } = await requestPasswordReset(
+      parsed.data.email,
+      getPublicAppOrigin()
+    );
+    return apiSuccess({
+      message: genericMessage,
+      ...(devResetUrl ? { devResetUrl } : {}),
     });
-    return apiSuccess({ message: genericMessage, ...(devCode ? { devCode } : {}) });
   } catch (err) {
     console.error("❌ forgot-password error:", err);
     // باز هم پیام عمومی برمی‌گردانیم تا اطلاعات لو نرود

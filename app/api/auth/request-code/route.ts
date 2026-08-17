@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { AuthError } from "@/lib/auth/service";
+import { isEmailOtpEnabled } from "@/lib/auth/email-otp";
 import { issueVerificationCode, normalizeEmail } from "@/lib/auth/verification-codes";
 import { getClientKey, rateLimit } from "@/lib/rate-limit";
 import { requestCodeSchema } from "@/lib/validations/auth";
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
       parsed.error.issues[0]?.message ?? "لطفاً یک ایمیل معتبر وارد کنید.",
       422
     );
+  }
+
+  if (!isEmailOtpEnabled()) {
+    return apiError("ارسال کد ایمیل موقتاً غیرفعال است.", 503, "EMAIL_OTP_DISABLED");
   }
 
   const emailRateLimit = rateLimit(

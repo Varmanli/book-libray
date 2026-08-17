@@ -20,8 +20,6 @@ import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthInput } from "@/components/auth/AuthInput";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
-import { VerificationCodePanel } from "@/components/auth/VerificationCodePanel";
-import { cn } from "@/lib/utils";
 import { getSafeRedirectPath } from "@/lib/auth/routes";
 
 const LOGIN_STORAGE_KEY = "ghafaseh-login-form";
@@ -34,14 +32,6 @@ function LoginForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
-  const [mode, setMode] = useState<"password" | "code">("password");
-  const [codeEmail, setCodeEmail] = useState("");
-  const [codeChallengeEmail, setCodeChallengeEmail] = useState<string | null>(
-    null,
-  );
-  const [codeRequesting, setCodeRequesting] = useState(false);
-  const [codeRequestError, setCodeRequestError] = useState<string | null>(null);
-  const [devCode, setDevCode] = useState<string | null>(null);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -126,32 +116,6 @@ function LoginForm() {
     }
   }
 
-  async function requestLoginCode() {
-    setCodeRequestError(null);
-    setCodeRequesting(true);
-    try {
-      const res = await fetch("/api/auth/request-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: codeEmail, purpose: "login" }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setCodeRequestError(data.error || "ارسال کد ناموفق بود.");
-        return;
-      }
-
-      setDevCode(data.devCode ?? null);
-      setCodeChallengeEmail(codeEmail.trim().toLowerCase());
-      toast.success("اگر ایمیل معتبر باشد، کد تایید ارسال شد.");
-    } catch {
-      setCodeRequestError("ارتباط با سرور برقرار نشد. دوباره تلاش کنید.");
-    } finally {
-      setCodeRequesting(false);
-    }
-  }
-
   return (
     <AuthCard
       title="به قفسه خود خوش آمدید"
@@ -168,33 +132,6 @@ function LoginForm() {
         </p>
       }
     >
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-white/[0.03] p-1">
-        <button
-          type="button"
-          onClick={() => setMode("password")}
-          className={cn(
-            "rounded-[1rem] px-3 py-2 text-sm font-bold transition-colors",
-            mode === "password"
-              ? "bg-emerald-200 text-emerald-950"
-              : "text-white/65 hover:text-white",
-          )}
-        >
-          ورود با رمز عبور
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("code")}
-          className={cn(
-            "rounded-[1rem] px-3 py-2 text-sm font-bold transition-colors",
-            mode === "code"
-              ? "bg-emerald-200 text-emerald-950"
-              : "text-white/65 hover:text-white",
-          )}
-        >
-          ورود با کد تایید
-        </button>
-      </div>
-
       <div className="mb-6 space-y-4">
         <GoogleAuthButton redirectTo={redirectTo} />
         <div className="flex items-center gap-3">
@@ -204,67 +141,7 @@ function LoginForm() {
         </div>
       </div>
 
-      {mode === "code" ? (
-        <div className="space-y-5">
-          {!codeChallengeEmail ? (
-            <>
-              {codeRequestError ? (
-                <AuthAlert>{codeRequestError}</AuthAlert>
-              ) : null}
-              <AuthInput
-                id="code-email"
-                label="ایمیل"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                dir="ltr"
-                placeholder="you@example.com"
-                icon={<AtSign className="h-4 w-4" />}
-                value={codeEmail}
-                onChange={(event) => setCodeEmail(event.target.value)}
-              />
-              <AuthButton
-                type="button"
-                loading={codeRequesting}
-                disabled={!codeEmail.trim()}
-                onClick={requestLoginCode}
-              >
-                {codeRequesting ? "در حال ارسال..." : "دریافت کد ورود"}
-              </AuthButton>
-            </>
-          ) : (
-            <>
-              {codeRequestError ? (
-                <AuthAlert>{codeRequestError}</AuthAlert>
-              ) : null}
-              <VerificationCodePanel
-                email={codeChallengeEmail}
-                purpose="login"
-                title="ورود با کد تایید"
-                subtitle="کد ۴ رقمی را وارد کن تا بدون رمز عبور وارد قفسه شوی."
-                submitLabel="ورود به قفسه"
-                successMessage="خوش آمدید!"
-                initialDevCode={devCode}
-                onVerified={() => {
-                  router.push(redirectTo);
-                  router.refresh();
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setCodeChallengeEmail(null);
-                  setDevCode(null);
-                }}
-                className="w-full text-center text-sm font-semibold text-white/55 transition-colors hover:text-white/80"
-              >
-                تغییر ایمیل
-              </button>
-            </>
-          )}
-        </div>
-      ) : (
-        <form
+      <form
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-5"
           noValidate
@@ -338,8 +215,7 @@ function LoginForm() {
           <AuthButton type="submit" loading={submitting}>
             {submitting ? "در حال ورود..." : "ورود به حساب کاربری"}
           </AuthButton>
-        </form>
-      )}
+      </form>
     </AuthCard>
   );
 }

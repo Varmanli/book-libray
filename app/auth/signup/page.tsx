@@ -58,9 +58,15 @@ export default function SignupPage() {
         return;
       }
 
-      toast.success("ثبت‌نام انجام شد. کد تایید برایت آماده است.");
-      setPendingEmail(values.email.trim().toLowerCase());
-      setDevCode(data.devCode ?? null);
+      if (data.requiresEmailVerification) {
+        toast.success("ثبت‌نام انجام شد. کد تایید برایت آماده است.");
+        setPendingEmail(values.email.trim().toLowerCase());
+        setDevCode(data.devCode ?? null);
+        return;
+      }
+
+      toast.success("ثبت‌نام انجام شد. اکنون وارد شوید.");
+      router.push("/auth/login?registered=1");
     } catch {
       setServerError("ارتباط با سرور برقرار نشد. دوباره تلاش کنید.");
     } finally {

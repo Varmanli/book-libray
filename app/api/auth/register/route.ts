@@ -3,6 +3,7 @@ import { apiError, apiSuccess } from "@/lib/api/response";
 import { registerApiSchema } from "@/lib/validations/auth";
 import { AuthError, registerUser } from "@/lib/auth/service";
 import { issueVerificationCode } from "@/lib/auth/verification-codes";
+import { isEmailOtpEnabled } from "@/lib/auth/email-otp";
 import { getClientKey, rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -32,15 +33,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const user = await registerUser(parsed.data);
-    const codeResult = await issueVerificationCode({
-      email: parsed.data.email,
-      purpose: "email_verification",
-    });
+    const emailOtpEnabled = isEmailOtpEnabled();
+    const codeResult = emailOtpEnabled
+      ? await issueVerificationCode({
+          email: parsed.data.email,
+          purpose: "email_verification",
+        })
+      : {};
     return apiSuccess(
       {
         message: "ثبت‌نام با موفقیت انجام شد",
         user,
-        requiresEmailVerification: true,
+        requiresEmailVerification: emailOtpEnabled,
         ...(codeResult.devCode ? { devCode: codeResult.devCode } : {}),
       },
       { status: 201 }
