@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -16,6 +17,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Setup SSH Directory & Host Keys
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H -t rsa,ed25519 ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Configure SSH Private Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: SSH Connectivity Check (Fail-Fast 30s)
+        timeout-minutes: 1
+        run: |
+          echo "🔍 تست اتصال SSH پیش‌فرض به سرور..."
+          timeout 30s ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 root@${{ secrets.SERVER_HOST }} 'echo "Connection successful"'
+          if [ $? -eq 0 ]; then
+            echo "✅ اتصال SSH به سرور با موفقیت انجام شد."
+          else
+            echo "❌ خطا: عدم امکان برقراری ارتباط SSH در زمان ۳۰ ثانیه (شبکه یا کلید نامعتبر است)."
+            exit 1
+          fi
 
       - name: Build local packages
         run: |
@@ -50,25 +73,38 @@ jobs:
         run: npm run build
 
       - name: Compress build output
-        run: tar -czf .next.tar.gz .next
+        run: |
+          echo "📦 فشرده‌سازی خروجی بیلد (.next)..."
+          tar -czf .next.tar.gz .next
 
-      - name: Deploy to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: ".next.tar.gz"
-          target: "/opt/sites/book-libray/"
+      - name: Ensure target directory exists on server
+        run: |
+          ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "mkdir -p /opt/sites/book-libray"
 
-      - name: Extract and restart
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/sites/book-libray
-            tar -xzf .next.tar.gz
-            rm .next.tar.gz
-            pm2 restart qafasehman || pm2 start npm --name "qafasehman" -- start
+      - name: Upload build archive via SCP (Timeout 2m)
+        timeout-minutes: 3
+        run: |
+          echo "📤 ارسال فایل .next.tar.gz به سرور..."
+          timeout 120s scp -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 .next.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/.next.tar.gz
+          if [ $? -eq 0 ]; then
+            echo "✅ فایل بیلد با موفقیت آپلود شد."
+          else
+            echo "❌ خطای شبکه یا قطع زمان (Timeout) در آپلود SCP!"
+            exit 1
+          fi
+
+      - name: Upload remote deploy script
+        run: |
+          scp -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no scripts/deploy-remote.sh root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/deploy-remote.sh
+          ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "chmod +x /opt/sites/book-libray/deploy-remote.sh"
+
+      - name: Execute remote deploy script via SSH
+        timeout-minutes: 3
+        run: |
+          echo "🚀 اجرای اسکریپت دپلوی و شروع برنامه در سرور..."
+          ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "bash /opt/sites/book-libray/deploy-remote.sh"
+
+      - name: Deployment Failure Alert
+        if: failure()
+        run: |
+          echo "❌ فرآیند دپلوی با خطا مواجه شد. لطفاً لاگ‌های استپ قبلی را چک کنید."
