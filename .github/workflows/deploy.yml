@@ -72,21 +72,22 @@ jobs:
       - name: Build Next.js app
         run: npm run build
 
-      - name: Compress build output
+      - name: Compress build output (Excluding cache to optimize size)
         run: |
-          echo "📦 فشرده‌سازی خروجی بیلد (.next)..."
-          tar -czf .next.tar.gz .next
+          echo "📦 فشرده‌سازی پوشه .next بدون فایل‌های کش سنگین..."
+          tar --exclude='.next/cache' -czf .next.tar.gz .next
+          ls -lh .next.tar.gz
 
       - name: Ensure target directory exists on server
         run: |
           echo "📁 ساخت مسیر مقصد روی سرور..."
           ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "mkdir -p /opt/sites/book-libray"
 
-      - name: Upload build archive via SCP (Legacy SCP protocol -O, Timeout 2m)
-        timeout-minutes: 3
+      - name: Upload build archive via SCP (Timeout 5m)
+        timeout-minutes: 6
         run: |
-          echo "📤 ارسال فایل .next.tar.gz با SCP (پروتکل نیتیو)..."
-          timeout 120s scp -v -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 .next.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
+          echo "📤 ارسال فایل .next.tar.gz با SCP..."
+          timeout 300s scp -v -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -o ServerAliveCountMax=6 .next.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
           if [ $? -eq 0 ]; then
             echo "✅ فایل بیلد با موفقیت آپلود شد."
           else
