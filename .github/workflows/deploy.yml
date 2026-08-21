@@ -36,7 +36,7 @@ jobs:
           if [ $? -eq 0 ]; then
             echo "✅ اتصال SSH به سرور با موفقیت انجام شد."
           else
-            echo "❌ خطا: عدم امکان برقراری ارتباط SSH در زمان ۳۰ ثانیه (شبکه یا کلید نامعتبر است)."
+            echo "❌ خطا: عدم امکان برقراری ارتباط SSH در زمان ۳۰ ثانیه."
             exit 1
           fi
 
@@ -79,13 +79,14 @@ jobs:
 
       - name: Ensure target directory exists on server
         run: |
+          echo "📁 ساخت مسیر مقصد روی سرور..."
           ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "mkdir -p /opt/sites/book-libray"
 
-      - name: Upload build archive via SCP (Timeout 2m)
+      - name: Upload build archive via SCP (Legacy SCP protocol -O, Timeout 2m)
         timeout-minutes: 3
         run: |
-          echo "📤 ارسال فایل .next.tar.gz به سرور..."
-          timeout 120s scp -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 .next.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/.next.tar.gz
+          echo "📤 ارسال فایل .next.tar.gz با SCP (پروتکل نیتیو)..."
+          timeout 120s scp -v -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 .next.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
           if [ $? -eq 0 ]; then
             echo "✅ فایل بیلد با موفقیت آپلود شد."
           else
@@ -95,7 +96,7 @@ jobs:
 
       - name: Upload remote deploy script
         run: |
-          scp -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no scripts/deploy-remote.sh root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/deploy-remote.sh
+          scp -v -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no scripts/deploy-remote.sh root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
           ssh -v -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "chmod +x /opt/sites/book-libray/deploy-remote.sh"
 
       - name: Execute remote deploy script via SSH
