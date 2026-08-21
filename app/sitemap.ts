@@ -15,48 +15,61 @@ const STATIC_PUBLIC_ROUTES = [
   "/blog",
 ] as const;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteOrigin = getSiteOrigin();
 
-  const [catalogBooks, references, blogPosts, blogCategories, staticPages] = await Promise.all([
-    db
-      .select({
-        id: CatalogBook.id,
-        slug: CatalogBook.slug,
-        title: CatalogBook.title,
-        updatedAt: CatalogBook.updatedAt,
-      })
-      .from(CatalogBook)
-      .where(eq(CatalogBook.status, "APPROVED")),
-    db
-      .select({
-        type: ReferenceItem.type,
-        slug: ReferenceItem.slug,
-        updatedAt: ReferenceItem.updatedAt,
-      })
-      .from(ReferenceItem)
-      .where(and(eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
-    db
-      .select({
-        slug: BlogPost.slug,
-        updatedAt: BlogPost.updatedAt,
-        publishedAt: BlogPost.publishedAt,
-      })
-      .from(BlogPost)
-      .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
-    db
-      .selectDistinct({ slug: BlogCategory.slug, updatedAt: BlogCategory.updatedAt })
-      .from(BlogCategory)
-      .innerJoin(BlogPost, eq(BlogPost.categoryId, BlogCategory.id))
-      .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
-    db
-      .select({
-        slug: StaticPage.slug,
-        updatedAt: StaticPage.updatedAt,
-      })
-      .from(StaticPage)
-      .where(eq(StaticPage.status, "PUBLISHED")),
-  ]);
+  let catalogBooks: { id: string; slug: string | null; title: string; updatedAt: Date }[] = [];
+  let references: { type: "AUTHOR" | "TRANSLATOR" | "PUBLISHER" | "COUNTRY" | "GENRE"; slug: string | null; updatedAt: Date }[] = [];
+  let blogPosts: { slug: string; updatedAt: Date; publishedAt: Date | null }[] = [];
+  let blogCategories: { slug: string; updatedAt: Date }[] = [];
+  let staticPages: { slug: string; updatedAt: Date }[] = [];
+
+  try {
+    [catalogBooks, references, blogPosts, blogCategories, staticPages] = await Promise.all([
+      db
+        .select({
+          id: CatalogBook.id,
+          slug: CatalogBook.slug,
+          title: CatalogBook.title,
+          updatedAt: CatalogBook.updatedAt,
+        })
+        .from(CatalogBook)
+        .where(eq(CatalogBook.status, "APPROVED")),
+      db
+        .select({
+          type: ReferenceItem.type,
+          slug: ReferenceItem.slug,
+          updatedAt: ReferenceItem.updatedAt,
+        })
+        .from(ReferenceItem)
+        .where(and(eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
+      db
+        .select({
+          slug: BlogPost.slug,
+          updatedAt: BlogPost.updatedAt,
+          publishedAt: BlogPost.publishedAt,
+        })
+        .from(BlogPost)
+        .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
+      db
+        .selectDistinct({ slug: BlogCategory.slug, updatedAt: BlogCategory.updatedAt })
+        .from(BlogCategory)
+        .innerJoin(BlogPost, eq(BlogPost.categoryId, BlogCategory.id))
+        .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt))),
+      db
+        .select({
+          slug: StaticPage.slug,
+          updatedAt: StaticPage.updatedAt,
+        })
+        .from(StaticPage)
+        .where(eq(StaticPage.status, "PUBLISHED")),
+    ]);
+  } catch (error) {
+    console.warn("Sitemap: Failed to query database during render/build, returning static routes.", error);
+  }
 
   const bookEntries = await Promise.all(
     catalogBooks.map(async (book) => ({
