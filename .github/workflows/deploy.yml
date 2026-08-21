@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -31,10 +31,10 @@ jobs:
       - name: SSH Connectivity Check (Fail-Fast 30s)
         timeout-minutes: 1
         run: |
-          echo "🔍 تست اتصال SSH پیش‌فرض به سرور..."
+          echo "🔍 تست اتصال SSH به سرور..."
           timeout 30s ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=5 root@${{ secrets.SERVER_HOST }} 'echo "Connection successful"'
           if [ $? -eq 0 ]; then
-            echo "✅ اتصال SSH به سرور با موفقیت انجام شد."
+            echo "✅ اتصال SSH با موفقیت برقرار شد."
           else
             echo "❌ خطا: عدم امکان برقراری ارتباط SSH در زمان ۳۰ ثانیه."
             exit 1
@@ -42,12 +42,15 @@ jobs:
 
       - name: Build local packages
         run: |
+          set -e
           if [ -d "packages/iranketab-extractor" ]; then
             cd packages/iranketab-extractor && npm install && npm run build && cd ../..
           fi
 
       - name: Install dependencies
-        run: npm install --force
+        run: |
+          set -e
+          npm install --force
 
       - name: Create .env.local
         run: |
@@ -69,38 +72,45 @@ jobs:
           echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env.local
           echo "GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}" >> .env.local
 
-      - name: Build Next.js app
-        run: npm run build
-
-      - name: Prepare Standalone Package (Ultra-lightweight ~5MB)
+      - name: Build Next.js app (Standalone Mode)
         run: |
+          set -e
+          npm run build
+          if [ ! -d ".next/standalone" ]; then
+             echo "❌ خطا: پوشه .next/standalone ساخته نشده است. مطمئن شوید در next.config.js مقدار output: 'standalone' تنظیم شده باشد."
+             exit 1
+          fi
+
+      - name: Prepare Standalone Package (Ultra-lightweight)
+        run: |
+          set -e
           echo "📦 آماده‌سازی پکیج فوق‌سبک Standalone..."
+
+          # کپی فایل‌های استاتیک به داخل standalone
+          mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/
+
+          # کپی پوشه public (اگر وجود داشته باشد)
           if [ -d "public" ]; then cp -r public .next/standalone/; fi
+
+          # کپی فایل env
           cp .env.local .next/standalone/.env.local 2>/dev/null || true
-          
+
           echo "🗜️ فشرده‌سازی پکیج Standalone..."
           tar -czf standalone.tar.gz -C .next/standalone .
+
           echo "📊 حجم پکیج آماده ارسال:"
           ls -lh standalone.tar.gz
 
-      - name: Ensure target directory exists on server
-        run: |
-          echo "📁 ساخت مسیر مقصد روی سرور..."
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "mkdir -p /opt/sites/book-libray"
-
-      - name: Upload Standalone Archive via Rsync / SCP (Fast Transfer)
-        timeout-minutes: 3
+      - name: Upload Standalone Archive via Rsync (Fast Transfer)
+        timeout-minutes: 10
         run: |
           echo "📤 ارسال پکیج فوق‌سبک standalone.tar.gz به سرور..."
-          if command -v rsync >/dev/null 2>&1; then
-            timeout 180s rsync -avz --progress -e "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15" standalone.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
-          else
-            timeout 180s scp -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15 standalone.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
-          fi
-          
+          # rsync خودش پوشه مقصد را می‌سازد و بسیار سریع است
+          rsync -avz --progress -e "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15" standalone.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
+
           if [ $? -eq 0 ]; then
-            echo "✅ فایل بیلد فوق‌سبک با موفقیت و سرعت بالا آپلود شد."
+            echo "✅ فایل بیلد فوق‌سبک با موفقیت آپلود شد."
           else
             echo "❌ خطا در آپلود پکیج به سرور!"
             exit 1
@@ -112,7 +122,7 @@ jobs:
           ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "chmod +x /opt/sites/book-libray/deploy-remote.sh"
 
       - name: Execute remote deploy script via SSH
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
           echo "🚀 اجرای اسکریپت دپلوی و شروع برنامه در سرور..."
           ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "bash /opt/sites/book-libray/deploy-remote.sh"
