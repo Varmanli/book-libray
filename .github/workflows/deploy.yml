@@ -15,10 +15,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+
+      - name: Build local packages
+        run: |
+          if [ -d "packages/iranketab-extractor" ]; then
+            cd packages/iranketab-extractor && npm install && npm run build && cd ../..
+          fi
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --force
 
       - name: Create .env.local
         run: |
